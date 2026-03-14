@@ -7,7 +7,7 @@
 const PRELOADED_PLAN = {
   floors: [{
     id: 'f-dg',
-    name: 'Dachgeschoss (Upper Floor)',
+    name: 'Apartment',
     rooms: [
       // ── Upper section ────────────────────────────────────────
       {
@@ -16,8 +16,8 @@ const PRELOADED_PLAN = {
         emoji: '🛏️',
         area: 17.08,
         color: '#dbeafe',
-        x: 0.25, y: 0.25, w: 4.47, h: 3.65,
-        notes: 'Eltern – 17.08 m²'
+        x: 0.25, y: 0.25, w: 4.59, h: 3.89,
+        notes: 'Schlafzimmer – 17.08 m²'
       },
       {
         id: 'r-bad',
@@ -25,7 +25,7 @@ const PRELOADED_PLAN = {
         emoji: '🛁',
         area: 4.01,
         color: '#ccfbf1',
-        x: 4.84, y: 0.25, w: 1.68, h: 2.46,
+        x: 4.96, y: 0.25, w: 2.20, h: 2.37,
         notes: 'Bad – 4.01 m²'
       },
       {
@@ -34,7 +34,7 @@ const PRELOADED_PLAN = {
         emoji: '🚽',
         area: 1.87,
         color: '#e0f2fe',
-        x: 4.84, y: 2.83, w: 0.93, h: 1.31,
+        x: 7.28, y: 0.25, w: 0.93, h: 2.01,
         notes: 'WC – 1.87 m²'
       },
       {
@@ -43,7 +43,7 @@ const PRELOADED_PLAN = {
         emoji: '🍳',
         area: 13.11,
         color: '#dcfce7',
-        x: 7.69, y: 0.25, w: 3.64, h: 3.57,
+        x: 9.78, y: 0.25, w: 3.64, h: 3.69,
         notes: 'Küche – 13.11 m²'
       },
       {
@@ -52,7 +52,7 @@ const PRELOADED_PLAN = {
         emoji: '🚪',
         area: 8.84,
         color: '#fef9c3',
-        x: 4.84, y: 2.83, w: 2.97, h: 1.31,
+        x: 4.96, y: 2.74, w: 4.70, h: 1.52,
         notes: 'Flur – 8.84 m² (includes staircase area)'
       },
       // ── Lower section ────────────────────────────────────────
@@ -60,10 +60,10 @@ const PRELOADED_PLAN = {
         id: 'r-kinder',
         label: "Children's Room",
         emoji: '🧒',
-        area: 18.17,
+        area: 19.17,
         color: '#ede9fe',
-        x: 0.25, y: 4.26, w: 4.25, h: 4.20,
-        notes: 'Kinderzimmer – 18.17 m²'
+        x: 0.25, y: 4.26, w: 4.37, h: 4.46,
+        notes: 'Kinderzimmer – 19.17 m²'
       },
       {
         id: 'r-esszim',
@@ -71,7 +71,7 @@ const PRELOADED_PLAN = {
         emoji: '📚',
         area: 12.71,
         color: '#fce7f3',
-        x: 4.62, y: 4.26, w: 3.48, h: 4.20,
+        x: 4.74, y: 4.26, w: 3.60, h: 4.46,
         notes: 'Arbeitszimmer/Esszimmer – 12.71 m²'
       },
       {
@@ -80,7 +80,7 @@ const PRELOADED_PLAN = {
         emoji: '🛋️',
         area: 16.50,
         color: '#ffedd5',
-        x: 8.22, y: 4.26, w: 4.84, h: 3.49,
+        x: 8.46, y: 5.23, w: 4.96, h: 3.49,
         notes: 'Wohnzimmer – 16.50 m²'
       }
     ],
@@ -88,7 +88,8 @@ const PRELOADED_PLAN = {
   }],
   scale: 45,
   activeFloor: 0,
-  _preloaded: true
+  _preloaded: true,
+  _planVersion: 2
 };
 
 // Room color mapping (for cross-module use)
@@ -98,10 +99,9 @@ PRELOADED_PLAN.floors[0].rooms.forEach(r => { ROOM_COLOR_MAP[r.id] = r.color; })
 // Inject preloaded plan on first use (convert meter coords to pixels)
 function maybeInjectPreloaded() {
   const saved = ld(K.plan, null);
-  // Fresh install or broken old data (rooms stored in meters, all coords < 10)
   const needsInject = !saved || !saved._preloaded;
-  const needsFix = saved && saved._preloaded && saved.floors?.[0]?.rooms?.[0]?.w < 10;
-  if (needsInject || needsFix) {
+  const needsUpdate = saved && saved._preloaded && (!saved._planVersion || saved._planVersion < 2);
+  if (needsInject || needsUpdate) {
     const plan = JSON.parse(JSON.stringify(PRELOADED_PLAN));
     const sc = plan.scale || 45;
     plan.floors.forEach(fl => {
