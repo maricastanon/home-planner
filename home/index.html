@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🏠 Unser neues Zuhause</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div style="font-size:.95rem;letter-spacing:4px;margin-bottom:2px">🏠 💕 🏠</div>
+  <h1>Unser neues Zuhause</h1>
+  <div class="hdr-sub" id="hdr-sub">Mari &amp; Alexander · Apartment Planner</div>
+  <div class="hdr-actions">
+    <button class="hdr-btn" onclick="openSettings()">⚙️ Einstellungen</button>
+    <button class="hdr-btn" onclick="exportAll()">💾 Backup</button>
+    <button class="hdr-btn" onclick="document.getElementById('import-file').click()">📂 Importieren</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importAll(this.files[0])">
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar" id="status-bar">Lade...</div>
+
+<!-- TABS -->
+<div class="tabs" id="tabs">
+  <div class="tb active" data-tab="dash"  onclick="switchTab('dash')"> <span class="ti">🏠</span>Dashboard</div>
+  <div class="tb"        data-tab="plan"  onclick="switchTab('plan')"> <span class="ti">📐</span>Grundriss</div>
+  <div class="tb"        data-tab="move"  onclick="switchTab('move')"> <span class="ti">🚚</span>Umzug</div>
+  <div class="tb"        data-tab="take"  onclick="switchTab('take')"> <span class="ti">📦</span>Mitnehmen</div>
+  <div class="tb"        data-tab="sell"  onclick="switchTab('sell')"> <span class="ti">💸</span>Verkaufen</div>
+  <div class="tb"        data-tab="buy"   onclick="switchTab('buy')">  <span class="ti">🛒</span>Kaufen</div>
+  <div class="tb"        data-tab="cmp"   onclick="switchTab('cmp')">  <span class="ti">📊</span>Vergleich</div>
+</div>
+
+<!-- ===================== DASHBOARD ===================== -->
+<div class="tp active" id="p-dash">
+  <!-- rendered by dashboard.js → rDash() -->
+</div>
+
+<!-- ===================== GRUNDRISS ===================== -->
+<div class="tp" id="p-plan">
+  <div id="plan-layout">
+    <!-- Canvas area -->
+    <div id="plan-canvas-wrap">
+      <div class="floor-tabs" id="floor-tabs"></div>
+      <div class="plan-toolbar">
+        <button class="ptool active" id="tool-select" onclick="setPlanTool('select')">🖱️ Auswählen</button>
+        <button class="ptool"        id="tool-room"   onclick="setPlanTool('room')">▭ Raum</button>
+        <button class="ptool"        id="tool-furn"   onclick="setPlanTool('furn')">🛋️ Möbel</button>
+        <button class="ptool"        id="tool-erase"  onclick="setPlanTool('erase')">🗑️ Löschen</button>
+        <button class="ptool"        id="tool-paint"  onclick="setPlanTool('paint')">🎨 Farbe</button>
+        <div class="plan-sep"></div>
+        <input type="color" id="plan-paint-color" value="#e8f5e9" title="Raumfarbe" style="width:26px;height:22px;padding:0;border:1px solid #ddd;border-radius:3px;cursor:pointer">
+        <div class="plan-sep"></div>
+        <label style="font-size:.62rem;color:#888;white-space:nowrap">Skala:
+          <select id="plan-scale" onchange="setPlanScale()" style="font-size:.62rem;padding:2px 3px;border:1px solid #ddd;border-radius:3px">
+            <option value="20">20px=1m</option>
+            <option value="30" selected>30px=1m</option>
+            <option value="40">40px=1m</option>
+            <option value="50">50px=1m</option>
+          </select>
+        </label>
+        <label style="font-size:.62rem;color:#888"><input type="checkbox" id="plan-grid" checked onchange="renderPlan()"> Raster</label>
+        <div class="plan-sep"></div>
+        <button class="ptool" onclick="undoPlan()" title="Rückgängig (Ctrl+Z)">↺ Undo</button>
+        <button class="ptool" onclick="redoPlan()" title="Wiederholen (Ctrl+Y)">↻ Redo</button>
+        <div class="plan-sep"></div>
+        <button class="ptool" onclick="clearFloor()" style="color:var(--or)">🗑️ Stockwerk</button>
+        <button class="ptool" onclick="downloadPlan()">💾 PNG</button>
+      </div>
+
+      <!-- Furniture toolbar (shown when tool=furn) -->
+      <div class="furn-bar" id="furn-bar" style="display:none;flex-wrap:wrap;gap:3px;padding:6px 8px;background:#fafafa;border-bottom:1px solid #eee">
+        <span class="furn-cat-label">🛏️ Schlaf</span>
+        <button class="furn-btn active" data-furn="bed-double"   onclick="selectFurnType('bed-double')">🛏️ Doppelbett</button>
+        <button class="furn-btn"        data-furn="bed-single"   onclick="selectFurnType('bed-single')">🛏️ Einzelbett</button>
+        <button class="furn-btn"        data-furn="wardrobe"     onclick="selectFurnType('wardrobe')">🚪 Schrank</button>
+        <button class="furn-btn"        data-furn="dresser"      onclick="selectFurnType('dresser')">🪞 Kommode</button>
+        <button class="furn-btn"        data-furn="nightstand"   onclick="selectFurnType('nightstand')">🕯️ Nachttisch</button>
+        <span class="furn-cat-label">🛋️ Wohnen</span>
+        <button class="furn-btn"        data-furn="sofa"         onclick="selectFurnType('sofa')">🛋️ Sofa</button>
+        <button class="furn-btn"        data-furn="sofa-l"       onclick="selectFurnType('sofa-l')">🛋️ Sofa L</button>
+        <button class="furn-btn"        data-furn="armchair"     onclick="selectFurnType('armchair')">🛋️ Sessel</button>
+        <button class="furn-btn"        data-furn="table-coffee" onclick="selectFurnType('table-coffee')">☕ Couchtisch</button>
+        <button class="furn-btn"        data-furn="table-dining" onclick="selectFurnType('table-dining')">🪑 Esstisch</button>
+        <button class="furn-btn"        data-furn="tv"           onclick="selectFurnType('tv')">📺 TV</button>
+        <button class="furn-btn"        data-furn="tv-stand"     onclick="selectFurnType('tv-stand')">📺 TV-Schrank</button>
+        <button class="furn-btn"        data-furn="bookshelf"    onclick="selectFurnType('bookshelf')">📚 Regal</button>
+        <button class="furn-btn"        data-furn="piano"        onclick="selectFurnType('piano')">🎹 Klavier</button>
+        <span class="furn-cat-label">🍳 Küche</span>
+        <button class="furn-btn"        data-furn="fridge"       onclick="selectFurnType('fridge')">🧊 Kühlschrank</button>
+        <button class="furn-btn"        data-furn="washer"       onclick="selectFurnType('washer')">🫧 Waschmaschine</button>
+        <button class="furn-btn"        data-furn="dryer"        onclick="selectFurnType('dryer')">💨 Trockner</button>
+        <button class="furn-btn"        data-furn="dishwasher"   onclick="selectFurnType('dishwasher')">🍽️ Spülmaschine</button>
+        <button class="furn-btn"        data-furn="oven"         onclick="selectFurnType('oven')">🔥 Herd</button>
+        <button class="furn-btn"        data-furn="counter"      onclick="selectFurnType('counter')">🔲 Arbeitsplatte</button>
+        <button class="furn-btn"        data-furn="sink-kitchen" onclick="selectFurnType('sink-kitchen')">🚿 Spüle</button>
+        <span class="furn-cat-label">🚿 Bad</span>
+        <button class="furn-btn"        data-furn="bath"         onclick="selectFurnType('bath')">🛁 Badewanne</button>
+        <button class="furn-btn"        data-furn="shower"       onclick="selectFurnType('shower')">🚿 Dusche</button>
+        <button class="furn-btn"        data-furn="toilet"       onclick="selectFurnType('toilet')">🚽 Toilette</button>
+        <button class="furn-btn"        data-furn="sink-bath"    onclick="selectFurnType('sink-bath')">🪥 Waschbecken</button>
+        <span class="furn-cat-label">🖥️ Büro</span>
+        <button class="furn-btn"        data-furn="desk"         onclick="selectFurnType('desk')">🖥️ Schreibtisch</button>
+        <button class="furn-btn"        data-furn="desk-corner"  onclick="selectFurnType('desk-corner')">🖥️ Eckschreibtisch</button>
+        <button class="furn-btn"        data-furn="chair-office" onclick="selectFurnType('chair-office')">🪑 Bürostuhl</button>
+        <span class="furn-cat-label">🏗️ Struktur</span>
+        <button class="furn-btn"        data-furn="door"         onclick="selectFurnType('door')">🚪 Tür</button>
+        <button class="furn-btn"        data-furn="window"       onclick="selectFurnType('window')">🪟 Fenster</button>
+        <button class="furn-btn"        data-furn="plant-large"  onclick="selectFurnType('plant-large')">🌿 Pflanze</button>
+      </div>
+
+      <canvas id="canvas-plan" width="800" height="480"></canvas>
+      <div class="plan-status" id="plan-status">💡 Werkzeug auswählen · Raum: ziehen · Möbel: klicken · Auswählen: Doppelklick = umbenennen · Del = löschen · Rechtsklick Möbel = drehen</div>
+    </div>
+
+    <!-- Room sidebar -->
+    <div id="plan-sidebar">
+      <div class="room-sidebar">
+        <div class="room-sidebar-hdr">🏷️ Räume <button class="btn sml" style="float:right" onclick="showRoomsPanel()">✚ umbenennen</button></div>
+        <div id="room-sidebar"><!-- filled by updateRoomSidebar() --></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== UMZUG ===================== -->
+<div class="tp" id="p-move">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-weight:700;font-size:.9rem;color:var(--pk)">🚚 Umzugsplanung</div>
+    <button class="btn pri" onclick="openModal('move-add-modal')">➕ Firma hinzufügen</button>
+  </div>
+
+  <!-- Stats + price comparison -->
+  <div id="move-stats" style="background:#fff;border-radius:var(--rs);padding:10px 12px;box-shadow:var(--sh);margin-bottom:10px"></div>
+
+  <!-- Search + filter -->
+  <div class="sbar">
+    <input type="text" placeholder="🔍 Suche..." oninput="setSearch('move',this.value);rMoveCompanies()">
+    <select id="move-status-filter" onchange="rMoveCompanies()">
+      <option value="">Alle Status</option>
+      <option value="anfragen">Anfragen</option>
+      <option value="angebot">Angebot</option>
+      <option value="termin">Besichtigung</option>
+      <option value="gebucht">Gebucht</option>
+      <option value="abgesagt">Abgesagt</option>
+    </select>
+    <button class="btn sml" onclick="expandAll('#move-list')">↕ Alle auf</button>
+    <button class="btn sml" onclick="collapseAll('#move-list')">↕ Alle zu</button>
+  </div>
+  <div id="move-list"></div>
+
+  <!-- Move-day checklist -->
+  <div style="background:#fff;border-radius:var(--rs);padding:12px;box-shadow:var(--sh);margin-top:10px">
+    <div style="font-weight:700;font-size:.88rem;color:var(--pk);margin-bottom:8px">✅ Umzugs-Checkliste</div>
+    <div id="move-checklist"></div>
+  </div>
+</div>
+
+<!-- ===================== MITNEHMEN ===================== -->
+<div class="tp" id="p-take">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-weight:700;font-size:.9rem;color:var(--pk)">📦 Mitnehmerliste</div>
+    <div style="display:flex;gap:5px">
+      <button class="btn pri" onclick="openModal('take-add-modal')">➕ Gegenstand</button>
+      <button class="btn" onclick="openModal('box-add-modal')">📦 Karton</button>
+    </div>
+  </div>
+
+  <div id="take-stats" style="background:#fff;border-radius:var(--rs);padding:10px 12px;box-shadow:var(--sh);margin-bottom:10px"></div>
+
+  <div class="sbar">
+    <input type="text" placeholder="🔍 Suche..." oninput="setSearch('take',this.value);rTakeList()">
+    <select id="take-room-filter" onchange="rTakeList()">
+      <option value="">Alle Räume</option>
+      <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+      <option>Bad</option><option>Büro</option><option>Keller/Lager</option>
+      <option>Flur</option><option>Sonstiges</option>
+    </select>
+    <select id="take-owner-filter" onchange="rTakeList()">
+      <option value="">Alle</option>
+      <option value="Mari">🌸 Mari</option>
+      <option value="Alexander">💼 Alexander</option>
+      <option value="Beide">💕 Beide</option>
+    </select>
+    <select id="take-prio-filter" onchange="rTakeList()">
+      <option value="">Alle Prioritäten</option>
+      <option value="hoch">🔴 Hoch</option>
+      <option value="mittel">🟡 Mittel</option>
+      <option value="niedrig">🟢 Niedrig</option>
+    </select>
+    <select id="take-status-filter" onchange="rTakeList()">
+      <option value="">Alle</option>
+      <option value="packed">Eingepackt ✓</option>
+      <option value="unpacked">Noch offen</option>
+    </select>
+    <select id="take-sort" onchange="rTakeList()">
+      <option value="cat">Raum</option>
+      <option value="name">Name</option>
+      <option value="prio">Priorität</option>
+      <option value="owner">Besitzer</option>
+      <option value="done">Status</option>
+    </select>
+  </div>
+  <div id="take-list"></div>
+
+  <!-- Boxes -->
+  <div style="background:#fff;border-radius:var(--rs);padding:12px;box-shadow:var(--sh);margin-top:10px">
+    <div style="font-weight:700;font-size:.85rem;color:var(--pk);margin-bottom:8px">📦 Kartons</div>
+    <div id="box-list"></div>
+  </div>
+</div>
+
+<!-- ===================== VERKAUFEN ===================== -->
+<div class="tp" id="p-sell">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-weight:700;font-size:.9rem;color:var(--pk)">💸 Verkaufsliste</div>
+    <button class="btn pri" onclick="openModal('sell-add-modal')">➕ Artikel einstellen</button>
+  </div>
+  <div id="sell-stats" style="margin-bottom:10px"></div>
+  <div class="sbar">
+    <input type="text" placeholder="🔍 Suche..." oninput="setSearch('sell',this.value);rSellList()">
+    <select id="sell-status-filter" onchange="rSellList()">
+      <option value="">Alle Status</option>
+      <option value="active">Verfügbar</option>
+      <option value="reserved">Reserviert</option>
+      <option value="sold">Verkauft ✓</option>
+      <option value="donated">Verschenkt</option>
+      <option value="discarded">Entsorgt</option>
+    </select>
+    <select id="sell-room-filter" onchange="rSellList()">
+      <option value="">Alle Räume</option>
+      <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+      <option>Bad</option><option>Büro</option><option>Sonstiges</option>
+    </select>
+    <select id="sell-plat-filter" onchange="rSellList()">
+      <option value="">Alle Plattformen</option>
+      <option value="ebay">eBay Kleinanzeigen</option>
+      <option value="fb">Facebook Marketplace</option>
+      <option value="local">Lokal</option>
+      <option value="flohm">Flohmarkt</option>
+      <option value="give">Verschenken</option>
+    </select>
+    <select id="sell-sort" onchange="rSellList()">
+      <option value="date">Neueste</option>
+      <option value="price-hi">Preis ↓</option>
+      <option value="price-lo">Preis ↑</option>
+      <option value="status">Status</option>
+      <option value="name">Name</option>
+    </select>
+  </div>
+  <div id="sell-list"></div>
+</div>
+
+<!-- ===================== KAUFEN ===================== -->
+<div class="tp" id="p-buy">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-weight:700;font-size:.9rem;color:var(--pk)">🛒 Kaufliste &amp; Abstimmung</div>
+    <button class="btn pri" onclick="openModal('buy-add-modal')">➕ Kaufwunsch</button>
+  </div>
+  <div id="buy-budget" style="margin-bottom:10px"></div>
+  <div class="sbar">
+    <input type="text" placeholder="🔍 Suche..." oninput="setSearch('buy',this.value);rBuyList()">
+    <select id="buy-cat-filter" onchange="rBuyList()">
+      <option value="">Alle Kategorien</option>
+      <option>Möbel</option><option>Elektronik</option><option>Haushaltsgeräte</option>
+      <option>Küche</option><option>Bad</option><option>Schlafzimmer</option>
+      <option>Deko</option><option>Büro</option><option>Sonstiges</option>
+    </select>
+    <select id="buy-room-filter" onchange="rBuyList()">
+      <option value="">Alle Räume</option>
+      <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+      <option>Bad</option><option>Büro</option><option>Gesamt</option>
+    </select>
+    <select id="buy-prio-filter" onchange="rBuyList()">
+      <option value="">Alle Prios</option>
+      <option value="must">🔴 Must-have</option>
+      <option value="want">🟡 Want</option>
+      <option value="nice">🟢 Nice to have</option>
+    </select>
+    <select id="buy-status-filter" onchange="rBuyList()">
+      <option value="">Alle</option>
+      <option value="pending">Noch kaufen</option>
+      <option value="bought">Gekauft ✓</option>
+      <option value="agreed">Beide wollen 💕</option>
+      <option value="disputed">Im Streit ⚡</option>
+    </select>
+    <select id="buy-sort" onchange="rBuyList()">
+      <option value="vote">Abstimmung</option>
+      <option value="prio">Priorität</option>
+      <option value="price-hi">Preis ↓</option>
+      <option value="price-lo">Preis ↑</option>
+      <option value="name">Name</option>
+    </select>
+  </div>
+  <div id="buy-list"></div>
+</div>
+
+<!-- ===================== VERGLEICH ===================== -->
+<div class="tp" id="p-cmp">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-weight:700;font-size:.9rem;color:var(--pk)">📊 Produktvergleich</div>
+    <button class="btn pri" onclick="openModal('cmp-add-modal')">➕ Produkt hinzufügen</button>
+  </div>
+  <div class="sbar">
+    <input type="text" placeholder="🔍 Suche..." oninput="setSearch('cmp',this.value);rCompare()">
+    <select id="cmp-cat-filter" onchange="rCompare()">
+      <option value="">Alle Kategorien</option>
+      <option>Kühlschrank</option><option>Waschmaschine</option><option>Trockner</option>
+      <option>Herd/Backofen</option><option>Spülmaschine</option><option>TV</option>
+      <option>Sofa</option><option>Bett</option><option>Schreibtisch</option><option>Sonstiges</option>
+    </select>
+    <select id="cmp-room-filter" onchange="rCompare()">
+      <option value="">Alle Räume</option>
+      <option>Küche</option><option>Wohnzimmer</option><option>Schlafzimmer</option>
+      <option>Bad</option><option>Büro</option>
+    </select>
+  </div>
+  <div id="compare-out"></div>
+</div>
+
+<!-- ==================== SCROLL TO TOP ==================== -->
+<button id="scroll-top-btn" onclick="scrollTop()" title="Nach oben">▲</button>
+
+<!-- ==================== TOAST CONTAINER ==================== -->
+<div id="toast-container"></div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- SETTINGS MODAL -->
+<div class="modal" id="settings-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>⚙️ Einstellungen</h3><span class="modal-close" onclick="closeModal('settings-modal')">✕</span></div>
+    <div class="fgrid wide">
+      <div class="fg"><label>Umzugsdatum</label><input type="date" id="set-movedate"></div>
+      <div class="fg"><label>Neue Adresse</label><input id="set-address" placeholder="Musterstr. 1, Heidelberg"></div>
+      <div class="fg"><label>Alte Adresse</label><input id="set-from" placeholder="Von-Straße 5, ..."></div>
+      <div class="fg"><label>Max. Budget (€)</label><input type="number" id="set-budget" placeholder="3000"></div>
+      <div class="fg"><label>Name Person 1</label><input id="set-name-m" placeholder="Mari"></div>
+      <div class="fg"><label>Name Person 2</label><input id="set-name-a" placeholder="Alexander"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('settings-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="saveSettings()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVE ADD MODAL -->
+<div class="modal" id="move-add-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>🚚 Umzugsunternehmen hinzufügen</h3><span class="modal-close" onclick="closeModal('move-add-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Firmenname *</label><input id="c-name" placeholder="Umzug GmbH"></div>
+      <div class="fg"><label>Kontaktperson</label><input id="c-contact" placeholder="Frau Müller"></div>
+      <div class="fg"><label>Telefon</label><input id="c-phone" placeholder="+49 6221 …"></div>
+      <div class="fg"><label>E-Mail</label><input id="c-email" type="email" placeholder="info@firma.de"></div>
+      <div class="fg"><label>Website</label><input id="c-web" placeholder="https://..."></div>
+      <div class="fg"><label>Angebotspreis (€)</label><input id="c-price" type="number" placeholder="0"></div>
+      <div class="fg"><label>Angebot gültig bis</label><input id="c-valid" type="date"></div>
+      <div class="fg"><label>Umzugsdatum</label><input id="c-movedate" type="date"></div>
+      <div class="fg"><label>Status</label>
+        <select id="c-status">
+          <option value="anfragen">📤 Anfragen</option>
+          <option value="angebot">📋 Angebot erhalten</option>
+          <option value="termin">👁️ Besichtigung</option>
+          <option value="gebucht">✅ Gebucht</option>
+          <option value="abgesagt">❌ Abgesagt</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><textarea id="c-notes" rows="2" style="resize:none"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('move-add-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="addMoveCompany()">✓ Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVE EDIT MODAL -->
+<div class="modal" id="move-edit-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>✏️ Firma bearbeiten</h3><span class="modal-close" onclick="closeModal('move-edit-modal')">✕</span></div>
+    <input type="hidden" id="ce-id">
+    <div class="fgrid">
+      <div class="fg"><label>Name</label><input id="ce-name"></div>
+      <div class="fg"><label>Kontaktperson</label><input id="ce-contact"></div>
+      <div class="fg"><label>Telefon</label><input id="ce-phone"></div>
+      <div class="fg"><label>E-Mail</label><input id="ce-email" type="email"></div>
+      <div class="fg"><label>Website</label><input id="ce-web"></div>
+      <div class="fg"><label>Preis (€)</label><input id="ce-price" type="number"></div>
+      <div class="fg"><label>Gültig bis</label><input id="ce-valid" type="date"></div>
+      <div class="fg"><label>Umzugsdatum</label><input id="ce-movedate" type="date"></div>
+      <div class="fg"><label>Status</label>
+        <select id="ce-status">
+          <option value="anfragen">📤 Anfragen</option>
+          <option value="angebot">📋 Angebot</option>
+          <option value="termin">👁️ Besichtigung</option>
+          <option value="gebucht">✅ Gebucht</option>
+          <option value="abgesagt">❌ Abgesagt</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><textarea id="ce-notes" rows="2" style="resize:none"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('move-edit-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="saveCompanyEdit()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAKE ADD MODAL -->
+<div class="modal" id="take-add-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>📦 Gegenstand hinzufügen</h3><span class="modal-close" onclick="closeModal('take-add-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Name *</label><input id="t-name" placeholder="Sofa, Laptop, ..."></div>
+      <div class="fg"><label>Raum</label>
+        <select id="t-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Keller/Lager</option>
+          <option>Flur</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gehört</label>
+        <select id="t-owner">
+          <option value="Mari">🌸 Mari</option>
+          <option value="Alexander">💼 Alexander</option>
+          <option value="Beide">💕 Beide</option>
+        </select>
+      </div>
+      <div class="fg"><label>Priorität</label>
+        <select id="t-prio">
+          <option value="hoch">🔴 Hoch</option>
+          <option value="mittel" selected>🟡 Mittel</option>
+          <option value="niedrig">🟢 Niedrig</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gewicht</label>
+        <select id="t-weight">
+          <option value="leicht">🪶 Leicht (&lt;10kg)</option>
+          <option value="mittel">💪 Mittel (10-30kg)</option>
+          <option value="schwer">🏋️ Schwer (&gt;30kg)</option>
+        </select>
+      </div>
+      <div class="fg" style="display:flex;align-items:center;gap:6px;padding-top:18px">
+        <input type="checkbox" id="t-fragile" style="width:16px;height:16px;accent-color:var(--pk)">
+        <label for="t-fragile" style="font-size:.78rem;text-transform:none;color:var(--bd)">⚠️ Fragil / Zerbrechlich</label>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><input id="t-note" placeholder="Maße, Besonderheiten..."></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('take-add-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="addTakeItem()">✓ Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- TAKE EDIT MODAL -->
+<div class="modal" id="take-edit-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>✏️ Gegenstand bearbeiten</h3><span class="modal-close" onclick="closeModal('take-edit-modal')">✕</span></div>
+    <input type="hidden" id="te-id">
+    <div class="fgrid">
+      <div class="fg"><label>Name</label><input id="te-name"></div>
+      <div class="fg"><label>Raum</label>
+        <select id="te-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Keller/Lager</option>
+          <option>Flur</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gehört</label>
+        <select id="te-owner">
+          <option value="Mari">🌸 Mari</option>
+          <option value="Alexander">💼 Alexander</option>
+          <option value="Beide">💕 Beide</option>
+        </select>
+      </div>
+      <div class="fg"><label>Priorität</label>
+        <select id="te-prio">
+          <option value="hoch">🔴 Hoch</option>
+          <option value="mittel">🟡 Mittel</option>
+          <option value="niedrig">🟢 Niedrig</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gewicht</label>
+        <select id="te-weight">
+          <option value="leicht">🪶 Leicht</option>
+          <option value="mittel">💪 Mittel</option>
+          <option value="schwer">🏋️ Schwer</option>
+        </select>
+      </div>
+      <div class="fg" style="display:flex;align-items:center;gap:6px;padding-top:18px">
+        <input type="checkbox" id="te-fragile" style="width:16px;height:16px;accent-color:var(--pk)">
+        <label for="te-fragile" style="font-size:.78rem;text-transform:none;color:var(--bd)">⚠️ Fragil</label>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><input id="te-note"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('take-edit-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="saveTakeEdit()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOX ADD MODAL -->
+<div class="modal" id="box-add-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>📦 Karton erstellen</h3><span class="modal-close" onclick="closeModal('box-add-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Karton-Name *</label><input id="box-name" placeholder="Küche 1, Bücher, ..."></div>
+      <div class="fg"><label>Ziel-Raum</label>
+        <select id="box-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Keller/Lager</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Gewichtsklasse</label>
+        <select id="box-weight">
+          <option value="leicht">🪶 Leicht</option>
+          <option value="mittel">💪 Mittel</option>
+          <option value="schwer">🏋️ Schwer</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('box-add-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="addBox();closeModal('box-add-modal')">✓ Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELL ADD MODAL -->
+<div class="modal" id="sell-add-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>💸 Artikel zum Verkauf einstellen</h3><span class="modal-close" onclick="closeModal('sell-add-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Name *</label><input id="s-name" placeholder="Alter Sofa, Lampe, ..."></div>
+      <div class="fg"><label>Zustand</label>
+        <select id="s-cond">
+          <option value="neu">✨ Neu (unbenutzt)</option>
+          <option value="sehr-gut">👍 Sehr gut</option>
+          <option value="gut" selected>👌 Gut</option>
+          <option value="gebraucht">🔧 Gebraucht</option>
+          <option value="defekt">⚠️ Defekt / Bastler</option>
+        </select>
+      </div>
+      <div class="fg"><label>Wunschpreis (€)</label><input id="s-price" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="fg"><label>Plattform</label>
+        <select id="s-plat">
+          <option value="ebay">🟠 eBay Kleinanzeigen</option>
+          <option value="fb">🔵 Facebook Marketplace</option>
+          <option value="local">🏘️ Lokal / Nachbar</option>
+          <option value="flohm">🎪 Flohmarkt</option>
+          <option value="give">🎁 Verschenken</option>
+        </select>
+      </div>
+      <div class="fg"><label>Raum (aktuell)</label>
+        <select id="s-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Keller/Lager</option><option>Sonstiges</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Beschreibung / Notizen</label><textarea id="s-note" rows="2" style="resize:none" placeholder="Maße, Farbe, Besonderheiten..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('sell-add-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="addSellItem()">✓ Einstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELL EDIT MODAL -->
+<div class="modal" id="sell-edit-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>✏️ Artikel bearbeiten</h3><span class="modal-close" onclick="closeModal('sell-edit-modal')">✕</span></div>
+    <input type="hidden" id="se-id">
+    <div class="fgrid">
+      <div class="fg"><label>Name</label><input id="se-name"></div>
+      <div class="fg"><label>Zustand</label>
+        <select id="se-cond">
+          <option value="neu">✨ Neu</option><option value="sehr-gut">👍 Sehr gut</option>
+          <option value="gut">👌 Gut</option><option value="gebraucht">🔧 Gebraucht</option>
+          <option value="defekt">⚠️ Defekt</option>
+        </select>
+      </div>
+      <div class="fg"><label>Preis (€)</label><input id="se-price" type="number" step="0.01"></div>
+      <div class="fg"><label>Plattform</label>
+        <select id="se-plat">
+          <option value="ebay">eBay Kleinanzeigen</option><option value="fb">Facebook Marketplace</option>
+          <option value="local">Lokal</option><option value="flohm">Flohmarkt</option><option value="give">Verschenken</option>
+        </select>
+      </div>
+      <div class="fg"><label>Raum</label>
+        <select id="se-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Sonstiges</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><textarea id="se-note" rows="2" style="resize:none"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('sell-edit-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="saveSellEdit()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- SELL CONFIRM SOLD MODAL -->
+<div class="modal" id="sell-modal">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-hdr"><h3 style="color:var(--gn)">✅ Als verkauft markieren</h3><span class="modal-close" onclick="closeModal('sell-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Tatsächlicher Preis (€) *</label><input id="sell-modal-price" type="number" step="0.01"></div>
+      <div class="fg"><label>Verkauft am</label><input id="sell-modal-date" type="date"></div>
+    </div>
+    <div class="fg" style="margin-bottom:6px"><label>Käufer (optional)</label><input id="sell-modal-buyer" placeholder="Max Mustermann..."></div>
+    <div class="fg" style="margin-bottom:10px"><label>Notiz</label><input id="sell-modal-note" placeholder="Wie lief's?"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('sell-modal')">Abbrechen</button>
+      <button class="btn suc" onclick="confirmSold()">💰 Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUY ADD MODAL -->
+<div class="modal" id="buy-add-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>🛒 Kaufwunsch hinzufügen</h3><span class="modal-close" onclick="closeModal('buy-add-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Name *</label><input id="b-name" placeholder="Sofa, Kühlschrank, ..."></div>
+      <div class="fg"><label>Kategorie</label>
+        <select id="b-cat">
+          <option>Möbel</option><option>Elektronik</option><option>Haushaltsgeräte</option>
+          <option>Küche</option><option>Bad</option><option>Schlafzimmer</option>
+          <option>Deko</option><option>Büro</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Raum</label>
+        <select id="b-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Gesamt</option>
+        </select>
+      </div>
+      <div class="fg"><label>Priorität</label>
+        <select id="b-prio">
+          <option value="must">🔴 Must-have</option>
+          <option value="want" selected>🟡 Want</option>
+          <option value="nice">🟢 Nice to have</option>
+        </select>
+      </div>
+      <div class="fg"><label>Geschätzter Preis (€)</label><input id="b-price" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="fg"><label>Link (optional)</label><input id="b-link" placeholder="https://..."></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen / Specs</label><textarea id="b-note" rows="2" style="resize:none"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('buy-add-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="addBuyItem()">✓ Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUY EDIT MODAL -->
+<div class="modal" id="buy-edit-modal">
+  <div class="modal-box">
+    <div class="modal-hdr"><h3>✏️ Kaufwunsch bearbeiten</h3><span class="modal-close" onclick="closeModal('buy-edit-modal')">✕</span></div>
+    <input type="hidden" id="be-id">
+    <div class="fgrid">
+      <div class="fg"><label>Name</label><input id="be-name"></div>
+      <div class="fg"><label>Kategorie</label>
+        <select id="be-cat">
+          <option>Möbel</option><option>Elektronik</option><option>Haushaltsgeräte</option>
+          <option>Küche</option><option>Bad</option><option>Schlafzimmer</option>
+          <option>Deko</option><option>Büro</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Raum</label>
+        <select id="be-room">
+          <option>Wohnzimmer</option><option>Schlafzimmer</option><option>Küche</option>
+          <option>Bad</option><option>Büro</option><option>Gesamt</option>
+        </select>
+      </div>
+      <div class="fg"><label>Priorität</label>
+        <select id="be-prio">
+          <option value="must">🔴 Must-have</option>
+          <option value="want">🟡 Want</option>
+          <option value="nice">🟢 Nice to have</option>
+        </select>
+      </div>
+      <div class="fg"><label>Preis (€)</label><input id="be-price" type="number" step="0.01"></div>
+      <div class="fg"><label>Link</label><input id="be-link"></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><textarea id="be-note" rows="2" style="resize:none"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('buy-edit-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="saveBuyEdit()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- BUY CONFIRM BOUGHT MODAL -->
+<div class="modal" id="buy-modal">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-hdr"><h3 style="color:var(--gn)">🛒 Als gekauft markieren</h3><span class="modal-close" onclick="closeModal('buy-modal')">✕</span></div>
+    <div class="fgrid">
+      <div class="fg"><label>Tatsächlicher Preis (€)</label><input id="buy-modal-price" type="number" step="0.01"></div>
+      <div class="fg"><label>Gekauft am</label><input id="buy-modal-date" type="date"></div>
+    </div>
+    <div class="fg" style="margin-bottom:10px"><label>Geschäft / Shop (optional)</label><input id="buy-modal-store" placeholder="IKEA, Amazon, ..."></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('buy-modal')">Abbrechen</button>
+      <button class="btn suc" onclick="confirmBought()">✅ Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<!-- CMP ADD MODAL -->
+<div class="modal" id="cmp-add-modal">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-hdr"><h3>📊 Produkt zum Vergleich</h3><span class="modal-close" onclick="closeModal('cmp-add-modal')">✕</span></div>
+    <div class="fgrid wide">
+      <div class="fg"><label>Produktname *</label><input id="cmp-name" placeholder="Samsung RB38T..."></div>
+      <div class="fg"><label>Kategorie</label>
+        <select id="cmp-cat" onchange="onCmpCatChange()">
+          <option>Kühlschrank</option><option>Waschmaschine</option><option>Trockner</option>
+          <option>Herd/Backofen</option><option>Spülmaschine</option><option>TV</option>
+          <option>Sofa</option><option>Bett</option><option>Schreibtisch</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Raum</label>
+        <select id="cmp-room">
+          <option>Küche</option><option>Wohnzimmer</option><option>Schlafzimmer</option>
+          <option>Bad</option><option>Büro</option>
+        </select>
+      </div>
+      <div class="fg"><label>Preis (€)</label><input id="cmp-price" type="number" step="0.01"></div>
+      <div class="fg"><label>Energieeffizienz</label>
+        <select id="cmp-energy">
+          <option value="">–</option>
+          <option>A+++</option><option>A++</option><option>A+</option><option>A</option>
+          <option>B</option><option>C</option><option>D</option><option>E</option>
+        </select>
+      </div>
+      <div class="fg"><label>Garantie</label><input id="cmp-warranty" placeholder="2 Jahre, ..."></div>
+      <div class="fg"><label>Link</label><input id="cmp-link" placeholder="https://..."></div>
+      <div class="fg"><label>Bewertung (Person 1)</label>
+        <select id="cmp-rating-m">
+          <option value="">–</option>
+          <option value="5">⭐⭐⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option>
+          <option value="3">⭐⭐⭐</option><option value="2">⭐⭐</option><option value="1">⭐</option>
+        </select>
+      </div>
+      <div class="fg"><label>Bewertung (Person 2)</label>
+        <select id="cmp-rating-a">
+          <option value="">–</option>
+          <option value="5">⭐⭐⭐⭐⭐</option><option value="4">⭐⭐⭐⭐</option>
+          <option value="3">⭐⭐⭐</option><option value="2">⭐⭐</option><option value="1">⭐</option>
+        </select>
+      </div>
+    </div>
+    <!-- Dynamic feature inputs per category -->
+    <div class="fgrid" id="cmp-feats-grid" style="margin-bottom:6px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <div class="fg" style="flex:1;min-width:180px"><label>Pros (kommagetrennt)</label><input id="cmp-pros" placeholder="Leise, groß, günstig..."></div>
+      <div class="fg" style="flex:1;min-width:180px"><label>Cons (kommagetrennt)</label><input id="cmp-cons" placeholder="Laut, teuer..."></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen / Specs</label><textarea id="cmp-note" rows="2" style="resize:none" placeholder="Maße, Modellnummer, Besonderheiten..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('cmp-add-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="addCmpItem()">✓ Hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- CMP EDIT MODAL -->
+<div class="modal" id="cmp-edit-modal">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-hdr"><h3>✏️ Produkt bearbeiten</h3><span class="modal-close" onclick="closeModal('cmp-edit-modal')">✕</span></div>
+    <input type="hidden" id="cmpe-id">
+    <div class="fgrid wide">
+      <div class="fg"><label>Name</label><input id="cmpe-name"></div>
+      <div class="fg"><label>Kategorie</label>
+        <select id="cmpe-cat">
+          <option>Kühlschrank</option><option>Waschmaschine</option><option>Trockner</option>
+          <option>Herd/Backofen</option><option>Spülmaschine</option><option>TV</option>
+          <option>Sofa</option><option>Bett</option><option>Schreibtisch</option><option>Sonstiges</option>
+        </select>
+      </div>
+      <div class="fg"><label>Raum</label>
+        <select id="cmpe-room">
+          <option>Küche</option><option>Wohnzimmer</option><option>Schlafzimmer</option>
+          <option>Bad</option><option>Büro</option>
+        </select>
+      </div>
+      <div class="fg"><label>Preis (€)</label><input id="cmpe-price" type="number" step="0.01"></div>
+      <div class="fg"><label>Energieeffizienz</label>
+        <select id="cmpe-energy">
+          <option value="">–</option>
+          <option>A+++</option><option>A++</option><option>A+</option><option>A</option>
+          <option>B</option><option>C</option><option>D</option><option>E</option>
+        </select>
+      </div>
+      <div class="fg"><label>Garantie</label><input id="cmpe-warranty"></div>
+      <div class="fg"><label>Link</label><input id="cmpe-link"></div>
+      <div class="fg"><label>Bewertung P1</label>
+        <select id="cmpe-rating-m">
+          <option value="">–</option><option value="5">⭐⭐⭐⭐⭐</option>
+          <option value="4">⭐⭐⭐⭐</option><option value="3">⭐⭐⭐</option>
+          <option value="2">⭐⭐</option><option value="1">⭐</option>
+        </select>
+      </div>
+      <div class="fg"><label>Bewertung P2</label>
+        <select id="cmpe-rating-a">
+          <option value="">–</option><option value="5">⭐⭐⭐⭐⭐</option>
+          <option value="4">⭐⭐⭐⭐</option><option value="3">⭐⭐⭐</option>
+          <option value="2">⭐⭐</option><option value="1">⭐</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <div class="fg" style="flex:1;min-width:180px"><label>Pros (kommagetrennt)</label><input id="cmpe-pros"></div>
+      <div class="fg" style="flex:1;min-width:180px"><label>Cons (kommagetrennt)</label><input id="cmpe-cons"></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px"><label>Notizen</label><textarea id="cmpe-note" rows="2" style="resize:none"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('cmp-edit-modal')">Abbrechen</button>
+      <button class="btn pri" onclick="saveCmpEdit()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- INLINE EDIT MODAL -->
+<div class="modal" id="inline-edit-modal">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-hdr">
+      <h3 id="inline-edit-title">Bearbeiten</h3>
+      <span class="modal-close" onclick="closeInlineEdit()">✕</span>
+    </div>
+    <div id="inline-edit-hint" style="font-size:.7rem;color:#888;margin-bottom:8px"></div>
+    <input id="inline-edit-inp" style="width:100%;font-size:.88rem;padding:8px 10px;border:1.5px solid #ddd;border-radius:6px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitInlineEdit();if(event.key==='Escape')closeInlineEdit()">
+    <div class="modal-actions" style="margin-top:10px">
+      <button class="btn" onclick="closeInlineEdit()">Abbrechen</button>
+      <button class="btn pri" onclick="submitInlineEdit()">✓ OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG MODAL -->
+<div class="modal" id="confirm-modal">
+  <div class="modal-box" style="max-width:340px;text-align:center">
+    <div style="font-size:2rem;margin-bottom:8px">⚠️</div>
+    <div id="confirm-msg" style="font-size:.88rem;margin-bottom:18px;color:var(--bd)">Bist du sicher?</div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="btn" id="confirm-no">Abbrechen</button>
+      <button class="btn dan" id="confirm-yes">Ja, löschen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCRIPTS ==================== -->
+<script src="js/config.js"></script>
+<script src="js/data.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/moving.js"></script>
+<script src="js/take.js"></script>
+<script src="js/sell.js"></script>
+<script src="js/buy.js"></script>
+<script src="js/compare.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/ui.js"></script>
+
+<script>
+// ==================== BOOT ====================
+(function init() {
+  // Init floor plan canvas
+  initPlan();
+
+  // Update header subtitle from settings
+  const s = ldSettings();
+  if (s.apartmentAddress || s.moveDate) {
+    const parts = [];
+    if (s.names) parts.push((s.names.M || 'Mari') + ' & ' + (s.names.A || 'Alexander'));
+    if (s.apartmentAddress) parts.push(s.apartmentAddress);
+    if (s.moveDate) parts.push('Einzug: ' + fmtDate(s.moveDate));
+    document.getElementById('hdr-sub').textContent = parts.join(' · ');
+  }
+
+  // First render
+  rDash();
+  updateStatusBar();
+
+  // Populate CMP feats on first open
+  document.getElementById('cmp-add-modal').addEventListener('click', () => {}, { once: true });
+  onCmpCatChange();
+})();
+
+// Tiny helper used in take.js for addBox (re-declared here to avoid scope issues)
+function addBox(b) {
+  if (!b) {
+    // called from HTML button with no arg — read form fields
+    const name = fVal('box-name');
+    if (!name) { toast('Bitte Karton-Name eingeben', 'red'); return; }
+    const box = { id: uid(), name, room: fVal('box-room'), weight: fVal('box-weight'), created: Date.now() };
+    const d = ldBoxes(); d.push(box); svBoxes(d);
+    fClear('box-name');
+    rTake();
+    toast('Karton "' + name + '" erstellt 📦', 'green');
+  } else {
+    // called from take.js with object
+    const d = ldBoxes(); d.push(b); svBoxes(d);
+  }
+}
+
+// rooms panel helper
+function showRoomsPanel() {
+  const floor = getFloor();
+  if (!floor.rooms.length) { toast('Noch keine Räume gezeichnet', 'info'); return; }
+  updateRoomSidebar();
+}
+</script>
+
+</body>
+</html>
