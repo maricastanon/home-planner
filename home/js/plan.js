@@ -1,500 +1,420 @@
 // ============================================================
-// plan.js — Unser neues Zuhause · Floor Plan Canvas Tool
+// plan.js — Floor Plan · Preloaded rooms + item overlay
 // ============================================================
 
-let planState = {
-  floors: [{ id: 'f1', name: 'Erdgeschoss', rooms: [], furniture: [] }],
-  activeFloor: 0,
-  scale: 30,        // px per meter
-};
-let planTool     = 'select';
-let furnType     = 'sofa';
-let selected     = null;    // id of selected room/furniture
-let dragging     = null;    // object being dragged
-let dragOff      = { x: 0, y: 0 };
-let drawStart    = null;
-let drawCurrent  = null;
-let resizing     = null;    // { obj, handle }
-let undoStack    = [];
-let redoStack    = [];
-const MAX_UNDO   = 30;
+let planState = { floors: [], scale: 45, activeFloor: 0 };
+let planTool  = 'select';
+let furnType  = 'sofa';
+let selected  = null;
+let dragging  = null;
+let dragOff   = { x: 0, y: 0 };
+let drawStart = null;
+let drawCurrent = null;
+let undoStack = [];
+let redoStack = [];
+let hoveredRoom = null;
 let roomColorIdx = 0;
 
-const ROOM_COLORS_CYCLE = ['#fce4ec','#e3f2fd','#e8f5e9','#fff3e0','#f3e5f5','#e0f7fa','#fff9c4','#ffe0b2','#e8eaf6','#fce4ec'];
+const ROOM_COLORS_CYCLE = [
+  '#dbeafe','#dcfce7','#fce7f3','#ffedd5','#ede9fe',
+  '#ccfbf1','#fef9c3','#fee2e2','#e0f2fe','#f0fdf4'
+];
 
-// ---- Init ----
+// ── Init ────────────────────────────────────────────────────
 function initPlan() {
+  maybeInjectPreloaded();
   const saved = ldPlan();
   if (saved && saved.floors) {
-    planState.floors  = saved.floors;
-    planState.scale   = saved.scale || 30;
-    planState.activeFloor = saved.activeFloor || 0;
+    planState = { floors: saved.floors, scale: saved.scale || 45, activeFloor: saved.activeFloor || 0 };
   }
   const canvas = document.getElementById('canvas-plan');
-  if (!canvas) return;
-  setupCanvasListeners(canvas);
-  resizePlanCanvas();
+  if (canvas) { setupPlanListeners(canvas); resizePlanCanvas(); }
   window.addEventListener('resize', resizePlanCanvas);
 }
 
-function savePlanState() {
-  svPlan({ floors: planState.floors, scale: planState.scale, activeFloor: planState.activeFloor });
+function savePlan() {
+  svPlan({ floors: planState.floors, scale: planState.scale, activeFloor: planState.activeFloor, _preloaded: true });
   pushUndo();
 }
-
 function pushUndo() {
   undoStack.push(JSON.stringify(planState.floors));
-  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  if (undoStack.length > 30) undoStack.shift();
   redoStack = [];
 }
-
 function undoPlan() {
   if (!undoStack.length) return;
   redoStack.push(JSON.stringify(planState.floors));
   planState.floors = JSON.parse(undoStack.pop());
-  svPlan({ floors: planState.floors, scale: planState.scale });
-  renderPlan();
-  toast('Rückgängig ↺', 'info');
+  savePlan(); renderPlan(); toast('Undone ↺','info');
 }
-
 function redoPlan() {
   if (!redoStack.length) return;
   undoStack.push(JSON.stringify(planState.floors));
   planState.floors = JSON.parse(redoStack.pop());
-  svPlan({ floors: planState.floors, scale: planState.scale });
-  renderPlan();
-  toast('Wiederherstellen ↻', 'info');
+  savePlan(); renderPlan(); toast('Redone ↻','info');
 }
-
 function getFloor() { return planState.floors[planState.activeFloor] || planState.floors[0]; }
 
-// ---- Canvas setup ----
-function setupCanvasListeners(canvas) {
-  canvas.addEventListener('mousedown',  e => onPlanDown(e, canvas));
-  canvas.addEventListener('mousemove',  e => onPlanMove(e, canvas));
-  canvas.addEventListener('mouseup',    e => onPlanUp(e, canvas));
-  canvas.addEventListener('dblclick',   e => onPlanDbl(e, canvas));
-  canvas.addEventListener('touchstart', e => { e.preventDefault(); onPlanDown(e, canvas); }, { passive: false });
-  canvas.addEventListener('touchmove',  e => { e.preventDefault(); onPlanMove(e, canvas); }, { passive: false });
-  canvas.addEventListener('touchend',   e => { e.preventDefault(); onPlanUp(e, canvas); }, { passive: false });
-  canvas.addEventListener('contextmenu',e => { e.preventDefault(); onPlanRight(e, canvas); });
-  // Keyboard on canvas focus
-  canvas.setAttribute('tabindex', '0');
+// ── Canvas listeners ────────────────────────────────────────
+function setupPlanListeners(canvas) {
+  canvas.addEventListener('mousedown', e => onPlanDown(e, canvas));
+  canvas.addEventListener('mousemove', e => onPlanMove(e, canvas));
+  canvas.addEventListener('mouseup',   e => onPlanUp(e, canvas));
+  canvas.addEventListener('dblclick',  e => onPlanDbl(e, canvas));
+  canvas.addEventListener('contextmenu', e => { e.preventDefault(); onPlanRight(e, canvas); });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); onPlanDown(e, canvas); }, { passive:false });
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); onPlanMove(e, canvas); }, { passive:false });
+  canvas.addEventListener('touchend',   e => { e.preventDefault(); onPlanUp(e, canvas);   }, { passive:false });
+  canvas.setAttribute('tabindex','0');
   canvas.addEventListener('keydown', e => {
-    if (e.key === 'Delete' || e.key === 'Backspace') deleteSelected();
-    if (e.key === 'ArrowRight') nudgeSelected(5, 0);
-    if (e.key === 'ArrowLeft')  nudgeSelected(-5, 0);
-    if (e.key === 'ArrowUp')    nudgeSelected(0, -5);
-    if (e.key === 'ArrowDown')  nudgeSelected(0, 5);
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoPlan(); }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redoPlan(); }
+    if (e.key==='Delete'||e.key==='Backspace') deleteSelected();
+    if (e.key==='ArrowRight') nudge(5,0); if (e.key==='ArrowLeft') nudge(-5,0);
+    if (e.key==='ArrowUp')    nudge(0,-5);if (e.key==='ArrowDown')  nudge(0,5);
+    if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); undoPlan(); }
+    if ((e.ctrlKey||e.metaKey)&&e.key==='y') { e.preventDefault(); redoPlan(); }
   });
 }
-
 function getPos(e, canvas) {
   const r = canvas.getBoundingClientRect();
   const t = e.touches ? e.touches[0] : e;
   return { x: t.clientX - r.left, y: t.clientY - r.top };
 }
-
-function snap(v) {
-  const s = Math.max(5, Math.round(planState.scale / 4));
-  return Math.round(v / s) * s;
-}
-
-function hitTestItems(items, pos) {
-  for (let i = items.length - 1; i >= 0; i--) {
-    const it = items[i];
-    if (pos.x >= it.x && pos.x <= it.x + it.w && pos.y >= it.y && pos.y <= it.y + it.h) return it;
+function snap(v) { const s = Math.max(5, Math.round(planState.scale/4)); return Math.round(v/s)*s; }
+function hitAll(pos) {
+  const fl = getFloor();
+  const all = [...(fl.furniture||[]),...(fl.rooms||[])];
+  for (let i=all.length-1;i>=0;i--) {
+    const it=all[i]; if(pos.x>=it.x&&pos.x<=it.x+it.w&&pos.y>=it.y&&pos.y<=it.y+it.h) return it;
   }
   return null;
 }
 
 function onPlanDown(e, canvas) {
   const pos = getPos(e, canvas);
-  const floor = getFloor();
-
-  if (planTool === 'room') {
-    drawStart = { x: snap(pos.x), y: snap(pos.y) };
+  const fl  = getFloor();
+  if (planTool==='room') {
+    drawStart   = { x:snap(pos.x), y:snap(pos.y) };
     drawCurrent = { ...drawStart };
-
-  } else if (planTool === 'furn') {
-    const fc = FURNITURE[furnType];
-    if (!fc) return;
-    const fw = fc.w * planState.scale, fh = fc.h * planState.scale;
-    const newF = {
-      id: uid(), type: furnType,
-      x: snap(pos.x - fw / 2), y: snap(pos.y - fh / 2),
-      w: fw, h: fh,
-      emoji: fc.emoji, label: fc.l, color: fc.color,
-      rotation: 0
-    };
-    floor.furniture.push(newF);
-    selected = newF.id;
-    savePlanState(); renderPlan();
-    toast(fc.l + ' platziert!', 'info', 1500);
-
-  } else if (planTool === 'select') {
-    const hitF = hitTestItems(floor.furniture, pos);
-    const hitR = hitTestItems(floor.rooms, pos);
-    const hit  = hitF || hitR;
+  } else if (planTool==='furn') {
+    const fc = FURNITURE[furnType]; if (!fc) return;
+    const fw = fc.w*planState.scale, fh = fc.h*planState.scale;
+    const nf = { id:uid(), type:furnType, x:snap(pos.x-fw/2), y:snap(pos.y-fh/2), w:fw, h:fh, emoji:fc.emoji, label:fc.l, color:fc.color };
+    fl.furniture.push(nf); selected=nf.id; savePlan(); renderPlan();
+    toast(fc.l+' placed 🛋️','info',1500);
+  } else if (planTool==='select') {
+    const hit = hitAll(pos);
     selected = hit ? hit.id : null;
-    if (hit) { dragging = hit; dragOff = { x: pos.x - hit.x, y: pos.y - hit.y }; }
-    renderPlan(); updateRoomSidebar();
-
-  } else if (planTool === 'erase') {
-    const all = [...floor.furniture, ...floor.rooms];
-    const hit = hitTestItems(all, pos);
+    if (hit) { dragging=hit; dragOff={x:pos.x-hit.x,y:pos.y-hit.y}; }
+    renderPlan(); rPlanSidebar();
+  } else if (planTool==='erase') {
+    const hit = hitAll(pos);
     if (hit) {
-      floor.rooms     = floor.rooms.filter(r => r.id !== hit.id);
-      floor.furniture = floor.furniture.filter(f => f.id !== hit.id);
-      selected = null; savePlanState(); renderPlan(); updateRoomSidebar();
+      fl.rooms     = (fl.rooms||[]).filter(r=>r.id!==hit.id);
+      fl.furniture = (fl.furniture||[]).filter(f=>f.id!==hit.id);
+      selected=null; savePlan(); renderPlan(); rPlanSidebar();
     }
-  } else if (planTool === 'paint') {
-    const hit = hitTestItems(floor.rooms, pos);
-    if (hit) {
-      hit.color = document.getElementById('plan-paint-color')?.value || '#fce4ec';
-      savePlanState(); renderPlan();
-    }
+  } else if (planTool==='paint') {
+    const hit = (fl.rooms||[]).slice().reverse().find(r=>pos.x>=r.x&&pos.x<=r.x+r.w&&pos.y>=r.y&&pos.y<=r.y+r.h);
+    if (hit) { hit.color=document.getElementById('plan-paint-color')?.value||'#fce4ec'; savePlan(); renderPlan(); }
   }
 }
-
 function onPlanMove(e, canvas) {
   const pos = getPos(e, canvas);
-  if (planTool === 'room' && drawStart) {
-    drawCurrent = { x: pos.x, y: pos.y };
-    renderPlan();
-  } else if (planTool === 'select' && dragging) {
-    dragging.x = snap(pos.x - dragOff.x);
-    dragging.y = snap(pos.y - dragOff.y);
-    renderPlan();
+  if (planTool==='room'&&drawStart) { drawCurrent={x:pos.x,y:pos.y}; renderPlan(); }
+  else if (planTool==='select'&&dragging) { dragging.x=snap(pos.x-dragOff.x); dragging.y=snap(pos.y-dragOff.y); renderPlan(); }
+  else {
+    // hover detection for room tooltip
+    const fl = getFloor();
+    const hov = (fl.rooms||[]).slice().reverse().find(r=>pos.x>=r.x&&pos.x<=r.x+r.w&&pos.y>=r.y&&pos.y<=r.y+r.h);
+    if ((hov?.id||null) !== hoveredRoom) { hoveredRoom = hov?.id||null; renderPlan(); }
   }
 }
-
 function onPlanUp(e, canvas) {
-  if (planTool === 'room' && drawStart && drawCurrent) {
-    const x1 = Math.min(drawStart.x, drawCurrent.x), y1 = Math.min(drawStart.y, drawCurrent.y);
-    const x2 = Math.max(drawStart.x, drawCurrent.x), y2 = Math.max(drawStart.y, drawCurrent.y);
-    const w = snap(x2 - x1), h = snap(y2 - y1);
-    if (w > planState.scale * 0.5 && h > planState.scale * 0.5) {
-      const roomType = ROOM_TYPES[roomColorIdx % ROOM_TYPES.length];
-      roomColorIdx++;
-      const room = { id: uid(), x: x1, y: y1, w, h, label: 'Raum', color: roomType.color };
-      getFloor().rooms.push(room);
-      selected = room.id;
-      savePlanState(); updateRoomSidebar();
+  if (planTool==='room'&&drawStart&&drawCurrent) {
+    const x1=Math.min(drawStart.x,drawCurrent.x), y1=Math.min(drawStart.y,drawCurrent.y);
+    const x2=Math.max(drawStart.x,drawCurrent.x), y2=Math.max(drawStart.y,drawCurrent.y);
+    const w=snap(x2-x1), h=snap(y2-y1);
+    if (w>planState.scale*.4&&h>planState.scale*.4) {
+      const color = ROOM_COLORS_CYCLE[roomColorIdx%ROOM_COLORS_CYCLE.length]; roomColorIdx++;
+      const room = { id:uid(), label:'Room', color, x:x1, y:y1, w, h, area:((w/planState.scale)*(h/planState.scale)).toFixed(1) };
+      getFloor().rooms.push(room); selected=room.id; savePlan(); rPlanSidebar();
     }
-    drawStart = null; drawCurrent = null; renderPlan();
-  } else if (planTool === 'select' && dragging) {
-    savePlanState(); dragging = null;
-  }
+    drawStart=null; drawCurrent=null; renderPlan();
+  } else if (planTool==='select'&&dragging) { savePlan(); dragging=null; }
 }
-
 function onPlanDbl(e, canvas) {
-  const pos = getPos(e, canvas);
-  const floor = getFloor();
-  const all = [...floor.furniture, ...floor.rooms];
-  const hit = hitTestItems(all, pos);
-  if (hit) {
-    inlineEdit('Name / Label', hit.label || '', v => {
-      hit.label = v; savePlanState(); renderPlan(); updateRoomSidebar();
-    });
-  }
+  const pos=getPos(e,canvas); const hit=hitAll(pos);
+  if (hit) inlineEdit('Label', hit.label||'', v=>{ hit.label=v; savePlan(); renderPlan(); rPlanSidebar(); });
 }
-
 function onPlanRight(e, canvas) {
-  const pos = getPos(e, canvas);
-  const floor = getFloor();
-  const hitF = hitTestItems(floor.furniture, pos);
-  if (hitF) {
-    rotateFurniture(hitF.id, 90);
-  }
+  const pos=getPos(e,canvas);
+  const fl=getFloor();
+  const hit=(fl.furniture||[]).slice().reverse().find(f=>pos.x>=f.x&&pos.x<=f.x+f.w&&pos.y>=f.y&&pos.y<=f.y+f.h);
+  if (hit) { const t=hit.w; hit.w=hit.h; hit.h=t; savePlan(); renderPlan(); toast('Rotated 90°','info',1000); }
 }
 
-// ---- Tool management ----
+// ── Tools ────────────────────────────────────────────────────
 function setPlanTool(t) {
   planTool = t;
-  document.querySelectorAll('.ptool').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById('tool-' + t);
-  if (btn) btn.classList.add('active');
-  const canvas = document.getElementById('canvas-plan');
+  document.querySelectorAll('.ptool').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tool-'+t)?.classList.add('active');
+  const canvas=document.getElementById('canvas-plan');
   if (canvas) {
-    const cursors = { select:'default', room:'crosshair', furn:'cell', erase:'not-allowed', paint:'cell' };
-    canvas.style.cursor = cursors[t] || 'default';
+    const curs={select:'default',room:'crosshair',furn:'cell',erase:'not-allowed',paint:'cell'};
+    canvas.style.cursor=curs[t]||'default';
   }
-  document.getElementById('furn-bar').style.display = (t === 'furn') ? 'flex' : 'none';
-  const tips = {
-    select: 'Klicken = auswählen · Ziehen = verschieben · Doppelklick = umbenennen · Del = löschen · Pfeiltasten = fine-tune · Rechtsklick = drehen',
-    room:   'Ziehen = Raum zeichnen · Doppelklick = umbenennen',
-    furn:   'Klicken = Möbel platzieren · Rechtsklick auf Möbel = drehen (90°)',
-    erase:  'Klicken = Raum oder Möbel löschen',
-    paint:  'Klicken auf Raum = Farbe ändern',
+  document.getElementById('furn-bar').style.display = t==='furn' ? 'flex' : 'none';
+  const tips={
+    select: 'Click to select · Drag to move · Dbl-click to rename · Del to delete · Right-click furniture to rotate',
+    room:   'Drag to draw a room · Dbl-click to rename',
+    furn:   'Click to place furniture · Right-click to rotate',
+    erase:  'Click to delete room or furniture',
+    paint:  'Click a room to change its colour',
   };
-  const statusEl = document.getElementById('plan-status');
-  if (statusEl) statusEl.textContent = '💡 ' + (tips[t] || '');
+  document.getElementById('plan-status').textContent = '💡 ' + (tips[t]||'');
 }
-
 function selectFurnType(type) {
   furnType = type;
-  document.querySelectorAll('.furn-btn').forEach(b => b.classList.toggle('active', b.dataset.furn === type));
+  document.querySelectorAll('.furn-btn').forEach(b=>b.classList.toggle('active', b.dataset.furn===type));
 }
-
-// ---- Actions ----
 function deleteSelected() {
   if (!selected) return;
-  const floor = getFloor();
-  floor.rooms     = floor.rooms.filter(r => r.id !== selected);
-  floor.furniture = floor.furniture.filter(f => f.id !== selected);
-  selected = null; savePlanState(); renderPlan(); updateRoomSidebar();
+  const fl=getFloor();
+  fl.rooms     = (fl.rooms||[]).filter(r=>r.id!==selected);
+  fl.furniture = (fl.furniture||[]).filter(f=>f.id!==selected);
+  selected=null; savePlan(); renderPlan(); rPlanSidebar();
 }
-
-function nudgeSelected(dx, dy) {
-  const floor = getFloor();
-  const all = [...floor.rooms, ...floor.furniture];
-  const it = all.find(x => x.id === selected);
-  if (it) { it.x += dx; it.y += dy; savePlanState(); renderPlan(); }
+function nudge(dx,dy) {
+  const fl=getFloor(); const all=[...(fl.rooms||[]),...(fl.furniture||[])];
+  const it=all.find(x=>x.id===selected);
+  if(it){it.x+=dx;it.y+=dy;savePlan();renderPlan();}
 }
-
-function rotateFurniture(id, deg) {
-  const floor = getFloor();
-  const f = floor.furniture.find(x => x.id === id);
-  if (f) {
-    f.rotation = ((f.rotation || 0) + deg) % 360;
-    // swap w/h for 90° increments
-    if (deg % 90 === 0 && deg % 180 !== 0) { const tmp = f.w; f.w = f.h; f.h = tmp; }
-    savePlanState(); renderPlan();
-  }
-}
-
-function clearFloor() {
-  confirmDialog('Alle Elemente auf diesem Stockwerk löschen?', () => {
-    getFloor().rooms = []; getFloor().furniture = []; selected = null;
-    savePlanState(); renderPlan(); updateRoomSidebar();
-    toast('Stockwerk geleert', 'warn');
-  });
-}
-
-function clearAllFloors() {
-  confirmDialog('ALLES löschen (alle Stockwerke)?', () => {
-    planState.floors.forEach(f => { f.rooms = []; f.furniture = []; });
-    selected = null; savePlanState(); renderPlan(); updateRoomSidebar();
-    toast('Alles gelöscht', 'warn');
-  });
-}
-
 function setPlanScale() {
-  planState.scale = parseInt(document.getElementById('plan-scale').value) || 30;
-  savePlanState(); renderPlan();
+  planState.scale=parseInt(document.getElementById('plan-scale').value)||45;
+  savePlan(); renderPlan();
+}
+function clearFloor() {
+  confirmDlg('Delete all elements on this floor?', ()=>{
+    getFloor().rooms=[]; getFloor().furniture=[]; selected=null;
+    savePlan(); renderPlan(); rPlanSidebar(); toast('Floor cleared','warn');
+  });
+}
+function downloadPlan() {
+  const canvas=document.getElementById('canvas-plan'); if(!canvas) return;
+  const a=document.createElement('a');
+  a.download='floor_plan_'+todayISO()+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+  toast('Plan saved 📸','green');
 }
 
-// ---- Multi-floor management ----
+// ── Multi-floor ──────────────────────────────────────────────
 function addFloor() {
-  const name = prompt('Stockwerk-Name:', 'Obergeschoss ' + planState.floors.length);
-  if (!name) return;
-  planState.floors.push({ id: uid(), name, rooms: [], furniture: [] });
-  savePlanState();
-  renderFloorTabs();
+  const name=prompt('Floor name:','Second Floor');
+  if(!name) return;
+  planState.floors.push({id:uid(),name,rooms:[],furniture:[]});
+  savePlan(); renderFloorTabs();
 }
-
 function switchFloor(idx) {
-  planState.activeFloor = idx;
-  selected = null;
-  savePlanState();
-  renderFloorTabs();
-  renderPlan();
-  updateRoomSidebar();
+  planState.activeFloor=idx; selected=null;
+  savePlan(); renderFloorTabs(); renderPlan(); rPlanSidebar();
 }
-
 function renderFloorTabs() {
-  const el = document.getElementById('floor-tabs');
-  if (!el) return;
-  el.innerHTML = planState.floors.map((fl, i) =>
-    `<button class="floor-tab ${i === planState.activeFloor ? 'active' : ''}" onclick="switchFloor(${i})">${esc(fl.name)}</button>`
-  ).join('') + `<button class="floor-tab add-floor" onclick="addFloor()">+ Stockwerk</button>`;
+  const el=document.getElementById('floor-tabs'); if(!el) return;
+  el.innerHTML = planState.floors.map((fl,i)=>
+    `<button class="floor-tab ${i===planState.activeFloor?'active':''}" onclick="switchFloor(${i})">${esc(fl.name)}</button>`
+  ).join('') + `<button class="floor-tab add-btn" onclick="addFloor()">+ Floor</button>`;
 }
 
-// ---- RENDER ----
+// ── RENDER ───────────────────────────────────────────────────
 function renderPlan() {
-  const canvas = document.getElementById('canvas-plan');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+  const canvas=document.getElementById('canvas-plan'); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const sc=planState.scale;
+  ctx.clearRect(0,0,W,H);
 
   // Background
-  ctx.fillStyle = '#fafafa';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle='#fafafa'; ctx.fillRect(0,0,W,H);
 
   // Grid
-  if (document.getElementById('plan-grid')?.checked !== false) {
-    ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5;
-    for (let x = 0; x < W; x += planState.scale) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-    for (let y = 0; y < H; y += planState.scale) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  if (document.getElementById('plan-grid')?.checked!==false) {
+    ctx.strokeStyle='#e8ecf0'; ctx.lineWidth=.5;
+    for(let x=0;x<W;x+=sc){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=sc){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
   }
 
-  // Scale indicator (bottom left)
-  const sc = planState.scale;
-  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(8, H - 10); ctx.lineTo(8 + sc, H - 10); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(8, H - 14); ctx.lineTo(8, H - 6); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(8 + sc, H - 14); ctx.lineTo(8 + sc, H - 6); ctx.stroke();
-  ctx.fillStyle = '#888'; ctx.font = '10px Calibri'; ctx.textAlign = 'center';
-  ctx.fillText('1 m', 8 + sc / 2, H - 14);
+  // Scale bar
+  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(8,H-10); ctx.lineTo(8+sc,H-10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8,H-14); ctx.lineTo(8,H-6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8+sc,H-14); ctx.lineTo(8+sc,H-6); ctx.stroke();
+  ctx.fillStyle='#64748b'; ctx.font='9px DM Sans,sans-serif'; ctx.textAlign='center';
+  ctx.fillText('1 m', 8+sc/2, H-16);
 
-  const floor = getFloor();
+  const fl=getFloor();
 
   // Rooms
-  floor.rooms.forEach(r => {
-    ctx.fillStyle = r.color || '#fce4ec';
-    ctx.fillRect(r.x, r.y, r.w, r.h);
+  (fl.rooms||[]).forEach(r=>{
+    const isHov  = r.id===hoveredRoom;
+    const isSel  = r.id===selected;
+    // Check if this room has linked buy items
+    const items  = ldBuy().filter(it=>it.roomId===r.id);
+    ctx.fillStyle = r.color||'#fce4ec';
+    ctx.fillRect(r.x,r.y,r.w,r.h);
     // Border
-    ctx.strokeStyle = r.id === selected ? '#e91e63' : '#9e9e9e';
-    ctx.lineWidth = r.id === selected ? 2.5 : 1.5;
-    ctx.strokeRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = isSel?'#e11d48':isHov?'#f43f5e':'#94a3b8';
+    ctx.lineWidth = isSel?2.5:isHov?2:1.5;
+    ctx.strokeRect(r.x,r.y,r.w,r.h);
     // Label
-    const fontSize = Math.min(16, Math.max(9, Math.min(r.w, r.h) * 0.18));
-    ctx.fillStyle = '#333'; ctx.font = `bold ${fontSize}px Calibri`; ctx.textAlign = 'center';
-    ctx.fillText(r.label || 'Raum', r.x + r.w / 2, r.y + r.h / 2 + fontSize * 0.35);
-    // Dimensions (m)
-    const wm = (r.w / sc).toFixed(1) + 'm';
-    const hm = (r.h / sc).toFixed(1) + 'm';
-    ctx.fillStyle = '#777'; ctx.font = '9px Calibri'; ctx.textAlign = 'center';
-    ctx.fillText(wm, r.x + r.w / 2, r.y + r.h - 3);
-    ctx.save();
-    ctx.translate(r.x + 9, r.y + r.h / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText(hm, 0, 0);
-    ctx.restore();
-    // Area
-    const area = ((r.w / sc) * (r.h / sc)).toFixed(1);
-    if (r.w > 60 && r.h > 60) {
-      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.font = '8px Calibri'; ctx.textAlign = 'center';
-      ctx.fillText(area + ' m²', r.x + r.w / 2, r.y + r.h / 2 + fontSize * 0.35 + fontSize + 3);
+    const fs=Math.min(15,Math.max(9,Math.min(r.w,r.h)*.16));
+    ctx.fillStyle='#1e293b'; ctx.font=`600 ${fs}px 'DM Sans',sans-serif`; ctx.textAlign='center';
+    ctx.fillText(r.label||'Room', r.x+r.w/2, r.y+r.h/2+fs*.35);
+    // Dimensions
+    const wm=(r.w/sc).toFixed(1)+'m', hm=(r.h/sc).toFixed(1)+'m';
+    const area=((r.w/sc)*(r.h/sc)).toFixed(1);
+    ctx.fillStyle='#64748b'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(wm, r.x+r.w/2, r.y+r.h-3);
+    ctx.save(); ctx.translate(r.x+8,r.y+r.h/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText(hm,0,0); ctx.restore();
+    if(r.w>60&&r.h>60){
+      ctx.fillStyle='rgba(15,23,42,.3)'; ctx.font='7px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(area+' m²', r.x+r.w/2, r.y+r.h/2+fs*.35+fs+3);
+    }
+    // Item count badge
+    if (items.length) {
+      const bx=r.x+r.w-8, by=r.y+6, br=9;
+      ctx.fillStyle='#e11d48'; ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font=`bold 8px sans-serif`; ctx.textAlign='center';
+      ctx.fillText(items.length,bx,by+3);
     }
     // Selection handles
-    if (r.id === selected) {
-      [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]].forEach(([hx,hy]) => {
-        ctx.fillStyle = '#e91e63'; ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI*2); ctx.fill();
+    if (isSel) {
+      [[r.x,r.y],[r.x+r.w,r.y],[r.x,r.y+r.h],[r.x+r.w,r.y+r.h]].forEach(([hx,hy])=>{
+        ctx.fillStyle='#e11d48'; ctx.beginPath(); ctx.arc(hx,hy,5,0,Math.PI*2); ctx.fill();
       });
     }
   });
 
   // Drawing preview
-  if (drawStart && drawCurrent) {
-    const x1 = Math.min(drawStart.x, drawCurrent.x), y1 = Math.min(drawStart.y, drawCurrent.y);
-    const x2 = Math.max(drawStart.x, drawCurrent.x), y2 = Math.max(drawStart.y, drawCurrent.y);
-    ctx.fillStyle = 'rgba(233,30,99,.1)'; ctx.fillRect(x1, y1, x2-x1, y2-y1);
-    ctx.strokeStyle = '#e91e63'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
-    ctx.strokeRect(x1, y1, x2-x1, y2-y1); ctx.setLineDash([]);
-    const dw = ((x2-x1)/sc).toFixed(1), dh = ((y2-y1)/sc).toFixed(1);
-    ctx.fillStyle = '#e91e63'; ctx.font = 'bold 11px Calibri'; ctx.textAlign = 'center';
-    ctx.fillText(dw + ' × ' + dh + ' m', x1 + (x2-x1)/2, y1 - 6);
+  if (drawStart&&drawCurrent) {
+    const x1=Math.min(drawStart.x,drawCurrent.x), y1=Math.min(drawStart.y,drawCurrent.y);
+    const x2=Math.max(drawStart.x,drawCurrent.x), y2=Math.max(drawStart.y,drawCurrent.y);
+    ctx.fillStyle='rgba(225,29,72,.1)'; ctx.fillRect(x1,y1,x2-x1,y2-y1);
+    ctx.strokeStyle='#e11d48'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+    ctx.strokeRect(x1,y1,x2-x1,y2-y1); ctx.setLineDash([]);
+    const dw=((x2-x1)/sc).toFixed(1), dh=((y2-y1)/sc).toFixed(1);
+    ctx.fillStyle='#e11d48'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(dw+' × '+dh+' m', x1+(x2-x1)/2, y1-6);
   }
 
-  // Furniture
-  floor.furniture.forEach(f => {
+  // Furniture + buy items placed in plan
+  const buyPlaced = ldBuy().filter(it=>it.placedInPlan&&it.planFloor===getFloor().id);
+
+  (fl.furniture||[]).forEach(f=>{
     ctx.save();
-    if (f.rotation) {
-      ctx.translate(f.x + f.w/2, f.y + f.h/2);
-      ctx.rotate(f.rotation * Math.PI / 180);
-      ctx.translate(-f.w/2, -f.h/2);
-    } else {
-      ctx.translate(f.x, f.y);
-    }
-    // Shadow
-    ctx.shadowColor = 'rgba(0,0,0,.1)'; ctx.shadowBlur = 4;
-    ctx.fillStyle = f.color || 'rgba(255,255,255,.92)';
-    ctx.fillRect(0, 0, f.w, f.h);
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = (f.id === selected) ? '#e91e63' : '#bdbdbd';
-    ctx.lineWidth = f.id === selected ? 2 : 1;
-    ctx.strokeRect(0, 0, f.w, f.h);
-    // Emoji
-    const efs = Math.min(f.w, f.h) * 0.6;
-    ctx.font = Math.max(10, efs) + 'px serif';
-    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,.75)';
-    ctx.fillText(f.emoji || '📦', f.w/2, f.h/2 + efs * 0.35);
-    // Label
-    if (f.w > 40) {
-      const lfs = Math.min(9, f.w / 8);
-      ctx.fillStyle = '#666'; ctx.font = lfs + 'px Calibri'; ctx.textAlign = 'center';
-      ctx.fillText(trunc(f.label, 16), f.w/2, f.h - 2);
-    }
+    ctx.translate(f.x,f.y);
+    ctx.shadowColor='rgba(0,0,0,.1)'; ctx.shadowBlur=4;
+    ctx.fillStyle=f.color||'rgba(255,255,255,.92)'; ctx.fillRect(0,0,f.w,f.h);
+    ctx.shadowBlur=0;
+    ctx.strokeStyle=f.id===selected?'#e11d48':'#cbd5e1';
+    ctx.lineWidth=f.id===selected?2.5:1;
+    ctx.strokeRect(0,0,f.w,f.h);
+    const efs=Math.min(f.w,f.h)*.6;
+    ctx.font=Math.max(10,efs)+'px serif'; ctx.textAlign='center'; ctx.fillStyle='rgba(0,0,0,.7)';
+    ctx.fillText(f.emoji||'📦', f.w/2, f.h/2+efs*.35);
+    if(f.w>40){ctx.fillStyle='#475569';ctx.font=(Math.min(9,f.w/8))+'px sans-serif';ctx.textAlign='center';ctx.fillText(trunc(f.label,14),f.w/2,f.h-2);}
     ctx.restore();
-    // Selection overlay
-    if (f.id === selected) {
-      ctx.strokeStyle = '#e91e63'; ctx.lineWidth = 2.5;
-      ctx.strokeRect(f.x, f.y, f.w, f.h);
-    }
+  });
+
+  // Buy items placed in plan (shown as colored overlays)
+  buyPlaced.forEach(it=>{
+    const wPx=(it.widthCm||50)/100*sc, dPx=(it.depthCm||50)/100*sc;
+    const x=it.planX||0, y=it.planY||0;
+    const room = ROOMS.find(r=>r.id===it.roomId);
+    const col  = room ? room.color : '#fce4ec';
+    ctx.save();
+    ctx.globalAlpha=.7;
+    ctx.fillStyle=col; ctx.fillRect(x,y,wPx,dPx);
+    ctx.strokeStyle='#e11d48'; ctx.lineWidth=1.5; ctx.strokeRect(x,y,wPx,dPx);
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#1e293b'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(trunc(it.name,10), x+wPx/2, y+dPx/2+4);
+    ctx.restore();
   });
 }
 
-// ---- Room sidebar ----
-function updateRoomSidebar() {
-  const el = document.getElementById('room-sidebar');
-  if (!el) return;
-  const floor = getFloor();
-  if (!floor.rooms.length) { el.innerHTML = '<div style="color:#bbb;font-size:.72rem;text-align:center;padding:10px">Noch keine Räume</div>'; return; }
-  const sc = planState.scale;
-  el.innerHTML = floor.rooms.map(r => {
-    const area = ((r.w/sc) * (r.h/sc)).toFixed(1);
-    const fw   = (r.w/sc).toFixed(1), fh = (r.h/sc).toFixed(1);
-    return `<div class="room-item ${r.id === selected ? 'active' : ''}" onclick="selectRoom('${r.id}')">
+// ── Sidebar ──────────────────────────────────────────────────
+function rPlanSidebar() {
+  const el=document.getElementById('room-sidebar'); if(!el) return;
+  const fl=getFloor();
+  const sc=planState.scale;
+  if(!fl.rooms?.length) { el.innerHTML='<div style="color:var(--bd3);font-size:.7rem;text-align:center;padding:10px">No rooms yet — draw some!</div>'; return; }
+  el.innerHTML = fl.rooms.map(r=>{
+    const area=((r.w/sc)*(r.h/sc)).toFixed(1);
+    const wm=(r.w/sc).toFixed(1), hm=(r.h/sc).toFixed(1);
+    const items=ldBuy().filter(it=>it.roomId===r.id);
+    return `<div class="room-item ${r.id===selected?'active':''}" onclick="selectRoom('${r.id}')">
       <span class="room-swatch" style="background:${r.color||'#fce4ec'}"></span>
       <div class="room-info">
-        <div class="room-name">${esc(r.label||'Raum')}</div>
-        <div class="room-dim">${fw} × ${fh} m · ${area} m²</div>
+        <div class="room-name">${esc(r.label||'Room')}</div>
+        <div class="room-dim">${wm}×${hm}m · ${area}m²</div>
       </div>
-      <button class="btn sml ico" title="Umbenennen" onclick="event.stopPropagation();renameRoom('${r.id}')">✏️</button>
-      <button class="btn sml ico" title="Löschen" onclick="event.stopPropagation();deleteRoom('${r.id}')">🗑️</button>
+      ${items.length?`<span class="room-item-count">${items.length}</span>`:''}
+      <button class="btn sml icon" onclick="event.stopPropagation();renameRoom('${r.id}')">✏️</button>
     </div>`;
   }).join('');
-  // Furniture count
-  if (floor.furniture.length) {
-    el.innerHTML += `<div style="font-size:.65rem;color:#aaa;padding:6px 4px;border-top:1px solid #eee;margin-top:6px">${floor.furniture.length} Möbel platziert</div>`;
+  if (fl.furniture?.length) {
+    el.innerHTML += `<div style="font-size:.6rem;color:var(--bd3);padding:6px 4px;border-top:1px solid var(--border);margin-top:4px">${fl.furniture.length} furniture item${fl.furniture.length!==1?'s':''} placed</div>`;
   }
 }
-
-function selectRoom(id) {
-  selected = id;
-  renderPlan(); updateRoomSidebar();
-}
+function selectRoom(id) { selected=id; renderPlan(); rPlanSidebar(); }
 function renameRoom(id) {
-  const r = getFloor().rooms.find(x => x.id === id);
-  if (!r) return;
-  inlineEdit('Raum benennen', r.label, v => { r.label = v; savePlanState(); renderPlan(); updateRoomSidebar(); });
-}
-function deleteRoom(id) {
-  getFloor().rooms = getFloor().rooms.filter(r => r.id !== id);
-  if (selected === id) selected = null;
-  savePlanState(); renderPlan(); updateRoomSidebar();
+  const r=(getFloor().rooms||[]).find(x=>x.id===id); if(!r) return;
+  inlineEdit('Room name',r.label,v=>{r.label=v;savePlan();renderPlan();rPlanSidebar();});
 }
 
-// ---- Export ----
-function downloadPlan() {
-  const canvas = document.getElementById('canvas-plan');
-  if (!canvas) return;
-  const a = document.createElement('a');
-  a.download = 'grundriss_' + todayISO() + '.png';
-  a.href = canvas.toDataURL('image/png');
-  a.click();
-  toast('Grundriss gespeichert 📸', 'green');
+// ── Plan Item panel: show items for a clicked room ───────────
+function showRoomItemsPanel(roomId) {
+  const items = ldBuy().filter(it=>it.roomId===roomId);
+  const room  = (getFloor().rooms||[]).find(r=>r.id===roomId);
+  if (!room||!items.length) return;
+  const total = items.reduce((s,it)=>s+(it.price||0),0);
+  inlineEdit(
+    `${room.label||'Room'} — ${items.length} items (${fmtEur(total,0)})`,
+    items.map(it=>it.name).join(', '),
+    ()=>{},
+    'Click OK to go to Buy tab'
+  );
 }
 
-// ---- Resize canvas ----
+// ── Canvas resize ────────────────────────────────────────────
 function resizePlanCanvas() {
-  const canvas = document.getElementById('canvas-plan');
-  const wrap   = document.getElementById('plan-canvas-wrap');
-  if (!canvas || !wrap) return;
-  const W = Math.min(900, wrap.offsetWidth || 600);
-  canvas.width  = W;
-  canvas.height = Math.round(W * 0.6);
+  const canvas=document.getElementById('canvas-plan');
+  const wrap  =document.getElementById('plan-canvas-wrap');
+  if(!canvas||!wrap) return;
+  const W=Math.min(900, wrap.offsetWidth||600);
+  canvas.width=W; canvas.height=Math.round(W*0.58);
   renderPlan();
 }
 
-// ---- rPlanUI: render the plan tab UI ----
-function rPlanUI() {
-  renderFloorTabs();
+// ── rPlanUI: called when switching to plan tab ───────────────
+function rPlanUI() { renderFloorTabs(); renderPlan(); rPlanSidebar(); }
+
+// ── Place a buy item in floor plan ───────────────────────────
+function placeItemInPlan(itemId) {
+  const it=getBuyItem(itemId); if(!it) return;
+  if(!it.roomId) { toast('Link item to a room first','warn'); return; }
+  // Find room, place item near center
+  const fl=getFloor();
+  const room=(fl.rooms||[]).find(r=>r.id===it.roomId);
+  if (!room) { toast('Room not found on this floor — switch floors or link to another room','warn'); return; }
+  const wPx=(it.widthCm||60)/100*planState.scale;
+  const dPx=(it.depthCm||60)/100*planState.scale;
+  it.placedInPlan=true;
+  it.planX = room.x + (room.w-wPx)/2;
+  it.planY = room.y + (room.h-dPx)/2;
+  it.planFloor=fl.id;
+  updBuyItem(it);
+  switchTab('plan');
+  toast(it.name+' placed in floor plan 🏠','green');
   renderPlan();
-  updateRoomSidebar();
 }

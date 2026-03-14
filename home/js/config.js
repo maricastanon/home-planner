@@ -1,11 +1,13 @@
 // ============================================================
-// config.js — Unser neues Zuhause · Global constants & config
+// config.js — Our New Home · Global constants (English)
 // ============================================================
+
+const APP_VERSION = '2.0';
+const APP_NAME    = 'Our New Home';
 
 // Storage keys
 const K = {
   plan:    'hnz_plan',
-  floors:  'hnz_floors',
   move:    'hnz_move',
   take:    'hnz_take',
   boxes:   'hnz_boxes',
@@ -14,182 +16,179 @@ const K = {
   compare: 'hnz_cmp',
   settings:'hnz_settings',
   activity:'hnz_activity',
-  undoStack:'hnz_undo',
+  movecl:  'hnz_movecl',
 };
 
-// App meta
-const APP_NAME = 'Unser neues Zuhause';
-const APP_VERSION = '2.0';
+// ── Rooms ───────────────────────────────────────────────────
+const ROOMS = [
+  { id:'r-kueche',  label:'Kitchen',          emoji:'🍳', color:'#dcfce7', colorDark:'#166534' },
+  { id:'r-wohnzim', label:'Living Room',       emoji:'🛋️', color:'#ffedd5', colorDark:'#9a3412' },
+  { id:'r-schlaf',  label:'Master Bedroom',    emoji:'🛏️', color:'#dbeafe', colorDark:'#1e40af' },
+  { id:'r-kinder',  label:"Children's Room",   emoji:'🧒', color:'#ede9fe', colorDark:'#5b21b6' },
+  { id:'r-esszim',  label:'Study / Dining',    emoji:'📚', color:'#fce7f3', colorDark:'#9d174d' },
+  { id:'r-bad',     label:'Bathroom',          emoji:'🛁', color:'#ccfbf1', colorDark:'#134e4a' },
+  { id:'r-wc',      label:'WC',                emoji:'🚽', color:'#e0f2fe', colorDark:'#0c4a6e' },
+  { id:'r-flur',    label:'Hallway',           emoji:'🚪', color:'#fef9c3', colorDark:'#713f12' },
+  { id:'r-other',   label:'Other',             emoji:'📦', color:'#f3f4f6', colorDark:'#374151' },
+];
+function getRoomById(id) { return ROOMS.find(r => r.id === id) || ROOMS[ROOMS.length-1]; }
 
-// Color palette (same family as apartment search)
-const COLORS = {
-  pk:  '#e91e63', pks: '#c2185b', pk2: '#f48fb1', pkl: '#fce4ec',
-  gn:  '#2e7d32', gns: '#1b5e20', gnl: '#e8f5e9',
-  bl:  '#1565c0', bll: '#e3f2fd',
-  or:  '#e65100', orl: '#fff3e0',
-  pur: '#7b1fa2', purl:'#f3e5f5',
-  bd:  '#2c3e50', bg:  '#fafafa',
+// ── Item categories + types ─────────────────────────────────
+const ITEM_CATEGORIES = [
+  {
+    k: 'Appliances', l: 'Appliances', e: '🏠',
+    types: ['Fridge','Freezer','Washing Machine','Dryer','Dishwasher','Oven','Hob','Microwave','Extractor Hood','Other Appliance'],
+    specsTemplate: ['Volume (L)','Energy Class','Noise (dB)','Width (cm)','Height (cm)','Depth (cm)']
+  },
+  {
+    k: 'Furniture', l: 'Furniture', e: '🛋️',
+    types: ['Sofa','Armchair','Bed','Wardrobe','Dresser','Bookshelf','Desk','Chair','Dining Table','Coffee Table','Nightstand','Shelf Unit','Other Furniture'],
+    specsTemplate: ['Width (cm)','Depth (cm)','Height (cm)','Material','Assembly required']
+  },
+  {
+    k: 'Electronics', l: 'Electronics', e: '📺',
+    types: ['TV','Monitor','Speaker System','Router','Smart Hub','Computer','Other Electronics'],
+    specsTemplate: ['Screen size (in)','Resolution','Connectivity','Power (W)']
+  },
+  {
+    k: 'Lighting', l: 'Lighting', e: '💡',
+    types: ['Ceiling Light','Floor Lamp','Wall Light','Desk Lamp','LED Strip','Other Lighting'],
+    specsTemplate: ['Lumen','Color temp (K)','Power (W)','Smart']
+  },
+  {
+    k: 'Kitchen', l: 'Kitchen Items', e: '🍳',
+    types: ['Sink','Faucet','Counter Top','Kitchen Cabinet','Range Hood','Other Kitchen'],
+    specsTemplate: ['Width (cm)','Depth (cm)','Material','Color']
+  },
+  {
+    k: 'Bathroom', l: 'Bathroom Items', e: '🚿',
+    types: ['Bathtub','Shower','Toilet','Sink','Mirror','Cabinet','Towel Rail','Other Bathroom'],
+    specsTemplate: ['Width (cm)','Depth (cm)','Material']
+  },
+  {
+    k: 'Textiles', l: 'Textiles & Soft', e: '🛏️',
+    types: ['Mattress','Bedding','Curtains','Rugs','Cushions','Other Textiles'],
+    specsTemplate: ['Size','Material','Color']
+  },
+  {
+    k: 'Decor', l: 'Decor & Plants', e: '🌿',
+    types: ['Plant','Picture','Mirror','Vase','Art','Clock','Other Decor'],
+    specsTemplate: ['Dimensions','Material']
+  },
+  {
+    k: 'Storage', l: 'Storage & Boxes', e: '📦',
+    types: ['Box','Bin','Basket','Rack','Other Storage'],
+    specsTemplate: ['Width (cm)','Height (cm)','Depth (cm)']
+  },
+];
+function getCatByKey(k) { return ITEM_CATEGORIES.find(c => c.k === k); }
+
+// Pre-defined pros/cons suggestions per category
+const PROS_SUGGESTIONS = {
+  Appliances:  ['Energy efficient','Very quiet','Large capacity','Easy to clean','Smart/WiFi','Excellent warranty','Fast','Durable','Good reviews','Compact'],
+  Furniture:   ['High quality','Easy assembly','Space saving','Timeless design','Durable material','Comfortable','Versatile','Sustainable','Good storage'],
+  Electronics: ['Sharp display','Good sound','Fast','Reliable brand','Good connectivity','Smart features','Low power'],
+  Lighting:    ['Bright','Warm tone','Dimmable','Smart','Energy efficient','Long lifetime'],
+  default:     ['Great value','Well reviewed','Premium quality','Durable','Easy to use','Fast delivery','In stock'],
+};
+const CONS_SUGGESTIONS = {
+  Appliances:  ['Expensive','Noisy','Large footprint','Short warranty','Complex controls','High energy use','Slow'],
+  Furniture:   ['Complex assembly','Heavy','Expensive','Not durable','Limited color options','Uncomfortable','Too large'],
+  Electronics: ['Expensive','Connectivity issues','Fragile','Complex setup','Poor support'],
+  default:     ['Pricey','Long delivery','Complex','Not in stock','Mixed reviews','Heavy'],
 };
 
-// Room types
-const ROOM_TYPES = [
-  { k:'wohnzimmer', l:'Wohnzimmer',   i:'🛋️', color:'#fce4ec' },
-  { k:'schlafzimmer',l:'Schlafzimmer',i:'🛏️', color:'#e3f2fd' },
-  { k:'kueche',    l:'Küche',         i:'🍳', color:'#e8f5e9' },
-  { k:'bad',       l:'Bad',           i:'🚿', color:'#e0f7fa' },
-  { k:'buero',     l:'Büro / Arbeitszimmer', i:'🖥️', color:'#fff9c4' },
-  { k:'eingang',   l:'Eingang / Flur',i:'🚪', color:'#ffe0b2' },
-  { k:'abstellraum',l:'Abstellraum',  i:'📦', color:'#f5f5f5' },
-  { k:'keller',    l:'Keller',        i:'🏚️', color:'#eceff1' },
-  { k:'balkon',    l:'Balkon / Terrasse',i:'🌿',color:'#dcedc8' },
-  { k:'custom',    l:'Sonstig',       i:'▭',  color:'#f3e5f5' },
+// ── Item statuses ────────────────────────────────────────────
+const ITEM_STATUSES = [
+  { k:'wishlist',    l:'Wishlist',    e:'💭', c:'gray'   },
+  { k:'researching', l:'Researching', e:'🔍', c:'blue'   },
+  { k:'decided',     l:'Decided',     e:'✅', c:'green'  },
+  { k:'ordered',     l:'Ordered',     e:'📦', c:'orange' },
+  { k:'delivered',   l:'Delivered',   e:'🚚', c:'teal'   },
+  { k:'placed',      l:'Placed',      e:'🏠', c:'pink'   },
 ];
 
-// Furniture / objects for floor plan
-const FURNITURE = {
-  // Bedroom
-  'bed-double':  { emoji:'🛏️', l:'Doppelbett',     w:4.0, h:3.2, cat:'Schlafzimmer', color:'#bbdefb' },
-  'bed-single':  { emoji:'🛏️', l:'Einzelbett',     w:2.5, h:4.0, cat:'Schlafzimmer', color:'#bbdefb' },
-  'wardrobe':    { emoji:'🚪', l:'Kleiderschrank',  w:3.5, h:0.8, cat:'Schlafzimmer', color:'#d7ccc8' },
-  'dresser':     { emoji:'🪞', l:'Kommode',         w:2.0, h:0.8, cat:'Schlafzimmer', color:'#d7ccc8' },
-  'nightstand':  { emoji:'🕯️', l:'Nachttisch',      w:0.8, h:0.8, cat:'Schlafzimmer', color:'#d7ccc8' },
-  // Living
-  'sofa':        { emoji:'🛋️', l:'Sofa',            w:5.0, h:2.2, cat:'Wohnzimmer',  color:'#f8bbd0' },
-  'sofa-l':      { emoji:'🛋️', l:'Sofa L-Form',     w:5.5, h:3.5, cat:'Wohnzimmer',  color:'#f8bbd0' },
-  'armchair':    { emoji:'🛋️', l:'Sessel',          w:2.0, h:2.0, cat:'Wohnzimmer',  color:'#f8bbd0' },
-  'table-coffee':{ emoji:'☕', l:'Couchtisch',       w:2.5, h:1.5, cat:'Wohnzimmer',  color:'#d7ccc8' },
-  'table-dining':{ emoji:'🪑', l:'Esstisch',        w:3.5, h:2.0, cat:'Wohnzimmer',  color:'#d7ccc8' },
-  'tv':          { emoji:'📺', l:'TV',               w:2.5, h:0.3, cat:'Wohnzimmer',  color:'#b0bec5' },
-  'tv-stand':    { emoji:'📺', l:'TV-Schrank',       w:2.5, h:0.6, cat:'Wohnzimmer',  color:'#d7ccc8' },
-  'bookshelf':   { emoji:'📚', l:'Bücherregal',      w:2.5, h:0.5, cat:'Wohnzimmer',  color:'#d7ccc8' },
-  'piano':       { emoji:'🎹', l:'Klavier / Piano',  w:3.5, h:1.5, cat:'Wohnzimmer',  color:'#263238' },
-  // Kitchen
-  'fridge':      { emoji:'🧊', l:'Kühlschrank',      w:1.0, h:0.8, cat:'Küche',        color:'#e0f2f1' },
-  'fridge-combo':{ emoji:'🧊', l:'Kühl-Gefrier',    w:1.0, h:0.8, cat:'Küche',        color:'#e0f2f1' },
-  'washer':      { emoji:'🫧', l:'Waschmaschine',    w:1.0, h:0.8, cat:'Bad/Küche',   color:'#e1f5fe' },
-  'dryer':       { emoji:'💨', l:'Trockner',         w:1.0, h:0.8, cat:'Bad/Küche',   color:'#e1f5fe' },
-  'dishwasher':  { emoji:'🍽️', l:'Spülmaschine',    w:1.0, h:0.8, cat:'Küche',        color:'#e0f2f1' },
-  'oven':        { emoji:'🔥', l:'Herd / Ofen',      w:2.0, h:0.8, cat:'Küche',        color:'#e0e0e0' },
-  'counter':     { emoji:'🔲', l:'Arbeitsplatte',    w:3.0, h:0.8, cat:'Küche',        color:'#f5f5f5' },
-  // Bathroom
-  'bath':        { emoji:'🛁', l:'Badewanne',        w:3.5, h:1.5, cat:'Bad',          color:'#e1f5fe' },
-  'shower':      { emoji:'🚿', l:'Dusche',           w:1.5, h:1.5, cat:'Bad',          color:'#e1f5fe' },
-  'toilet':      { emoji:'🚽', l:'Toilette',         w:0.9, h:1.4, cat:'Bad',          color:'#e1f5fe' },
-  'sink-bath':   { emoji:'🪥', l:'Waschbecken',      w:1.0, h:0.7, cat:'Bad',          color:'#e1f5fe' },
-  'sink-kitchen':{ emoji:'🚿', l:'Küchenspüle',      w:1.2, h:0.7, cat:'Küche',        color:'#b2dfdb' },
-  // Office
-  'desk':        { emoji:'🖥️', l:'Schreibtisch',     w:3.5, h:1.5, cat:'Büro',         color:'#fff9c4' },
-  'desk-corner': { emoji:'🖥️', l:'Eckschreibtisch',  w:4.0, h:4.0, cat:'Büro',         color:'#fff9c4' },
-  'chair-office':{ emoji:'🪑', l:'Bürostuhl',        w:1.0, h:1.0, cat:'Büro',         color:'#e8f5e9' },
-  'chair-dining':{ emoji:'🪑', l:'Essstuhl',         w:0.8, h:0.8, cat:'Wohnzimmer',   color:'#d7ccc8' },
-  // Other
-  'plant-large': { emoji:'🌿', l:'Große Pflanze',    w:0.8, h:0.8, cat:'Deko',         color:'#c8e6c9' },
-  'lamp-floor':  { emoji:'💡', l:'Stehlampe',        w:0.5, h:0.5, cat:'Deko',         color:'#fff9c4' },
-  'door':        { emoji:'🚪', l:'Tür',              w:0.2, h:1.5, cat:'Struktur',     color:'#a1887f' },
-  'window':      { emoji:'🪟', l:'Fenster',          w:1.5, h:0.2, cat:'Struktur',     color:'#b3e5fc' },
-};
-
-// Furniture categories for grouping in toolbar
-const FURN_CATS = ['Schlafzimmer','Wohnzimmer','Küche','Bad','Büro','Struktur','Deko'];
-
-// Move company statuses
-const COMPANY_STATUS = [
-  { k:'anfragen',  l:'Anfragen',          e:'📤', c:'gray'   },
-  { k:'angebot',   l:'Angebot erhalten',  e:'📋', c:'blue'   },
-  { k:'termin',    l:'Besichtigung',       e:'👁️', c:'orange' },
-  { k:'gebucht',   l:'Gebucht ✓',         e:'✅', c:'green'  },
-  { k:'abgesagt',  l:'Abgesagt',          e:'❌', c:'pink'   },
-];
-
-// Item conditions
-const CONDITIONS = [
-  { k:'neu',      l:'Neu (unbenutzt)', e:'✨' },
-  { k:'sehr-gut', l:'Sehr gut',        e:'👍' },
-  { k:'gut',      l:'Gut',             e:'👌' },
-  { k:'gebraucht',l:'Gebraucht',       e:'🔧' },
-  { k:'defekt',   l:'Defekt / Bastler',e:'⚠️' },
-];
-
-// Sell platforms
-const SELL_PLATFORMS = [
-  { k:'ebay',  l:'eBay Kleinanzeigen', e:'🟠', css:'ebay'  },
-  { k:'fb',    l:'Facebook Marketplace',e:'🔵',css:'fb'   },
-  { k:'local', l:'Lokal / Nachbar',   e:'🏘️', css:'local' },
-  { k:'flohm', l:'Flohmarkt',         e:'🎪', css:'gray'  },
-  { k:'give',  l:'Verschenken',       e:'🎁', css:'green' },
-];
-
-// Sell statuses
-const SELL_STATUS = [
-  { k:'active',   l:'Verfügbar',  e:'🟢', c:'green' },
-  { k:'reserved', l:'Reserviert', e:'🟡', c:'orange'},
-  { k:'sold',     l:'Verkauft',   e:'✅', c:'sold'  },
-  { k:'donated',  l:'Verschenkt', e:'🎁', c:'blue'  },
-  { k:'discarded',l:'Entsorgt',   e:'🗑️', c:'gray'  },
-];
-
-// Buy categories
-const BUY_CATS = [
-  { k:'Möbel',       l:'Möbel',            e:'🛋️' },
-  { k:'Elektronik',  l:'Elektronik',        e:'🔌' },
-  { k:'Haushaltsgeräte', l:'Haushaltsgeräte',e:'🏠'},
-  { k:'Küche',       l:'Küche',             e:'🍳' },
-  { k:'Bad',         l:'Bad',               e:'🚿' },
-  { k:'Schlafzimmer',l:'Schlafzimmer',      e:'🛏️' },
-  { k:'Deko',        l:'Deko & Pflanzen',   e:'🌸' },
-  { k:'Büro',        l:'Büro & Tech',       e:'🖥️' },
-  { k:'Sonstiges',   l:'Sonstiges',         e:'📋' },
-];
-
-// Buy priorities
+// ── Buy priorities ───────────────────────────────────────────
 const BUY_PRIOS = [
-  { k:'must', l:'Must-have', e:'🔴', w:3 },
-  { k:'want', l:'Want',      e:'🟡', w:2 },
-  { k:'nice', l:'Nice to have', e:'🟢', w:1 },
+  { k:'must', l:'Must-have', e:'🔴', color:'#fee2e2', colorText:'#991b1b' },
+  { k:'want', l:'Want',      e:'🟡', color:'#fef9c3', colorText:'#713f12' },
+  { k:'nice', l:'Nice-to-have', e:'🟢', color:'#dcfce7', colorText:'#14532d' },
 ];
 
-// Compare categories with their key features
-const CMP_CATS = {
-  'Kühlschrank':    { e:'🧊', feats:['Kapazität (L)','Energieklasse','Gefrierteil','Breite (cm)','Höhe (cm)','Lautstärke (dB)'] },
-  'Waschmaschine':  { e:'🫧', feats:['Fassungsvermögen (kg)','Schleudergang (U/min)','Energieklasse','Wasserverbrauch (L)','Lautstärke (dB)'] },
-  'Trockner':       { e:'💨', feats:['Fassungsvermögen (kg)','Energieklasse','Art','Lautstärke (dB)'] },
-  'Herd/Backofen':  { e:'🔥', feats:['Art','Backofenvolumen (L)','Anzahl Platten','Reinigung'] },
-  'Spülmaschine':   { e:'🍽️', feats:['Maßgedecke','Energieklasse','Wasserverbrauch (L)','Lautstärke (dB)','Breite (cm)'] },
-  'TV':             { e:'📺', feats:['Größe (Zoll)','Auflösung','Smart TV','HDR','Bildwiederholrate (Hz)'] },
-  'Sofa':           { e:'🛋️', feats:['Breite (cm)','Tiefe (cm)','Schlafsofafunktion','Material','Farbe'] },
-  'Bett':           { e:'🛏️', feats:['Größe (cm)','Bettkasten','Material','Lattenrost inkl.'] },
-  'Schreibtisch':   { e:'🖥️', feats:['Breite (cm)','Tiefe (cm)','Höhenverstellbar','Kabelmanagement'] },
-  'Sonstiges':      { e:'📋', feats:['Maße','Material','Besonderheit'] },
-};
+// ── Sell platforms ───────────────────────────────────────────
+const SELL_PLATFORMS = [
+  { k:'ebay',  l:'eBay Kleinanzeigen', e:'🟠', color:'#fed7aa', textColor:'#7c2d12' },
+  { k:'fb',    l:'Facebook Marketplace', e:'🔵', color:'#dbeafe', textColor:'#1e3a8a' },
+  { k:'local', l:'Local / Neighbour', e:'🏘️', color:'#ede9fe', textColor:'#4c1d95' },
+  { k:'flohm', l:'Flea Market',       e:'🎪', color:'#fce7f3', textColor:'#831843' },
+  { k:'give',  l:'Give Away',          e:'🎁', color:'#dcfce7', textColor:'#14532d' },
+];
 
-// Energy efficiency colors
+// ── Conditions ───────────────────────────────────────────────
+const CONDITIONS = [
+  { k:'new',      l:'Brand New',    e:'✨', color:'#dcfce7' },
+  { k:'like-new', l:'Like New',     e:'💫', color:'#dbeafe' },
+  { k:'good',     l:'Good',         e:'👍', color:'#fef9c3' },
+  { k:'used',     l:'Used',         e:'🔧', color:'#fed7aa' },
+  { k:'broken',   l:'Parts Only',   e:'⚠️', color:'#fee2e2' },
+];
+
+// ── Energy classes ───────────────────────────────────────────
 const ENERGY_COLORS = {
-  'A+++':'#1b5e20','A++':'#2e7d32','A+':'#43a047','A':'#66bb6a',
-  'B':'#ffb300','C':'#fb8c00','D':'#ef6c00','E':'#e53935','F':'#b71c1c','G':'#880e4f',
+  'A+++':'#166534','A++':'#15803d','A+':'#16a34a','A':'#4ade80',
+  'B':'#ca8a04','C':'#d97706','D':'#ea580c','E':'#dc2626','F':'#991b1b',
 };
 
-// Owner options
+// ── Move company statuses ─────────────────────────────────────
+const COMPANY_STATUS = [
+  { k:'enquiry',  l:'Enquired',        e:'📤', c:'gray'   },
+  { k:'quote',    l:'Quote received',  e:'📋', c:'blue'   },
+  { k:'visit',    l:'Site visit',      e:'👁️', c:'orange' },
+  { k:'booked',   l:'Booked ✓',        e:'✅', c:'green'  },
+  { k:'cancelled',l:'Cancelled',       e:'❌', c:'pink'   },
+];
+
+// ── Owners ───────────────────────────────────────────────────
 const OWNERS = [
-  { k:'Mari', l:'Mari',      e:'🌸' },
-  { k:'Alex', l:'Alexander', e:'💼' },
-  { k:'Beide',l:'Beide',     e:'💕' },
+  { k:'Mari',      l:'Mari',      e:'🌸' },
+  { k:'Alexander', l:'Alexander', e:'💼' },
+  { k:'Both',      l:'Both',      e:'💕' },
 ];
 
-// Weight classes
-const WEIGHT_CLASSES = [
-  { k:'leicht', l:'Leicht (< 10 kg)',  e:'🪶' },
-  { k:'mittel', l:'Mittel (10-30 kg)', e:'💪' },
-  { k:'schwer', l:'Schwer (> 30 kg)',  e:'🏋️' },
-];
-
-// Rooms for take/sell/buy filters
-const ROOMS_LIST = ['Wohnzimmer','Schlafzimmer','Küche','Bad','Büro','Keller/Lager','Flur','Sonstiges'];
-
-// Default settings
+// ── Default settings ─────────────────────────────────────────
 const DEFAULT_SETTINGS = {
   moveDate: '',
-  apartmentAddress: '',
-  fromAddress: '',
-  maxBudget: 3000,
+  newAddress: '',
+  oldAddress: '',
+  maxBudget: 5000,
   names: { M: 'Mari', A: 'Alexander' },
+  currency: '€',
+  useSqm: true,
+};
+
+// ── Furniture sizes for floor plan ───────────────────────────
+const FURNITURE = {
+  'bed-double':  { emoji:'🛏️', l:'Double Bed',       w:2.0, h:2.15, cat:'Master Bedroom', color:'#bfdbfe' },
+  'bed-single':  { emoji:'🛏️', l:'Single Bed',       w:1.0, h:2.0,  cat:'Master Bedroom', color:'#bfdbfe' },
+  'sofa':        { emoji:'🛋️', l:'Sofa',              w:2.5, h:1.0,  cat:'Living Room',    color:'#fecaca' },
+  'sofa-l':      { emoji:'🛋️', l:'L-Shape Sofa',     w:3.0, h:2.0,  cat:'Living Room',    color:'#fecaca' },
+  'wardrobe':    { emoji:'🚪', l:'Wardrobe',           w:2.0, h:0.65, cat:'Bedroom',        color:'#d1d5db' },
+  'desk':        { emoji:'🖥️', l:'Desk',               w:1.6, h:0.8,  cat:'Study',          color:'#fef08a' },
+  'dining-table':{ emoji:'🪑', l:'Dining Table',      w:1.8, h:0.9,  cat:'Kitchen',        color:'#fed7aa' },
+  'coffee-table':{ emoji:'☕', l:'Coffee Table',      w:1.2, h:0.6,  cat:'Living Room',    color:'#d1d5db' },
+  'fridge':      { emoji:'🧊', l:'Fridge',             w:0.7, h:0.8,  cat:'Kitchen',        color:'#e0f2fe' },
+  'washer':      { emoji:'🫧', l:'Washing Machine',   w:0.6, h:0.6,  cat:'Bathroom',       color:'#e0f2fe' },
+  'dryer':       { emoji:'💨', l:'Dryer',              w:0.6, h:0.6,  cat:'Bathroom',       color:'#e0f2fe' },
+  'dishwasher':  { emoji:'🍽️', l:'Dishwasher',        w:0.6, h:0.6,  cat:'Kitchen',        color:'#dcfce7' },
+  'oven':        { emoji:'🔥', l:'Oven / Hob',        w:0.6, h:0.6,  cat:'Kitchen',        color:'#fef9c3' },
+  'bath':        { emoji:'🛁', l:'Bathtub',            w:1.7, h:0.75, cat:'Bathroom',       color:'#e0f2fe' },
+  'shower':      { emoji:'🚿', l:'Shower',             w:0.9, h:0.9,  cat:'Bathroom',       color:'#e0f2fe' },
+  'toilet':      { emoji:'🚽', l:'Toilet',             w:0.45,h:0.7,  cat:'Bathroom',       color:'#e0f2fe' },
+  'sink-bath':   { emoji:'🪥', l:'Washbasin',         w:0.6, h:0.45, cat:'Bathroom',       color:'#e0f2fe' },
+  'piano':       { emoji:'🎹', l:'Piano',              w:1.55,h:0.65, cat:'Living Room',    color:'#1e293b' },
+  'tv':          { emoji:'📺', l:'TV',                 w:1.4, h:0.1,  cat:'Living Room',    color:'#334155' },
+  'bookshelf':   { emoji:'📚', l:'Bookshelf',          w:0.8, h:0.3,  cat:'Study',          color:'#d97706' },
+  'plant':       { emoji:'🌿', l:'Plant',              w:0.5, h:0.5,  cat:'Any',            color:'#bbf7d0' },
+  'door':        { emoji:'🚪', l:'Door swing',         w:0.1, h:0.9,  cat:'Structure',      color:'#9ca3af' },
+  'window':      { emoji:'🪟', l:'Window',             w:1.2, h:0.1,  cat:'Structure',      color:'#bae6fd' },
 };

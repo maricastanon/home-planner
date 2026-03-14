@@ -1,0 +1,11 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Images not part of the app
+*.jpg
+!home/**/*.jpg
+
+# Archives
+_archive/

@@ -1,211 +1,240 @@
 // ============================================================
-// utils.js — Unser neues Zuhause · Utility functions
+// utils.js — Our New Home · Utility functions
 // ============================================================
 
-// Unique ID
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function uid()    { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function esc(s)   { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+function trunc(s, n=40) { return s&&s.length>n ? s.slice(0,n)+'…' : (s||''); }
 
-// HTML escape
-function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// Currency
-function fmtEur(n, dec = 2) {
-  if (!n && n !== 0) return '–';
-  return Number(n).toLocaleString('de-DE', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + '\u00a0€';
-}
-function fmtEurShort(n) {
-  if (!n) return '–';
-  return n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k\u00a0€' : fmtEur(n, 0);
-}
-
-// Date/Time
+// ── Date / time ──────────────────────────────────────────────
+function todayISO() { return new Date().toISOString().slice(0,10); }
 function fmtDate(d) {
   if (!d) return '–';
-  try { return new Date(d).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' }); }
-  catch { return d; }
-}
-function fmtDateShort(d) {
-  if (!d) return '–';
-  try { return new Date(d).toLocaleDateString('de-DE', { day:'2-digit', month:'short' }); }
+  try { return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
   catch { return d; }
 }
 function fmtTs(ts) {
   if (!ts) return '–';
   const diff = Date.now() - ts;
-  if (diff < 60000)   return 'gerade eben';
-  if (diff < 3600000) return Math.floor(diff/60000) + ' Min. ago';
-  if (diff < 86400000)return Math.floor(diff/3600000) + ' Std. ago';
-  if (diff < 604800000)return Math.floor(diff/86400000) + ' Tage ago';
+  if (diff < 60000)    return 'just now';
+  if (diff < 3600000)  return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  if (diff < 604800000)return Math.floor(diff/86400000) + 'd ago';
   return fmtDate(new Date(ts));
 }
 
-// Debounce
-function debounce(fn, ms = 220) {
-  let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+// ── Numbers / currency ───────────────────────────────────────
+function fmtEur(n, dec=2) {
+  if (n==null||n==='') return '–';
+  return Number(n).toLocaleString('de-DE',{minimumFractionDigits:dec,maximumFractionDigits:dec}) + '\u00a0€';
+}
+function fmtEurShort(n) {
+  if (!n) return '–';
+  return n>=1000 ? (n/1000).toFixed(1).replace('.0','')+'k€' : fmtEur(n,0);
 }
 
-// Deep clone
-function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
-
-// Truncate
-function trunc(s, n = 40) { return s && s.length > n ? s.slice(0, n) + '…' : (s || ''); }
-
-// Sort array by key
-function sortBy(arr, key, asc = true) {
-  return [...arr].sort((a, b) => {
-    const va = a[key] ?? '', vb = b[key] ?? '';
-    if (typeof va === 'number') return asc ? va - vb : vb - va;
-    return asc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+// ── Sorting / grouping ───────────────────────────────────────
+function sortBy(arr, key, asc=true) {
+  return [...arr].sort((a,b)=>{
+    const va=a[key]??'', vb=b[key]??'';
+    if(typeof va==='number') return asc?va-vb:vb-va;
+    return asc?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
   });
 }
-
-// Group array by key
 function groupBy(arr, key) {
-  return arr.reduce((g, it) => { const k = it[key] || '?'; (g[k] = g[k] || []).push(it); return g; }, {});
+  return arr.reduce((g,it)=>{ const k=it[key]||'?'; (g[k]=g[k]||[]).push(it); return g; }, {});
 }
 
-// Progress bar HTML
-function progressBar(pct, color = 'var(--pk)', height = '8px') {
-  const c = pct >= 100 ? 'var(--gn)' : pct >= 80 ? '#ff9800' : color;
-  return `<div style="height:${height};background:#f0f0f0;border-radius:4px;overflow:hidden">
+// ── Vote score ───────────────────────────────────────────────
+function voteScore(it) {
+  const v={yes:2,meh:1,no:-1,'':0};
+  return (v[it.voteM]||0) + (v[it.voteA]||0);
+}
+
+// ── Progress bar ─────────────────────────────────────────────
+function progressBar(pct, color='var(--pk)', h='7px') {
+  const c = pct>=100?'var(--gn)':pct>=80?'#f59e0b':color;
+  return `<div style="height:${h};background:#f1f5f9;border-radius:4px;overflow:hidden">
     <div style="height:100%;width:${Math.min(100,pct)}%;background:${c};border-radius:4px;transition:width .4s"></div>
   </div>`;
 }
 
-// Numbered circle
-function numCircle(n, color = 'var(--pk)') {
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${color};color:#fff;font-size:.6rem;font-weight:700;margin-right:4px;flex-shrink:0">${n}</span>`;
-}
+// ── Stars ────────────────────────────────────────────────────
+function stars(n,max=5,f='⭐',e='') { return (f.repeat(Math.max(0,n)))+(e?e.repeat(Math.max(0,max-n)):''); }
 
-// Pill badge
-function pill(text, cls = 'gray', extra = '') {
-  return `<span class="pill ${cls}" ${extra}>${esc(text)}</span>`;
-}
-
-// Star display
-function stars(n, max = 5, filled = '⭐', empty = '☆') {
-  return filled.repeat(Math.max(0,n)) + (empty ? empty.repeat(Math.max(0,max-n)) : '');
-}
-
-// Energy badge
+// ── Energy badge ─────────────────────────────────────────────
 function energyBadge(e) {
   if (!e) return '–';
-  const color = ENERGY_COLORS[e] || '#888';
-  return `<span style="font-weight:700;color:${color};font-size:.82rem">${esc(e)}</span>`;
+  const c = ENERGY_COLORS[e] || '#6b7280';
+  return `<span style="font-weight:700;color:${c};font-size:.82rem;background:${c}22;padding:1px 6px;border-radius:4px">${esc(e)}</span>`;
 }
 
-// Vote score for buy items
-function voteScore(it) {
-  let s = 0;
-  const v = { yes: 2, meh: 1, no: -1, '': 0 };
-  s += (v[it.voteM] || 0) + (v[it.voteA] || 0);
-  return s;
+// ── Num circle ───────────────────────────────────────────────
+function numCircle(n, color='var(--pk)') {
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${color};color:#fff;font-size:.58rem;font-weight:700;flex-shrink:0">${n}</span>`;
 }
 
-// Vote emoji display
-function voteEmoji(v) {
-  return v === 'yes' ? '👍' : v === 'no' ? '👎' : v === 'meh' ? '🤔' : '–';
+// ─────────────────────────────────────────────────────────────
+// PILL FILTER SYSTEM
+// ─────────────────────────────────────────────────────────────
+// State: module → filterKey → activeValue
+const PILL_STATE = {};
+
+function initPillFilter(module, key, defaultVal = '') {
+  if (!PILL_STATE[module]) PILL_STATE[module] = {};
+  if (PILL_STATE[module][key] === undefined) PILL_STATE[module][key] = defaultVal;
+}
+function getPillVal(module, key) { return PILL_STATE[module]?.[key] ?? ''; }
+function setPillVal(module, key, val, renderFn) {
+  if (!PILL_STATE[module]) PILL_STATE[module] = {};
+  PILL_STATE[module][key] = val;
+  if (renderFn) renderFn();
 }
 
-// ---- TOAST SYSTEM ----
-let _toastQueue = [], _toastTimer = null;
-function toast(msg, type = 'info', duration = 3000) {
-  const el = document.getElementById('toast-container');
-  if (!el) return;
-  const id = uid();
-  const colors = { info:'#1565c0', green:'#2e7d32', red:'#c2185b', warn:'#e65100', pink:'#e91e63' };
-  const c = colors[type] || colors.info;
+/**
+ * Build a pill-filter row
+ * @param {string} module  - module name for state
+ * @param {string} key     - filter key
+ * @param {Array}  options - [{k, l, e?, count?}]
+ * @param {Function} renderFn - called when a pill is clicked
+ * @param {boolean} multi  - allow multiple active (future)
+ */
+function buildPillFilters(module, key, options, renderFn, { showCounts=false, allowAll=true }={}) {
+  const cur = getPillVal(module, key);
+  let h = `<div class="pill-row" data-module="${module}" data-key="${key}">`;
+  if (allowAll) {
+    h += `<span class="pf ${cur===''?'on':''}" onclick="setPillVal('${module}','${key}','',${renderFn.name})">${allowAll===true?'All':'All '+allowAll}</span>`;
+  }
+  options.forEach(o => {
+    const active = cur === o.k;
+    const cntBadge = o.count != null && showCounts ? `<span class="pf-count">${o.count}</span>` : '';
+    h += `<span class="pf ${active?'on':''}" onclick="setPillVal('${module}','${key}','${esc(o.k)}',${renderFn.name})">${o.e?o.e+' ':''}${esc(o.l)}${cntBadge}</span>`;
+  });
+  h += '</div>';
+  return h;
+}
+
+// ─────────────────────────────────────────────────────────────
+// CHIP INPUT (pros/cons like apartment_search)
+// ─────────────────────────────────────────────────────────────
+/**
+ * Render a chip-input section (suggestions + custom input + active chips)
+ */
+function buildChipInput(opts) {
+  const { id, type, chips = [], suggestions = [], placeholder = 'Add...', onAdd, onRemove, colorClass } = opts;
+  const cc = colorClass || (type==='pro'?'pro':'con');
+  let h = `<div class="chip-section ${cc}">`;
+  // Active chips
+  h += `<div class="chip-active" id="chips-${id}">`;
+  h += chips.map(c => `<span class="chip ${cc}">${esc(c)} <span class="chip-rm" onclick="${onRemove}('${esc(c)}')">✕</span></span>`).join('');
+  h += '</div>';
+  // Suggestions
+  if (suggestions.length) {
+    h += `<div class="chip-sugg">`;
+    suggestions.filter(s => !chips.includes(s)).slice(0, 8).forEach(s => {
+      h += `<span class="chip-s" onclick="${onAdd}('${esc(s)}')">${esc(s)}</span>`;
+    });
+    h += '</div>';
+  }
+  // Custom input
+  h += `<div class="chip-input-row">
+    <input id="chip-inp-${id}" placeholder="${esc(placeholder)}" class="chip-inp-field"
+      onkeydown="if(event.key==='Enter'){${onAdd}(document.getElementById('chip-inp-${id}').value);document.getElementById('chip-inp-${id}').value=''}">
+    <button class="btn sml" onclick="${onAdd}(document.getElementById('chip-inp-${id}').value);document.getElementById('chip-inp-${id}').value=''">+</button>
+  </div>`;
+  h += '</div>';
+  return h;
+}
+
+// ── Toast ────────────────────────────────────────────────────
+function toast(msg, type='info', duration=3000) {
+  const el = document.getElementById('toast-container'); if (!el) return;
+  const colors = {info:'#1d4ed8',green:'#15803d',red:'#dc2626',warn:'#d97706',pink:'#be185d'};
   const div = document.createElement('div');
-  div.className = 'toast'; div.id = 'toast-' + id;
-  div.style.cssText = `background:${c};color:#fff;padding:9px 14px;border-radius:8px;font-size:.78rem;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);margin-top:6px;animation:toastIn .25s ease;cursor:pointer;min-width:180px;max-width:300px`;
+  div.className = 'toast';
+  div.style.cssText = `background:${colors[type]||colors.info};color:#fff;padding:10px 16px;border-radius:10px;font-size:.78rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.2);margin-top:6px;cursor:pointer;animation:toastIn .25s ease`;
   div.textContent = msg;
   div.onclick = () => div.remove();
   el.appendChild(div);
-  setTimeout(() => div.classList.add('toastOut'), duration - 300);
-  setTimeout(() => div.remove(), duration);
+  setTimeout(()=>div.style.opacity='0', duration-300);
+  setTimeout(()=>div.remove(), duration);
 }
 
-// ---- CELEBRATE ----
-function celebrate(emoji = '🎉', count = 3) {
-  for (let i = 0; i < count; i++) {
-    setTimeout(() => {
-      const el = document.createElement('div');
-      el.className = 'celebrate';
-      el.textContent = emoji;
-      el.style.left = (20 + Math.random() * 60) + '%';
-      document.body.appendChild(el);
-      setTimeout(() => el.remove(), 900);
-    }, i * 150);
-  }
+// ── Celebrate ────────────────────────────────────────────────
+function celebrate(emoji='🎉', n=4) {
+  for (let i=0;i<n;i++) setTimeout(()=>{
+    const el=document.createElement('div');
+    el.className='celebrate'; el.textContent=emoji;
+    el.style.left=(15+Math.random()*70)+'%';
+    document.body.appendChild(el); setTimeout(()=>el.remove(),900);
+  }, i*130);
 }
 
-// ---- CONFIRM DIALOG ----
-function confirmDialog(msg, onYes, onNo = null) {
+// ── Confirm ──────────────────────────────────────────────────
+function confirmDlg(msg, onYes, onNo=null) {
   const m = document.getElementById('confirm-modal');
-  if (!m) { if (confirm(msg)) onYes(); else if (onNo) onNo(); return; }
+  if (!m) { if(confirm(msg))onYes(); else if(onNo)onNo(); return; }
   document.getElementById('confirm-msg').textContent = msg;
-  document.getElementById('confirm-yes').onclick = () => { m.classList.remove('open'); onYes(); };
-  document.getElementById('confirm-no').onclick  = () => { m.classList.remove('open'); if (onNo) onNo(); };
+  document.getElementById('confirm-yes').onclick = ()=>{ m.classList.remove('open'); onYes(); };
+  document.getElementById('confirm-no').onclick  = ()=>{ m.classList.remove('open'); if(onNo)onNo(); };
   m.classList.add('open');
 }
 
-// ---- INLINE EDIT ----
-let _inlineEditCb = null;
-function inlineEdit(title, cur, cb, hint = '') {
+// ── Inline edit ──────────────────────────────────────────────
+let _ieCb = null;
+function inlineEdit(title, cur, cb, hint='') {
   const m = document.getElementById('inline-edit-modal');
-  if (!m) { const v = prompt(title + (hint?'\n'+hint:''), cur||''); if (v!==null) cb(v); return; }
-  _inlineEditCb = cb;
-  document.getElementById('inline-edit-title').textContent = title;
-  document.getElementById('inline-edit-hint').textContent  = hint;
-  document.getElementById('inline-edit-inp').value = cur || '';
-  m.classList.add('open');
-  setTimeout(() => document.getElementById('inline-edit-inp').focus(), 80);
+  if (!m) { const v=prompt(title+(hint?'\n'+hint:''),cur||''); if(v!==null)cb(v); return; }
+  _ieCb = cb;
+  document.getElementById('ie-title').textContent = title;
+  document.getElementById('ie-hint').textContent  = hint;
+  document.getElementById('ie-inp').value = cur||'';
+  m.classList.add('open'); setTimeout(()=>document.getElementById('ie-inp').focus(),80);
 }
-function submitInlineEdit() {
-  const v = document.getElementById('inline-edit-inp').value;
-  document.getElementById('inline-edit-modal').classList.remove('open');
-  if (_inlineEditCb) _inlineEditCb(v);
-  _inlineEditCb = null;
-}
-function closeInlineEdit() {
-  document.getElementById('inline-edit-modal').classList.remove('open');
-  _inlineEditCb = null;
-}
+function ieSubmit() { const v=document.getElementById('ie-inp').value; document.getElementById('inline-edit-modal').classList.remove('open'); if(_ieCb)_ieCb(v); _ieCb=null; }
+function ieClose()  { document.getElementById('inline-edit-modal').classList.remove('open'); _ieCb=null; }
 
-// ---- SCROLL TO TOP ----
-function scrollTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+// ── Form helpers ─────────────────────────────────────────────
+function fVal(id)   { const el=document.getElementById(id); return el ? el.value.trim() : ''; }
+function fNum(id)   { return parseFloat(fVal(id))||0; }
+function fChk(id)   { const el=document.getElementById(id); return el?el.checked:false; }
+function fSet(id,v) { const el=document.getElementById(id); if(el)el.value=v; }
+function fSetChk(id,v){ const el=document.getElementById(id); if(el)el.checked=!!v; }
+function fClear(...ids){ ids.forEach(id=>fSet(id,'')); }
+function fSetSel(id,v){ const el=document.getElementById(id); if(el){ [...el.options].forEach(o=>o.selected=(o.value===String(v))); } }
 
-// ---- COPY TO CLIPBOARD ----
-function copyText(text, label = 'Text') {
-  navigator.clipboard.writeText(text).then(() => toast(label + ' kopiert! 📋', 'green')).catch(() => {
-    const el = document.createElement('textarea');
-    el.value = text; document.body.appendChild(el); el.select();
-    try { document.execCommand('copy'); toast(label + ' kopiert!', 'green'); } catch {}
-    document.body.removeChild(el);
-  });
-}
-
-// ---- DOWNLOAD TEXT ----
-function downloadText(content, filename, type = 'text/plain') {
-  const blob = new Blob([content], { type });
+// ── Download ─────────────────────────────────────────────────
+function downloadText(content, filename, type='text/plain') {
+  const blob = new Blob([content],{type});
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
+  a.href = URL.createObjectURL(blob); a.download=filename; a.click();
 }
 
-// ---- LOCAL DATE ----
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+// ── Scroll ───────────────────────────────────────────────────
+function scrollTop() { window.scrollTo({top:0,behavior:'smooth'}); }
 
-// ---- SEARCH HIGHLIGHT ----
-function highlight(text, query) {
-  if (!query) return esc(text);
-  const re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-  return esc(text).replace(re, '<mark style="background:#fff59d;border-radius:2px">$1</mark>');
+// ── Copy ─────────────────────────────────────────────────────
+function copyText(text, label='Text') {
+  navigator.clipboard.writeText(text)
+    .then(()=>toast(label+' copied 📋','green'))
+    .catch(()=>{ const el=document.createElement('textarea'); el.value=text; document.body.appendChild(el); el.select(); try{document.execCommand('copy');toast('Copied','green')}catch{}document.body.removeChild(el); });
 }
 
-// ---- PLATFORM CSS CLASS ----
-function platformCss(k) {
-  const p = SELL_PLATFORMS.find(x => x.k === k);
-  return p ? p.css : 'gray';
+// ── Dimension string ─────────────────────────────────────────
+function dimStr(it, unit='cm') {
+  const parts = [];
+  if (it.widthCm)  parts.push(it.widthCm+'W');
+  if (it.depthCm)  parts.push(it.depthCm+'D');
+  if (it.heightCm) parts.push(it.heightCm+'H');
+  return parts.length ? parts.join(' × ')+' '+unit : null;
 }
+
+// ── Item footprint area (m²) ─────────────────────────────────
+function itemFootprint(it) {
+  if (!it.widthCm || !it.depthCm) return null;
+  return ((it.widthCm/100) * (it.depthCm/100)).toFixed(2);
+}
+
+// ── Slug ─────────────────────────────────────────────────────
+function slugify(s) { return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'_'); }

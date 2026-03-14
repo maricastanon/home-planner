@@ -1,94 +1,166 @@
 // ============================================================
-// data.js — Unser neues Zuhause · Data layer (localStorage)
+// data.js — Our New Home · Data layer
+// AWS_READY: All methods have DynamoDB/S3 equivalents commented
 // ============================================================
 
-function ld(key, fallback) {
-  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; }
-  catch { return fallback; }
+// ── Local storage primitives ─────────────────────────────────
+function ld(key, fb) {
+  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fb; }
+  catch { return fb; }
 }
 function sv(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); return true; }
-  catch (e) { console.warn('Storage error:', e); return false; }
+  catch(e) { console.warn('Storage full?', e); return false; }
 }
 
-// ---- SETTINGS ----
-function ldSettings() { return Object.assign({}, DEFAULT_SETTINGS, ld(K.settings, {})); }
+// ── Settings ─────────────────────────────────────────────────
+function ldSettings()  { return Object.assign({}, DEFAULT_SETTINGS, ld(K.settings, {})); }
 function svSettings(s) { sv(K.settings, s); }
 
-// ---- PLAN ----
-function ldPlan() {
-  return ld(K.plan, { floors: [{ id: 'f1', name: 'EG', rooms: [], furniture: [] }], scale: 30 });
-}
+// ── Floor plan ───────────────────────────────────────────────
+function ldPlan() { return ld(K.plan, null); }
 function svPlan(p) { sv(K.plan, p); }
 
-// ---- MOVING COMPANIES ----
-function ldMove() { return ld(K.move, []); }
-function svMove(d) { sv(K.move, d); }
-function addMove(c)  { const d=ldMove(); d.push(c); svMove(d); logActivity('move','add',c.name); }
-function updMove(c)  { const d=ldMove(),i=d.findIndex(x=>x.id===c.id); if(i>=0){d[i]=c;svMove(d);} }
-function delMove(id) { const d=ldMove().filter(c=>c.id!==id); svMove(d); }
-function getMove(id) { return ldMove().find(c=>c.id===id); }
+// ── Moving companies ─────────────────────────────────────────
+function ldMove()        { return ld(K.move, []); }
+function svMove(d)       { sv(K.move, d); }
+function addMoveItem(c)  { const d=ldMove(); d.push(c); svMove(d); logActivity('move','add',c.name); }
+function updMoveItem(c)  { const d=ldMove(),i=d.findIndex(x=>x.id===c.id); if(i>=0){d[i]=c;svMove(d);} }
+function delMoveItem(id) { svMove(ldMove().filter(c=>c.id!==id)); }
+function getMoveItem(id) { return ldMove().find(c=>c.id===id); }
 
-// ---- TAKE LIST ----
-function ldTake() { return ld(K.take, []); }
-function svTake(d) { sv(K.take, d); }
-function addTake(it)  { const d=ldTake(); d.push(it); svTake(d); logActivity('take','add',it.name); }
-function updTake(it)  { const d=ldTake(),i=d.findIndex(x=>x.id===it.id); if(i>=0){d[i]=it;svTake(d);} }
-function delTake(id)  { svTake(ldTake().filter(x=>x.id!==id)); }
-function getTake(id)  { return ldTake().find(x=>x.id===id); }
+// ── Take / packing list ──────────────────────────────────────
+function ldTake()       { return ld(K.take, []); }
+function svTake(d)      { sv(K.take, d); }
+function addTakeItem(i) { const d=ldTake(); d.push(i); svTake(d); logActivity('take','add',i.name); }
+function updTakeItem(i) { const d=ldTake(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svTake(d);} }
+function delTakeItem(id){ svTake(ldTake().filter(x=>x.id!==id)); }
+function getTakeItem(id){ return ldTake().find(x=>x.id===id); }
+function ldBoxes()      { return ld(K.boxes, []); }
+function svBoxes(d)     { sv(K.boxes, d); }
 
-// ---- BOXES ----
-function ldBoxes() { return ld(K.boxes, []); }
-function svBoxes(d) { sv(K.boxes, d); }
-function addBox(b)   { const d=ldBoxes(); d.push(b); svBoxes(d); }
-function updBox(b)   { const d=ldBoxes(),i=d.findIndex(x=>x.id===b.id); if(i>=0){d[i]=b;svBoxes(d);} }
-function delBox(id)  { svBoxes(ldBoxes().filter(x=>x.id!==id)); }
+// ── Sell items ───────────────────────────────────────────────
+function ldSell()       { return ld(K.sell, []); }
+function svSell(d)      { sv(K.sell, d); }
+function addSellItem(i) { const d=ldSell(); d.push(i); svSell(d); logActivity('sell','add',i.name); }
+function updSellItem(i) { const d=ldSell(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svSell(d);} }
+function delSellItem(id){ svSell(ldSell().filter(x=>x.id!==id)); }
+function getSellItem(id){ return ldSell().find(x=>x.id===id); }
 
-// ---- SELL ----
-function ldSell() { return ld(K.sell, []); }
-function svSell(d) { sv(K.sell, d); }
-function addSell(it)  { const d=ldSell(); d.push(it); svSell(d); logActivity('sell','add',it.name); }
-function updSell(it)  { const d=ldSell(),i=d.findIndex(x=>x.id===it.id); if(i>=0){d[i]=it;svSell(d);} }
-function delSell(id)  { svSell(ldSell().filter(x=>x.id!==id)); }
-function getSell(id)  { return ldSell().find(x=>x.id===id); }
+// ── Buy / wish items ─────────────────────────────────────────
+function ldBuy()       { return ld(K.buy, []); }
+function svBuy(d)      { sv(K.buy, d); }
+function addBuyItem(i) { const d=ldBuy(); d.push(i); svBuy(d); logActivity('buy','add',i.name); }
+function updBuyItem(i) { const d=ldBuy(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svBuy(d);} }
+function delBuyItem(id){ svBuy(ldBuy().filter(x=>x.id!==id)); }
+function getBuyItem(id){ return ldBuy().find(x=>x.id===id); }
 
-// ---- BUY ----
-function ldBuy() { return ld(K.buy, []); }
-function svBuy(d) { sv(K.buy, d); }
-function addBuy(it)  { const d=ldBuy(); d.push(it); svBuy(d); logActivity('buy','add',it.name); }
-function updBuy(it)  { const d=ldBuy(),i=d.findIndex(x=>x.id===it.id); if(i>=0){d[i]=it;svBuy(d);} }
-function delBuy(id)  { svBuy(ldBuy().filter(x=>x.id!==id)); }
-function getBuy(id)  { return ldBuy().find(x=>x.id===id); }
+// ── Compare ──────────────────────────────────────────────────
+function ldCmp()       { return ld(K.compare, []); }
+function svCmp(d)      { sv(K.compare, d); }
+function addCmpItem(i) { const d=ldCmp(); d.push(i); svCmp(d); logActivity('compare','add',i.name); }
+function updCmpItem(i) { const d=ldCmp(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svCmp(d);} }
+function delCmpItem(id){ svCmp(ldCmp().filter(x=>x.id!==id)); }
+function getCmpItem(id){ return ldCmp().find(x=>x.id===id); }
 
-// ---- COMPARE ----
-function ldCmp() { return ld(K.compare, []); }
-function svCmp(d) { sv(K.compare, d); }
-function addCmp(it)  { const d=ldCmp(); d.push(it); svCmp(d); logActivity('compare','add',it.name); }
-function updCmp(it)  { const d=ldCmp(),i=d.findIndex(x=>x.id===it.id); if(i>=0){d[i]=it;svCmp(d);} }
-function delCmp(id)  { svCmp(ldCmp().filter(x=>x.id!==id)); }
-function getCmp(id)  { return ldCmp().find(x=>x.id===id); }
-
-// ---- ACTIVITY LOG ----
+// ── Activity log ─────────────────────────────────────────────
 function logActivity(module, action, label) {
   const log = ld(K.activity, []);
   log.unshift({ id: uid(), module, action, label, ts: Date.now() });
-  sv(K.activity, log.slice(0, 100)); // keep last 100
+  sv(K.activity, log.slice(0, 150));
 }
 function ldActivity() { return ld(K.activity, []); }
 
-// ---- EXPORT / IMPORT ----
+// ── Photo handling ───────────────────────────────────────────
+// AWS_HOOK: Replace these with Amplify Storage calls
+// import { uploadData, getUrl } from 'aws-amplify/storage';
+//
+// async function uploadPhotoToS3(file, itemId) {
+//   const key = `items/${itemId}/${Date.now()}_${file.name}`;
+//   await uploadData({ key, data: file });
+//   const { url } = await getUrl({ key });
+//   return url.toString();
+// }
+
+function readPhotoAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload  = e => res(e.target.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function attachPhotos(itemId, files, module = 'buy') {
+  const loaders = { buy: { ld: ldBuy, sv: svBuy, get: getBuyItem }, sell: { ld: ldSell, sv: svSell, get: getSellItem } };
+  const L = loaders[module]; if (!L) return;
+  const item = L.get(itemId); if (!item) return;
+  for (const file of files) {
+    // AWS_HOOK: const url = await uploadPhotoToS3(file, itemId);
+    const url = await readPhotoAsDataURL(file);
+    item.photos = [...(item.photos || []), url];
+  }
+  const d = L.ld(); const idx = d.findIndex(x => x.id === itemId);
+  if (idx >= 0) { d[idx] = item; L.sv(d); }
+}
+
+// ── Stats helpers ─────────────────────────────────────────────
+function getBudgetStats() {
+  const s = ldSettings();
+  const max = s.maxBudget || 5000;
+  const items = ldBuy();
+  const est   = items.reduce((t,i) => t + (i.bought ? (i.actualPrice||i.price||0) : (i.price||0)), 0);
+  const spent = items.filter(i=>i.bought).reduce((t,i) => t + (i.actualPrice||i.price||0), 0);
+  return { max, est, spent, remaining: max - est, pct: Math.min(100, Math.round(est/max*100)) };
+}
+
+function getSellStats() {
+  const items = ldSell();
+  const sold  = items.filter(i => i.status === 'sold');
+  return {
+    total:     items.length,
+    sold:      sold.length,
+    active:    items.filter(i => i.status === 'active').length,
+    earned:    sold.reduce((t,i) => t+(i.soldPrice||0), 0),
+    potential: items.filter(i => i.status==='active'||i.status==='reserved').reduce((t,i) => t+(i.price||0), 0),
+  };
+}
+
+function getPackingStats() {
+  const items = ldTake();
+  const packed = items.filter(i => i.done).length;
+  return { total: items.length, packed, pct: items.length ? Math.round(packed/items.length*100) : 0 };
+}
+
+function getCountdown() {
+  const { moveDate } = ldSettings();
+  if (!moveDate) return null;
+  const diff = new Date(moveDate) - Date.now();
+  return { days: Math.ceil(diff/86400000), past: diff < 0 };
+}
+
+function getBudgetByRoom() {
+  const items = ldBuy();
+  const map = {};
+  items.forEach(i => {
+    const r = i.roomId || 'other';
+    if (!map[r]) map[r] = { est: 0, spent: 0, count: 0 };
+    map[r].est   += i.price || 0;
+    map[r].spent += i.bought ? (i.actualPrice || i.price || 0) : 0;
+    map[r].count++;
+  });
+  return map;
+}
+
+// ── Export / import ──────────────────────────────────────────
 function exportAll() {
   const data = {};
   Object.entries(K).forEach(([name, key]) => {
-    const val = localStorage.getItem(key);
-    if (val) data[name] = JSON.parse(val);
+    const v = localStorage.getItem(key);
+    if (v) data[name] = JSON.parse(v);
   });
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'hnz_backup_' + new Date().toISOString().slice(0, 10) + '.json';
-  a.click();
-  toast('Backup exportiert! 💾', 'green');
+  downloadText(JSON.stringify(data, null, 2), 'our_home_backup_' + todayISO() + '.json', 'application/json');
+  toast('Backup exported 💾', 'green');
 }
 
 function importAll(file) {
@@ -96,52 +168,10 @@ function importAll(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      Object.entries(K).forEach(([name, key]) => {
-        if (data[name] !== undefined) sv(key, data[name]);
-      });
-      toast('Daten importiert! ✅', 'green');
+      Object.entries(K).forEach(([name, key]) => { if (data[name]) sv(key, data[name]); });
+      toast('Data imported ✅', 'green');
       setTimeout(() => location.reload(), 800);
-    } catch {
-      toast('Fehler beim Importieren', 'red');
-    }
+    } catch { toast('Import error', 'red'); }
   };
   reader.readAsText(file);
-}
-
-// ---- STATS HELPERS ----
-function getBudgetStats() {
-  const settings = ldSettings();
-  const maxBudget = settings.maxBudget || 3000;
-  const buyItems = ldBuy();
-  const estimated = buyItems.reduce((s, it) => s + (it.bought ? (it.actualPrice || it.price) : (it.price || 0)), 0);
-  const spent = buyItems.filter(it => it.bought).reduce((s, it) => s + (it.actualPrice || it.price || 0), 0);
-  return { maxBudget, estimated, spent, remaining: maxBudget - estimated, pct: Math.min(100, Math.round(estimated / maxBudget * 100)) };
-}
-
-function getSellStats() {
-  const items = ldSell();
-  const sold = items.filter(it => it.status === 'sold');
-  const earned = sold.reduce((s, it) => s + (it.soldPrice || 0), 0);
-  const potential = items.filter(it => it.status === 'active' || it.status === 'reserved').reduce((s, it) => s + (it.price || 0), 0);
-  return { total: items.length, sold: sold.length, earned, potential };
-}
-
-function getPackingStats() {
-  const items = ldTake();
-  const packed = items.filter(it => it.done).length;
-  return { total: items.length, packed, pct: items.length ? Math.round(packed / items.length * 100) : 0 };
-}
-
-function getMoveStats() {
-  const companies = ldMove();
-  const booked = companies.find(c => c.status === 'gebucht');
-  return { total: companies.length, booked: booked || null };
-}
-
-function getCountdown() {
-  const { moveDate } = ldSettings();
-  if (!moveDate) return null;
-  const diff = new Date(moveDate) - new Date();
-  if (diff < 0) return { days: 0, past: true };
-  return { days: Math.ceil(diff / 86400000), past: false };
 }

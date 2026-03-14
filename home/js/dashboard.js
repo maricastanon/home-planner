@@ -1,206 +1,160 @@
 // ============================================================
-// dashboard.js — Unser neues Zuhause · Dashboard / Overview
+// dashboard.js — Our New Home · Dashboard overview
 // ============================================================
 
 function rDash() {
-  const el = document.getElementById('p-dash');
-  if (!el) return;
-  const settings = ldSettings();
-  const cd       = getCountdown();
-  const budget   = getBudgetStats();
-  const sellSt   = getSellStats();
-  const packSt   = getPackingStats();
-  const moveSt   = getMoveStats();
-  const activity = ldActivity().slice(0, 12);
-  const names    = settings.names || { M:'Mari', A:'Alexander' };
+  const el=document.getElementById('p-dash'); if(!el) return;
+  const s=ldSettings(), cd=getCountdown(), budget=getBudgetStats();
+  const sell=getSellStats(), pack=getPackingStats(), move=getMoveStats();
+  const names=s.names||{M:'Mari',A:'Alexander'};
+  const activity=ldActivity().slice(0,10);
+  let h='';
 
-  let h = '';
-
-  // ---- Countdown hero ----
-  if (cd && !cd.past) {
-    const urgency = cd.days <= 7 ? 'var(--pk)' : cd.days <= 30 ? '#e65100' : 'var(--gn)';
-    h += `<div class="dash-hero" style="border-left-color:${urgency}">
-      <div class="dash-hero-num" style="color:${urgency}">${cd.days}</div>
-      <div class="dash-hero-label">Tage bis zum Einzug 🏠</div>
-      <div class="dash-hero-sub">${settings.moveDate ? fmtDate(settings.moveDate) : ''} ${settings.apartmentAddress ? '· ' + esc(settings.apartmentAddress) : ''}</div>
+  // ── Countdown hero ──────────────────────────────────────────
+  if (cd&&!cd.past) {
+    const urg=cd.days<=7?'#dc2626':cd.days<=30?'#d97706':'var(--gn)';
+    h+=`<div class="dash-hero" style="background:linear-gradient(135deg,${urg},${urg}cc)">
+      <div class="dash-hero-num">${cd.days}</div>
+      <div class="dash-hero-lbl">days until move-in 🏠</div>
+      <div class="dash-hero-sub">${s.moveDate?fmtDate(s.moveDate):''} ${s.newAddress?'· '+esc(s.newAddress):''}</div>
     </div>`;
-  } else if (cd && cd.past) {
-    h += `<div class="dash-hero" style="border-left-color:var(--gn);background:var(--gnl)">
-      <div class="dash-hero-num" style="color:var(--gn)">🏠</div>
-      <div class="dash-hero-label">Ihr seid eingezogen! Herzlichen Glückwunsch! 💕</div>
+  } else if (cd&&cd.past) {
+    h+=`<div class="dash-hero" style="background:linear-gradient(135deg,var(--gn),var(--gns))">
+      <div class="dash-hero-num">🏠</div>
+      <div class="dash-hero-lbl">You've moved in! Congratulations ${esc(names.M)} & ${esc(names.A)}! 💕</div>
     </div>`;
   } else {
-    h += `<div class="dash-hero" style="cursor:pointer" onclick="openSettings()">
-      <div class="dash-hero-num" style="color:#ccc">📅</div>
-      <div class="dash-hero-label" style="color:#888">Umzugsdatum festlegen</div>
-      <div class="dash-hero-sub" style="color:#bbb">In Einstellungen eingeben →</div>
+    h+=`<div class="dash-hero" style="background:linear-gradient(135deg,#64748b,#475569);cursor:pointer" onclick="openSettings()">
+      <div class="dash-hero-num" style="font-size:2rem">📅</div>
+      <div class="dash-hero-lbl">Set your move-in date →</div>
+      <div class="dash-hero-sub">Click to open Settings</div>
     </div>`;
   }
 
-  // ---- Stats grid ----
-  h += '<div class="dash-stats">';
-
-  // Packing progress
-  h += `<div class="stat-card" onclick="switchTab('take')">
+  // ── Stat cards ──────────────────────────────────────────────
+  h+='<div class="dash-grid">';
+  // Packing
+  h+=`<div class="stat-card" onclick="switchTab('take')">
     <div class="stat-icon">📦</div>
-    <div class="stat-body">
-      <div class="stat-num">${packSt.packed}<span class="stat-denom">/${packSt.total}</span></div>
-      <div class="stat-label">Gegenstände eingepackt</div>
-      ${progressBar(packSt.pct, 'var(--pk)', '6px')}
-      <div class="stat-pct">${packSt.pct}%</div>
+    <div>
+      <div class="stat-num">${pack.packed}<span style="font-size:.8rem;color:var(--bd3)">/${pack.total}</span></div>
+      <div class="stat-lbl">Items packed</div>
+      ${progressBar(pack.pct,'var(--pk)','5px')}
+      <div class="stat-sub">${pack.pct}% done</div>
     </div>
   </div>`;
-
   // Budget
-  const budgetColor = budget.pct >= 100 ? 'var(--pk)' : budget.pct >= 80 ? '#ff9800' : 'var(--gn)';
-  h += `<div class="stat-card" onclick="switchTab('buy')">
-    <div class="stat-icon">${budget.pct >= 100 ? '⚠️' : '💰'}</div>
-    <div class="stat-body">
-      <div class="stat-num" style="color:${budgetColor}">${fmtEurShort(budget.estimated)}</div>
-      <div class="stat-label">von ${fmtEurShort(budget.maxBudget)} Budget</div>
-      ${progressBar(budget.pct, budgetColor, '6px')}
-      <div class="stat-pct" style="color:${budgetColor}">${budget.pct}% ${budget.pct >= 100 ? '⚠️ Überschritten!' : ''}</div>
+  const bc=budget.pct>=100?'#dc2626':budget.pct>=80?'#d97706':'var(--gn)';
+  h+=`<div class="stat-card" onclick="switchTab('buy')">
+    <div class="stat-icon">${budget.pct>=100?'⚠️':'💰'}</div>
+    <div>
+      <div class="stat-num" style="color:${bc}">${fmtEurShort(budget.est)}</div>
+      <div class="stat-lbl">of ${fmtEurShort(budget.max)} budget</div>
+      ${progressBar(budget.pct,bc,'5px')}
+      <div class="stat-sub">${budget.pct}% used${budget.pct>=100?' ⚠️':''}</div>
     </div>
   </div>`;
-
   // Sell earnings
-  h += `<div class="stat-card" onclick="switchTab('sell')">
+  h+=`<div class="stat-card" onclick="switchTab('sell')">
     <div class="stat-icon">💸</div>
-    <div class="stat-body">
-      <div class="stat-num" style="color:var(--gn)">${fmtEurShort(sellSt.earned)}</div>
-      <div class="stat-label">Einnahmen (${sellSt.sold}/${sellSt.total} Artikel)</div>
-      ${progressBar(sellSt.total ? Math.round(sellSt.sold/sellSt.total*100) : 0, 'var(--gn)', '6px')}
-      <div class="stat-pct" style="color:#888">+ ${fmtEurShort(sellSt.potential)} Potenzial</div>
+    <div>
+      <div class="stat-num" style="color:var(--gn)">${fmtEurShort(sell.earned)}</div>
+      <div class="stat-lbl">earned (${sell.sold}/${sell.total} sold)</div>
+      ${progressBar(sell.total?Math.round(sell.sold/sell.total*100):0,'var(--gn)','5px')}
+      <div class="stat-sub">+ ${fmtEurShort(sell.potential)} potential</div>
     </div>
   </div>`;
-
-  // Moving company
-  h += `<div class="stat-card" onclick="switchTab('move')">
+  // Movers
+  h+=`<div class="stat-card" onclick="switchTab('move')">
     <div class="stat-icon">🚚</div>
-    <div class="stat-body">
-      ${moveSt.booked
-        ? `<div class="stat-num" style="color:var(--gn);font-size:1rem">${esc(trunc(moveSt.booked.name, 20))}</div>
-           <div class="stat-label">Umzugsunternehmen gebucht ✅</div>
-           <div class="stat-pct">${moveSt.booked.price ? fmtEur(moveSt.booked.price, 0) : ''} ${moveSt.booked.moveDate ? '· ' + fmtDate(moveSt.booked.moveDate) : ''}</div>`
-        : `<div class="stat-num" style="color:#ccc;font-size:1.2rem">${moveSt.total}</div>
-           <div class="stat-label">Firmen gespeichert</div>
-           <div class="stat-pct" style="color:${moveSt.total ? '#e65100' : '#ccc'}">${moveSt.total ? 'Noch keine gebucht' : 'Jetzt anfangen →'}</div>`
-      }
+    <div>
+      ${move.booked
+        ?`<div class="stat-num" style="color:var(--gn);font-size:1rem">${esc(trunc(move.booked.name,18))}</div>
+           <div class="stat-lbl">Mover booked ✅</div>
+           <div class="stat-sub">${move.booked.price?fmtEur(move.booked.price,0):''}</div>`
+        :`<div class="stat-num" style="color:var(--bd3)">${move.total}</div>
+           <div class="stat-lbl">Moving companies</div>
+           <div class="stat-sub" style="color:${move.total?'#d97706':'var(--bd3)'}">${move.total?'None booked yet':'Add companies'}</div>`}
     </div>
   </div>`;
+  h+='</div>'; // end dash-grid
 
-  h += '</div>'; // end dash-stats
-
-  // ---- Two column: quick actions + activity ----
-  h += '<div class="dash-cols">';
-
-  // Quick actions
-  h += `<div class="dash-box">
-    <div class="dash-box-hdr">⚡ Schnellaktionen</div>
-    <div class="quick-actions">
-      <button class="qa-btn" onclick="switchTab('take');setTimeout(()=>openModal('take-add-modal'),200)">📦 Gegenstand hinzufügen</button>
-      <button class="qa-btn" onclick="switchTab('sell');setTimeout(()=>openModal('sell-add-modal'),200)">💸 Verkauf einstellen</button>
-      <button class="qa-btn" onclick="switchTab('buy');setTimeout(()=>openModal('buy-add-modal'),200)">🛒 Kaufwunsch hinzufügen</button>
-      <button class="qa-btn" onclick="switchTab('move');setTimeout(()=>openModal('move-add-modal'),200)">🚚 Firma hinzufügen</button>
-      <button class="qa-btn" onclick="switchTab('cmp');setTimeout(()=>openModal('cmp-add-modal'),200)">📊 Produkt vergleichen</button>
-      <button class="qa-btn" onclick="switchTab('plan')">🏠 Grundriss bearbeiten</button>
-      <button class="qa-btn" onclick="openSettings()">⚙️ Einstellungen</button>
-      <button class="qa-btn" onclick="exportAll()">💾 Backup exportieren</button>
+  // ── Two column: quick actions + activity ────────────────────
+  h+='<div class="dash-cols">';
+  h+=`<div class="dash-box">
+    <div class="dash-box-hdr">⚡ Quick Actions</div>
+    <div class="quick-grid">
+      <button class="qa-btn" onclick="switchTab('buy');setTimeout(()=>openModal('buy-add-modal'),150)">🛒 Add item to buy</button>
+      <button class="qa-btn" onclick="switchTab('sell');setTimeout(()=>openModal('sell-add-modal'),150)">💸 List item to sell</button>
+      <button class="qa-btn" onclick="switchTab('take');setTimeout(()=>openModal('take-add-modal'),150)">📦 Add packing item</button>
+      <button class="qa-btn" onclick="switchTab('move');setTimeout(()=>openModal('move-add-modal'),150)">🚚 Add moving company</button>
+      <button class="qa-btn" onclick="switchTab('cmp');setTimeout(()=>openModal('cmp-add-modal'),150)">⚖️ Compare products</button>
+      <button class="qa-btn" onclick="switchTab('plan')">📐 Open floor plan</button>
+      <button class="qa-btn" onclick="openSettings()">⚙️ Settings</button>
+      <button class="qa-btn" onclick="exportAll()">💾 Backup data</button>
     </div>
   </div>`;
-
-  // Activity feed
-  h += `<div class="dash-box">
-    <div class="dash-box-hdr">🕐 Letzte Aktivitäten</div>
-    <div class="activity-feed">`;
-  if (!activity.length) {
-    h += '<div class="empty" style="padding:16px"><div class="ei">📋</div>Noch keine Aktivitäten</div>';
-  } else {
-    const moduleIcons = { move:'🚚', take:'📦', sell:'💸', buy:'🛒', compare:'📊', plan:'🏠' };
-    const actionLabels = { add:'hinzugefügt', update:'aktualisiert', delete:'gelöscht' };
-    h += activity.map(a =>
-      `<div class="activity-item">
-        <span class="activity-icon">${moduleIcons[a.module] || '📋'}</span>
-        <div class="activity-body">
-          <span class="activity-name">${esc(trunc(a.label,28))}</span>
-          <span class="activity-action">${actionLabels[a.action] || a.action}</span>
-        </div>
-        <span class="activity-time">${fmtTs(a.ts)}</span>
-      </div>`
-    ).join('');
-  }
-  h += '</div></div>';
-  h += '</div>'; // end dash-cols
-
-  // ---- Budget breakdown by category ----
-  const buyItems = ldBuy();
-  if (buyItems.length) {
-    const byCat = groupBy(buyItems.filter(it => !it.bought), 'cat');
-    const byRoom = groupBy(buyItems, 'room');
-    h += '<div class="dash-cols">';
-
-    // By Category
-    h += `<div class="dash-box">
-      <div class="dash-box-hdr">💰 Budget nach Kategorie (noch offen)</div>`;
-    const catTotals = Object.entries(byCat).map(([cat, items]) => ({
-      cat, total: items.reduce((s,i) => s + (i.price||0), 0), count: items.length
-    })).sort((a,b) => b.total - a.total);
-    const maxCat = catTotals[0]?.total || 1;
-    h += catTotals.slice(0, 8).map(({ cat, total, count }) => {
-      const catConf = BUY_CATS.find(c => c.k === cat);
-      return `<div style="margin:5px 0">
-        <div style="display:flex;justify-content:space-between;font-size:.73rem;margin-bottom:2px">
-          <span>${catConf ? catConf.e + ' ' : ''}${esc(cat)} <span style="color:#999">(${count})</span></span>
-          <strong>${fmtEur(total, 0)}</strong>
-        </div>
-        ${progressBar(Math.round(total/maxCat*100), 'var(--pk)', '5px')}
-      </div>`;
-    }).join('');
-    h += '</div>';
-
-    // By Room
-    h += `<div class="dash-box">
-      <div class="dash-box-hdr">🏠 Budget nach Raum (gesamt)</div>`;
-    const roomTotals = Object.entries(byRoom).map(([room, items]) => ({
-      room, total: items.reduce((s,i) => s + (i.bought ? (i.actualPrice||i.price||0) : (i.price||0)), 0), count: items.length
-    })).sort((a,b) => b.total - a.total);
-    const maxRoom = roomTotals[0]?.total || 1;
-    h += roomTotals.slice(0, 8).map(({ room, total, count }) =>
-      `<div style="margin:5px 0">
-        <div style="display:flex;justify-content:space-between;font-size:.73rem;margin-bottom:2px">
-          <span>${esc(room)} <span style="color:#999">(${count})</span></span>
-          <strong>${fmtEur(total, 0)}</strong>
-        </div>
-        ${progressBar(Math.round(total/maxRoom*100), '#7b1fa2', '5px')}
-      </div>`
-    ).join('');
-    h += '</div>';
-    h += '</div>'; // end dash-cols
-  }
-
-  // ---- Sell by Platform ----
-  const sellItems = ldSell().filter(it => it.status === 'sold');
-  if (sellItems.length) {
-    const byPlat = groupBy(sellItems, 'platform');
-    h += `<div class="dash-box" style="margin-top:8px">
-      <div class="dash-box-hdr">💸 Einnahmen nach Plattform</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;padding:6px 0">`;
-    h += Object.entries(byPlat).map(([plat, items]) => {
-      const total = items.reduce((s,i) => s + (i.soldPrice||0), 0);
-      const p = SELL_PLATFORMS.find(x => x.k === plat) || { e:'📦', l: plat };
-      return `<div style="background:#f9f9f9;border-radius:8px;padding:8px 12px;min-width:120px">
-        <div style="font-size:.65rem;color:#888">${p.e} ${esc(p.l)}</div>
-        <div style="font-weight:700;font-size:.95rem;color:var(--gn)">${fmtEur(total,0)}</div>
-        <div style="font-size:.6rem;color:#aaa">${items.length} Artikel</div>
-      </div>`;
-    }).join('');
-    h += '</div></div>';
-  }
-
-  // ---- Keyboard shortcuts hint ----
-  h += `<div style="text-align:center;font-size:.6rem;color:#ccc;margin-top:16px;padding-bottom:8px">
-    Tastenkürzel: 1-7 = Tabs · Esc = Modal schließen
+  h+=`<div class="dash-box">
+    <div class="dash-box-hdr">🕐 Recent Activity</div>
+    <div style="max-height:200px;overflow-y:auto">
+      ${activity.length?activity.map(a=>{
+        const icons={move:'🚚',take:'📦',sell:'💸',buy:'🛒',compare:'⚖️',plan:'📐'};
+        const actions={add:'added',update:'updated',delete:'deleted'};
+        return `<div class="activity-item">
+          <span style="font-size:1rem">${icons[a.module]||'📋'}</span>
+          <div style="flex:1"><span style="font-weight:600">${esc(trunc(a.label,26))}</span> <span style="color:var(--bd3)">${actions[a.action]||a.action}</span></div>
+          <span class="activity-time">${fmtTs(a.ts)}</span>
+        </div>`;
+      }).join(''):'<div class="empty" style="padding:16px"><div class="ei" style="font-size:2rem">📋</div>No activity yet</div>'}
+    </div>
   </div>`;
+  h+='</div>'; // end dash-cols
 
-  el.innerHTML = h;
+  // ── Budget by room ──────────────────────────────────────────
+  const byRoom=getBudgetByRoom();
+  if (Object.keys(byRoom).length) {
+    h+='<div class="dash-cols" style="margin-top:0">';
+    // by room
+    h+=`<div class="dash-box">
+      <div class="dash-box-hdr">🏠 Budget by Room</div>`;
+    const roomTotals=Object.entries(byRoom).sort((a,b)=>b[1].est-a[1].est);
+    const maxR=roomTotals[0]?.[1].est||1;
+    roomTotals.slice(0,6).forEach(([rId,stats])=>{
+      const room=ROOMS.find(r=>r.id===rId);
+      const lbl=room?room.label:rId;
+      h+=`<div style="margin:4px 0">
+        <div style="display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:2px">
+          <span>${room?room.emoji+' ':''} ${esc(lbl)} <span style="color:var(--bd3)">(${stats.count})</span></span>
+          <strong>${fmtEur(stats.est,0)}</strong>
+        </div>
+        ${progressBar(Math.round(stats.est/maxR*100),room?.colorDark||'var(--pk)','5px')}
+      </div>`;
+    });
+    h+='</div>';
+    // Activity breakdown
+    h+=`<div class="dash-box">
+      <div class="dash-box-hdr">📊 Spend Breakdown</div>
+      <div class="mini-stats" style="margin-top:0">
+        <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${fmtEurShort(budget.spent)}</div><div class="ms-lbl">Spent</div></div>
+        <div class="mini-stat"><div class="ms-num">${fmtEurShort(budget.est-budget.spent)}</div><div class="ms-lbl">Committed</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:${budget.remaining<0?'var(--pk)':'var(--gn)'}">${fmtEurShort(Math.abs(budget.remaining))}</div><div class="ms-lbl">${budget.remaining<0?'Over':'Remaining'}</div></div>
+      </div>
+      <div style="margin-top:8px;font-size:.7rem;font-weight:700;color:var(--bd3);margin-bottom:4px">Items by status</div>
+      ${[...ITEM_STATUSES].map(s=>{
+        const cnt=ldBuy().filter(it=>it.itemStatus===s.k).length;
+        return cnt?`<div style="display:flex;justify-content:space-between;font-size:.72rem;padding:3px 0;border-bottom:1px solid var(--bg2)"><span>${s.e} ${esc(s.l)}</span><strong>${cnt}</strong></div>`:'';
+      }).join('')}
+    </div>`;
+    h+='</div>';
+  }
+
+  h+=`<div style="text-align:center;font-size:.6rem;color:var(--bd3);margin-top:16px;padding-bottom:4px">
+    Keyboard: 1–7 = tabs · Esc = close modal · Ctrl+K = search
+  </div>`;
+  el.innerHTML=h;
+}
+
+function getMoveStats() {
+  const c=ldMove(); const booked=c.find(x=>x.status==='booked');
+  return { total:c.length, booked:booked||null };
 }
