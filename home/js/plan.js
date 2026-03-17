@@ -358,7 +358,7 @@ function rPlanSidebar() {
         <div class="room-name">${esc(r.label||'Room')}</div>
         <div class="room-dim">${wm}×${hm}m · ${area}m²</div>
       </div>
-      ${items.length?`<span class="room-item-count">${items.length}</span>`:''}
+      ${items.length?`<span class="room-item-count" onclick="event.stopPropagation();showRoomItemsPanel('${r.id}')" title="View items for this room">${items.length}</span>`:''}
       <button class="btn sml icon" onclick="event.stopPropagation();renameRoom('${r.id}')">✏️</button>
     </div>`;
   }).join('');
@@ -381,7 +381,7 @@ function showRoomItemsPanel(roomId) {
   inlineEdit(
     `${room.label||'Room'} — ${items.length} items (${fmtEur(total,0)})`,
     items.map(it=>it.name).join(', '),
-    ()=>{},
+    ()=>switchTab('buy'),
     'Click OK to go to Buy tab'
   );
 }
