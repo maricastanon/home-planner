@@ -99,7 +99,7 @@ function confirmBought() {
   const it=getBuyItem(_pendingBuyId); if(!it) return;
   it.bought=true; it.actualPrice=fNum('buy-modal-price')||it.price;
   it.boughtDate=fVal('buy-modal-date'); it.boughtStore=fVal('buy-modal-store');
-  it.boughtTs=Date.now(); it.itemStatus='placed';
+  it.boughtTs=Date.now(); it.prevItemStatus=it.itemStatus; it.itemStatus='placed';
   updBuyItem(it); closeModal('buy-confirm-modal'); _pendingBuyId=null;
   celebrate('🎉'); toast(it.name+' bought! 🛒','green');
   rBuy(); updateStatusBar();

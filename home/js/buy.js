@@ -494,6 +494,7 @@ function setItemVote(id,who,vote) {
 function unmarkBought(id) {
   const it=getBuyItem(id); if(!it) return;
   it.bought=false; it.actualPrice=0; it.boughtDate=''; it.boughtStore='';
+  it.itemStatus = it.prevItemStatus || 'decided'; it.prevItemStatus = '';
   updBuyItem(it); rBuy(); updateStatusBar();
   if(document.getElementById('item-detail-modal')?.classList.contains('open')) openItemDetail(id);
 }
