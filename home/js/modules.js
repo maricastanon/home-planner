@@ -258,7 +258,7 @@ function rTakeList() {
     return true;
   });
   if(srt==='name') list=sortBy(list,'name');
-  else if(srt==='prio') list.sort((a,b)=>({'hoch':0,'mittel':1,'low':2}[a.prio]||1)-({'hoch':0,'mittel':1,'low':2}[b.prio]||1));
+  else if(srt==='prio') list.sort((a,b)=>({'high':0,'medium':1,'low':2}[a.prio]??1)-({'high':0,'medium':1,'low':2}[b.prio]??1));
   else if(srt==='owner') list=sortBy(list,'owner');
   else list=sortBy(list,'room');
   const el=document.getElementById('take-list');if(!el)return;
