@@ -4,13 +4,26 @@
 // ============================================================
 
 // ── Local storage primitives ─────────────────────────────────
+let _storageFull = false;
+
 function ld(key, fb) {
   try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fb; }
   catch { return fb; }
 }
 function sv(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
-  catch(e) { console.warn('Storage full?', e); return false; }
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+    _storageFull = false;
+    return true;
+  } catch(e) {
+    const isQuota = e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22;
+    if (isQuota) {
+      _storageFull = true;
+      if (typeof toast === 'function') toast('Storage full! Delete some photos to free up space 🗑️', 'red', 8000);
+    }
+    console.warn('Storage write failed:', e);
+    return false;
+  }
 }
 
 // ── Settings ─────────────────────────────────────────────────
@@ -92,9 +105,13 @@ function readPhotoAsDataURL(file) {
 }
 
 async function attachPhotos(itemId, files, module = 'buy') {
+  if (_storageFull) {
+    if (typeof toast === 'function') toast('Storage full — delete photos to free up space 🗑️', 'red', 6000);
+    return false;
+  }
   const loaders = { buy: { ld: ldBuy, sv: svBuy, get: getBuyItem }, sell: { ld: ldSell, sv: svSell, get: getSellItem } };
-  const L = loaders[module]; if (!L) return;
-  const item = L.get(itemId); if (!item) return;
+  const L = loaders[module]; if (!L) return false;
+  const item = L.get(itemId); if (!item) return false;
   for (const file of files) {
     // AWS_HOOK: const url = await uploadPhotoToS3(file, itemId);
     const url = await readPhotoAsDataURL(file);
@@ -102,6 +119,7 @@ async function attachPhotos(itemId, files, module = 'buy') {
   }
   const d = L.ld(); const idx = d.findIndex(x => x.id === itemId);
   if (idx >= 0) { d[idx] = item; L.sv(d); }
+  return !_storageFull;
 }
 
 // ── Stats helpers ─────────────────────────────────────────────

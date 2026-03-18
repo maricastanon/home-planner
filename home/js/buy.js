@@ -381,8 +381,8 @@ function setMainPhoto(src, idx) {
 async function uploadItemPhotos(id, files) {
   if(!files||!files.length) return;
   toast('Uploading photos...','info');
-  await attachPhotos(id, Array.from(files), 'buy');
-  const it = getBuyItem(id);
+  const ok = await attachPhotos(id, Array.from(files), 'buy');
+  if (!ok) return;
   rBuy(); toast(`${files.length} photo${files.length>1?'s':''} added 📷`,'green');
   openItemDetail(id); // refresh modal
 }

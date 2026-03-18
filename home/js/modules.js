@@ -461,7 +461,8 @@ function rSellAddChips(){
 }
 async function uploadSellPhotos(id,files) {
   if(!files||!files.length)return;
-  await attachPhotos(id,Array.from(files),'sell');
+  const ok = await attachPhotos(id,Array.from(files),'sell');
+  if(!ok)return;
   rSell();toast(`${files.length} photo${files.length>1?'s':''} added 📷`,'green');
 }
 
