@@ -2,8 +2,59 @@
 // config.js — Our New Home · Global constants (English)
 // ============================================================
 
-const APP_VERSION = '2.0';
+const APP_VERSION = '2.1';
 const APP_NAME    = 'Our New Home';
+const APP_THEME_COLOR = '#9f1239';
+const APP_BACKGROUND_COLOR = '#f8fafc';
+const APP_RUNTIME = Object.freeze({
+  authRequired: true,
+  authProvider: 'cognito',
+  deploymentTarget: 's3_cloudfront',
+  installablePwa: true,
+  storageScope: 'cognito_user_sub',
+});
+const AUTH_GROUPS = Object.freeze({
+  admin: 'admin',
+  tester: 'tester',
+});
+const COGNITO_CONFIG = Object.freeze({
+  region: 'eu-central-1',
+  userPoolId: '',
+  clientId: '',
+  storageMode: 'session',
+});
+
+function xorDecodeBase64(encoded, key) {
+  if (!encoded || !key) return '';
+  try {
+    return atob(encoded)
+      .split('')
+      .map((char, idx) => String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(idx % key.length)))
+      .join('');
+  } catch {
+    return '';
+  }
+}
+function getCognitoConfig() {
+  const runtime = window.__HOME_AUTH_CONFIG__ || {};
+  const xorKey = runtime.xorKey || COGNITO_CONFIG.xorKey || '';
+  const userPoolId = runtime.userPoolId
+    || xorDecodeBase64(runtime.userPoolIdEnc || COGNITO_CONFIG.userPoolIdEnc, xorKey)
+    || COGNITO_CONFIG.userPoolId;
+  const clientId = runtime.clientId
+    || xorDecodeBase64(runtime.clientIdEnc || COGNITO_CONFIG.clientIdEnc, xorKey)
+    || COGNITO_CONFIG.clientId;
+  return {
+    region: runtime.region || COGNITO_CONFIG.region,
+    userPoolId,
+    clientId,
+    storageMode: runtime.storageMode || COGNITO_CONFIG.storageMode,
+  };
+}
+function hasCognitoConfig() {
+  const cfg = getCognitoConfig();
+  return Boolean(cfg.region && cfg.userPoolId && cfg.clientId);
+}
 
 // Storage keys
 const K = {
@@ -31,7 +82,83 @@ const ROOMS = [
   { id:'r-flur',    label:'Hallway',           emoji:'🚪', color:'#fef9c3', colorDark:'#713f12' },
   { id:'r-other',   label:'Other',             emoji:'📦', color:'#f3f4f6', colorDark:'#374151' },
 ];
-function getRoomById(id) { return ROOMS.find(r => r.id === id) || ROOMS[ROOMS.length-1]; }
+const DEFAULT_ROOM_META = { emoji:'📦', color:'#f3f4f6', colorDark:'#374151' };
+
+function getStaticRoomById(id) { return ROOMS.find(r => r.id === id) || null; }
+function getStaticRoomMetaByLabel(label) {
+  const key = String(label || '').trim().toLowerCase();
+  if (!key) return null;
+  return ROOMS.find(r => r.label.toLowerCase() === key) || null;
+}
+function getPlanRoomCatalog() {
+  const plan = typeof ldPlan === 'function' ? ldPlan() : null;
+  const floors = Array.isArray(plan?.floors) ? plan.floors : [];
+  const out = [];
+  floors.forEach((floor, floorIdx) => {
+    (floor.rooms || []).forEach((room, roomIdx) => {
+      const fallback = getStaticRoomById(room.id) || getStaticRoomMetaByLabel(room.label);
+      out.push({
+        id: room.id,
+        label: room.label || fallback?.label || `Room ${roomIdx + 1}`,
+        emoji: room.emoji || fallback?.emoji || '🏠',
+        color: room.color || fallback?.color || DEFAULT_ROOM_META.color,
+        colorDark: fallback?.colorDark || DEFAULT_ROOM_META.colorDark,
+        floorId: floor.id || `floor-${floorIdx + 1}`,
+        floorName: floor.name || `Floor ${floorIdx + 1}`
+      });
+    });
+  });
+  return out;
+}
+function getAllRooms({ includeStatic = true } = {}) {
+  const seen = new Set();
+  const rooms = [];
+  const pushRoom = room => {
+    if (!room?.id || seen.has(room.id)) return;
+    seen.add(room.id);
+    rooms.push(room);
+  };
+  getPlanRoomCatalog().forEach(pushRoom);
+  if (includeStatic || !rooms.length) ROOMS.forEach(pushRoom);
+  return rooms.length ? rooms : [...ROOMS];
+}
+function getRoomById(id) {
+  if (!id) return ROOMS[ROOMS.length - 1];
+  return getAllRooms().find(r => r.id === id) || {
+    id,
+    label: id,
+    emoji: DEFAULT_ROOM_META.emoji,
+    color: DEFAULT_ROOM_META.color,
+    colorDark: DEFAULT_ROOM_META.colorDark
+  };
+}
+function buildRoomOptions(selected = '', { includeBlank = true, blankLabel = '-- select room --' } = {}) {
+  const rooms = getAllRooms();
+  const seen = new Set();
+  let html = includeBlank ? `<option value="">${blankLabel}</option>` : '';
+  rooms.forEach(room => {
+    seen.add(room.id);
+    html += `<option value="${esc(room.id)}">${esc(room.emoji)} ${esc(room.label)}</option>`;
+  });
+  if (selected && !seen.has(selected)) {
+    const room = getRoomById(selected);
+    html += `<option value="${esc(selected)}">${esc(room.emoji)} ${esc(room.label)}</option>`;
+  }
+  return html;
+}
+function syncRoomSelect(selectId, options = {}) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const current = options.selected ?? select.value ?? '';
+  select.innerHTML = buildRoomOptions(current, options);
+  select.value = current && [...select.options].some(opt => opt.value === current) ? current : '';
+}
+function syncAllRoomSelects() {
+  syncRoomSelect('b-room', { blankLabel:'-- select room --' });
+  syncRoomSelect('be-room', { blankLabel:'-- none --' });
+  syncRoomSelect('cmp-room', { blankLabel:'-- optional --' });
+  syncRoomSelect('cmpe-room', { blankLabel:'-- optional --' });
+}
 
 // ── Item categories + types ─────────────────────────────────
 const ITEM_CATEGORIES = [

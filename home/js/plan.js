@@ -85,6 +85,8 @@ function savePlan(options = {}) {
 
   svPlan(buildPlanPayload());
   lastSavedPlanSnapshot = snapshot;
+  if (typeof syncAllRoomSelects === 'function') syncAllRoomSelects();
+  if (typeof window.updatePlanRoomItems === 'function') window.updatePlanRoomItems();
 
   return changed;
 }
@@ -378,7 +380,7 @@ function renderPlan() {
   buyPlaced.forEach(it=>{
     const wPx=(it.widthCm||50)/100*sc, dPx=(it.depthCm||50)/100*sc;
     const x=it.planX||0, y=it.planY||0;
-    const room = ROOMS.find(r=>r.id===it.roomId);
+    const room = getRoomById(it.roomId);
     const col  = room ? room.color : '#fce4ec';
     ctx.save();
     ctx.globalAlpha=.7;

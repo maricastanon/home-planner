@@ -63,7 +63,7 @@ function saveSettings() {
   svSettings(s); closeModal('settings-modal');
   toast('Settings saved ✅','green');
   const sub=document.getElementById('hdr-sub');
-  if(sub&&s.newAddress) sub.textContent=(s.names.M)+' & '+(s.names.A)+' · '+s.newAddress;
+  if(sub) sub.textContent = buildHeaderSubtitle(s);
   if(_activeTab==='dash') rDash();
   updateStatusBar();
 }

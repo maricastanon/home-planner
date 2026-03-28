@@ -539,12 +539,12 @@ function renderCmpGroup(cat,items) {
         </tr></thead>
         <tbody>
           <tr><td class="feat-cell">Price</td>${items.map(it=>`<td class="${it.price>0&&it.price===minP?'best':''}"><strong style="color:${it.price===minP&&it.price>0?'var(--gn)':'var(--pk)'}">${it.price?fmtEur(it.price):'–'}</strong></td>`).join('')}</tr>
-          <tr><td class="feat-cell">Room</td>${items.map(it=>`<td>${ROOMS.find(r=>r.id===it.roomId)?.label||'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Room</td>${items.map(it=>`<td>${it.roomId ? esc(getRoomById(it.roomId).label || '–') : '–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">W×D×H (cm)</td>${items.map(it=>`<td style="font-family:monospace">${dimStr(it)||'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Energy</td>${items.map(it=>`<td>${it.energyRating?energyBadge(it.energyRating):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Warranty</td>${items.map(it=>`<td>${esc(it.warranty||'–')}</td>`).join('')}</tr>
-          <tr><td class="feat-cell">${esc(names.M)}</td>${items.map(it=>`<td>${it.voteM?({'yes':'👍 Yes','no':'👎 No','meh':'🤔 Maybe'}[it.voteM]):'–'}</td>`).join('')}</tr>
-          <tr><td class="feat-cell">${esc(names.A)}</td>${items.map(it=>`<td>${it.voteA?({'yes':'👍 Yes','no':'👎 No','meh':'🤔 Maybe'}[it.voteA]):'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">${esc(names.M)}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'M')}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">${esc(names.A)}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'A')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">✅ Pros</td>${items.map(it=>`<td>${(it.pros||[]).map(p=>`<span class="chip pro" style="font-size:.58rem;margin:1px">${esc(p)}</span>`).join('')||'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">❌ Cons</td>${items.map(it=>`<td>${(it.cons||[]).map(c=>`<span class="chip con" style="font-size:.58rem;margin:1px">${esc(c)}</span>`).join('')||'–'}</td>`).join('')}</tr>
           <tr style="background:var(--pkl)"><td class="feat-cell" style="font-weight:700">Score</td>${items.map(it=>`<td class="${it._score===maxS&&maxS>0?'best':''}" style="font-weight:700">${it._score.toFixed(1)}/10</td>`).join('')}</tr>
@@ -607,6 +607,7 @@ function addCmpItemFromForm() {
 }
 function editCmpItem(id) {
   const it=getCmpItem(id);if(!it)return;
+  syncRoomSelect('cmpe-room', { blankLabel:'-- optional --', selected:it.roomId||'' });
   fSet('cmpe-id',id);fSet('cmpe-name',it.name);fSet('cmpe-cat',it.category);fSet('cmpe-room',it.roomId||'');
   fSet('cmpe-price',it.price);fSet('cmpe-energy',it.energyRating||'');fSet('cmpe-warranty',it.warranty||'');
   fSet('cmpe-buylink',it.buyLink||'');fSet('cmpe-rating-m',it.ratingM||'');fSet('cmpe-rating-a',it.ratingA||'');
@@ -629,6 +630,6 @@ function saveCmpEdit() {
 function openCmpModal(cat) {
   const items=ldCmp().filter(it=>it.category===cat);
   if(!items.length)return;
-  _compareIds=new Set(items.map(i=>i.id));
+  setCompareContext(items.map(i=>i.id), 'cmp');
   rCompareModal();openModal('compare-modal');
 }

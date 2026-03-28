@@ -120,11 +120,11 @@ function rDash() {
     const roomTotals=Object.entries(byRoom).sort((a,b)=>b[1].est-a[1].est);
     const maxR=roomTotals[0]?.[1].est||1;
     roomTotals.slice(0,6).forEach(([rId,stats])=>{
-      const room=ROOMS.find(r=>r.id===rId);
-      const lbl=room?room.label:rId;
+      const room=getRoomById(rId);
+      const lbl=room.label||rId;
       h+=`<div style="margin:4px 0">
         <div style="display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:2px">
-          <span>${room?room.emoji+' ':''} ${esc(lbl)} <span style="color:var(--bd3)">(${stats.count})</span></span>
+          <span>${room?.emoji?room.emoji+' ':''} ${esc(lbl)} <span style="color:var(--bd3)">(${stats.count})</span></span>
           <strong>${fmtEur(stats.est,0)}</strong>
         </div>
         ${progressBar(Math.round(stats.est/maxR*100),room?.colorDark||'var(--pk)','5px')}

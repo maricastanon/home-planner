@@ -52,6 +52,43 @@ function voteScore(it) {
   const v={yes:2,meh:1,no:-1,'':0};
   return (v[it.voteM]||0) + (v[it.voteA]||0);
 }
+function itemPreferenceMode(it) {
+  return it && (Object.prototype.hasOwnProperty.call(it, 'ratingM') || Object.prototype.hasOwnProperty.call(it, 'ratingA'))
+    ? 'rating'
+    : 'vote';
+}
+function comparePreferenceScore(it) {
+  if (itemPreferenceMode(it) === 'rating') {
+    const avg = ((Number(it.ratingM) || 0) + (Number(it.ratingA) || 0)) / 2;
+    return (avg / 5) * 4;
+  }
+  const map = { yes:5, meh:3, no:1, '':0 };
+  const avg = ((map[it.voteM] || 0) + (map[it.voteA] || 0)) / 2;
+  return (avg / 5) * 4;
+}
+function preferenceCellLabel(it, personKey) {
+  if (itemPreferenceMode(it) === 'rating') {
+    const val = Number(personKey === 'M' ? it.ratingM : it.ratingA) || 0;
+    return val ? `${val}/5` : '–';
+  }
+  const vote = personKey === 'M' ? it.voteM : it.voteA;
+  return vote ? ({ yes:'👍 Yes', no:'👎 No', meh:'🤔 Maybe' }[vote] || '–') : '–';
+}
+function preferenceInlineLabel(it, personKey) {
+  if (itemPreferenceMode(it) === 'rating') {
+    const val = Number(personKey === 'M' ? it.ratingM : it.ratingA) || 0;
+    return val ? `⭐ ${val}/5` : '–';
+  }
+  const vote = personKey === 'M' ? it.voteM : it.voteA;
+  return vote ? ({ yes:'👍', no:'👎', meh:'🤔' }[vote] || '–') : '–';
+}
+function buildHeaderSubtitle(settings) {
+  const s = settings || ldSettings();
+  const parts = [(s.names?.M || 'Mari') + ' & ' + (s.names?.A || 'Alexander')];
+  if (s.newAddress) parts.push(s.newAddress);
+  if (s.moveDate) parts.push('Move-in: ' + fmtDate(s.moveDate));
+  return parts.join(' · ');
+}
 
 // ── Progress bar ─────────────────────────────────────────────
 function progressBar(pct, color='var(--pk)', h='7px') {

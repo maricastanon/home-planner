@@ -6,13 +6,45 @@
 // ── Local storage primitives ─────────────────────────────────
 let _storageFull = false;
 
+function getStorageScope() {
+  return typeof window !== 'undefined' && window.HomeAuth && typeof window.HomeAuth.getStorageScope === 'function'
+    ? window.HomeAuth.getStorageScope()
+    : '';
+}
+function resolveScopedKey(key) {
+  const scope = getStorageScope();
+  return scope ? `${key}::${scope}` : key;
+}
+function readStoredValue(key, fb) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fb;
+  } catch {
+    return fb;
+  }
+}
+function migrateLegacyValue(key, scopedKey) {
+  if (scopedKey === key || localStorage.getItem(scopedKey) != null) return null;
+  const raw = localStorage.getItem(key);
+  if (raw == null) return null;
+  try {
+    localStorage.setItem(scopedKey, raw);
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 function ld(key, fb) {
-  try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fb; }
-  catch { return fb; }
+  const scopedKey = resolveScopedKey(key);
+  const migrated = migrateLegacyValue(key, scopedKey);
+  if (migrated != null) return migrated;
+  return readStoredValue(scopedKey, fb);
 }
 function sv(key, val) {
+  const scopedKey = resolveScopedKey(key);
   try {
-    localStorage.setItem(key, JSON.stringify(val));
+    localStorage.setItem(scopedKey, JSON.stringify(val));
     _storageFull = false;
     return true;
   } catch(e) {
@@ -28,29 +60,33 @@ function sv(key, val) {
 
 // ── Settings ─────────────────────────────────────────────────
 function ldSettings()  { return Object.assign({}, DEFAULT_SETTINGS, ld(K.settings, {})); }
-function svSettings(s) { sv(K.settings, s); }
+function svSettings(s) { return sv(K.settings, s); }
 
 // ── Floor plan ───────────────────────────────────────────────
 function ldPlan() { return ld(K.plan, null); }
-function svPlan(p) { sv(K.plan, p); }
+function svPlan(p) { return sv(K.plan, p); }
+
+function activityLabel(entity, fallback = 'item') {
+  return entity?.name || entity?.title || entity?.label || fallback;
+}
 
 // ── Moving companies ─────────────────────────────────────────
 function ldMove()        { return ld(K.move, []); }
-function svMove(d)       { sv(K.move, d); }
-function addMoveItem(c)  { const d=ldMove(); d.push(c); svMove(d); logActivity('move','add',c.name); }
-function updMoveItem(c)  { const d=ldMove(),i=d.findIndex(x=>x.id===c.id); if(i>=0){d[i]=c;svMove(d);} }
-function delMoveItem(id) { svMove(ldMove().filter(c=>c.id!==id)); }
+function svMove(d)       { return sv(K.move, d); }
+function addMoveItem(c)  { const d=ldMove(); d.push(c); if (svMove(d)) logActivity('move','add',activityLabel(c,'moving company')); }
+function updMoveItem(c)  { const d=ldMove(),i=d.findIndex(x=>x.id===c.id); if(i>=0){d[i]=c;if (svMove(d)) logActivity('move','update',activityLabel(c,'moving company'));} }
+function delMoveItem(id) { const item=getMoveItem(id); if (svMove(ldMove().filter(c=>c.id!==id)) && item) logActivity('move','delete',activityLabel(item,'moving company')); }
 function getMoveItem(id) { return ldMove().find(c=>c.id===id); }
 
 // ── Take / packing list ──────────────────────────────────────
 function ldTake()       { return ld(K.take, []); }
-function svTake(d)      { sv(K.take, d); }
-function addTakeItem(i) { const d=ldTake(); d.push(i); svTake(d); logActivity('take','add',i.name); }
-function updTakeItem(i) { const d=ldTake(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svTake(d);} }
-function delTakeItem(id){ svTake(ldTake().filter(x=>x.id!==id)); }
+function svTake(d)      { return sv(K.take, d); }
+function addTakeItem(i) { const d=ldTake(); d.push(i); if (svTake(d)) logActivity('take','add',activityLabel(i,'packing item')); }
+function updTakeItem(i) { const d=ldTake(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if (svTake(d)) logActivity('take','update',activityLabel(i,'packing item'));} }
+function delTakeItem(id){ const item=getTakeItem(id); if (svTake(ldTake().filter(x=>x.id!==id)) && item) logActivity('take','delete',activityLabel(item,'packing item')); }
 function getTakeItem(id){ return ldTake().find(x=>x.id===id); }
 function ldBoxes()      { return ld(K.boxes, []); }
-function svBoxes(d)     { sv(K.boxes, d); }
+function svBoxes(d)     { return sv(K.boxes, d); }
 
 // ── Sell items ───────────────────────────────────────────────
 function ldSell()       { return ld(K.sell, []); }
@@ -59,27 +95,27 @@ function addSellItem(i) {
   const d=ldSell();
   d.push(i);
   const ok = svSell(d);
-  if (ok) logActivity('sell','add',i.name);
+  if (ok) logActivity('sell','add',activityLabel(i,'sell item'));
   return ok;
 }
-function updSellItem(i) { const d=ldSell(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svSell(d);} }
-function delSellItem(id){ svSell(ldSell().filter(x=>x.id!==id)); }
+function updSellItem(i) { const d=ldSell(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if (svSell(d)) logActivity('sell','update',activityLabel(i,'sell item'));} }
+function delSellItem(id){ const item=getSellItem(id); if (svSell(ldSell().filter(x=>x.id!==id)) && item) logActivity('sell','delete',activityLabel(item,'sell item')); }
 function getSellItem(id){ return ldSell().find(x=>x.id===id); }
 
 // ── Buy / wish items ─────────────────────────────────────────
 function ldBuy()       { return ld(K.buy, []); }
-function svBuy(d)      { sv(K.buy, d); }
-function addBuyItem(i) { const d=ldBuy(); d.push(i); svBuy(d); logActivity('buy','add',i.name); }
-function updBuyItem(i) { const d=ldBuy(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svBuy(d);} }
-function delBuyItem(id){ svBuy(ldBuy().filter(x=>x.id!==id)); }
+function svBuy(d)      { return sv(K.buy, d); }
+function addBuyItem(i) { const d=ldBuy(); d.push(i); if (svBuy(d)) logActivity('buy','add',activityLabel(i,'buy item')); }
+function updBuyItem(i) { const d=ldBuy(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if (svBuy(d)) logActivity('buy','update',activityLabel(i,'buy item'));} }
+function delBuyItem(id){ const item=getBuyItem(id); if (svBuy(ldBuy().filter(x=>x.id!==id)) && item) logActivity('buy','delete',activityLabel(item,'buy item')); }
 function getBuyItem(id){ return ldBuy().find(x=>x.id===id); }
 
 // ── Compare ──────────────────────────────────────────────────
 function ldCmp()       { return ld(K.compare, []); }
-function svCmp(d)      { sv(K.compare, d); }
-function addCmpItem(i) { const d=ldCmp(); d.push(i); svCmp(d); logActivity('compare','add',i.name); }
-function updCmpItem(i) { const d=ldCmp(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svCmp(d);} }
-function delCmpItem(id){ svCmp(ldCmp().filter(x=>x.id!==id)); }
+function svCmp(d)      { return sv(K.compare, d); }
+function addCmpItem(i) { const d=ldCmp(); d.push(i); if (svCmp(d)) logActivity('compare','add',activityLabel(i,'comparison item')); }
+function updCmpItem(i) { const d=ldCmp(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if (svCmp(d)) logActivity('compare','update',activityLabel(i,'comparison item'));} }
+function delCmpItem(id){ const item=getCmpItem(id); if (svCmp(ldCmp().filter(x=>x.id!==id)) && item) logActivity('compare','delete',activityLabel(item,'comparison item')); }
 function getCmpItem(id){ return ldCmp().find(x=>x.id===id); }
 
 // ── Activity log ─────────────────────────────────────────────
@@ -178,10 +214,16 @@ function getBudgetByRoom() {
 
 // ── Export / import ──────────────────────────────────────────
 function exportAll() {
-  const data = {};
+  const data = {
+    _meta: {
+      version: APP_VERSION,
+      exportedAt: Date.now(),
+      storageScope: getStorageScope() || 'legacy',
+    }
+  };
   Object.entries(K).forEach(([name, key]) => {
-    const v = localStorage.getItem(key);
-    if (v) data[name] = JSON.parse(v);
+    const v = ld(key, null);
+    if (v != null) data[name] = v;
   });
   downloadText(JSON.stringify(data, null, 2), 'our_home_backup_' + todayISO() + '.json', 'application/json');
   toast('Backup exported 💾', 'green');
@@ -192,7 +234,9 @@ function importAll(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      Object.entries(K).forEach(([name, key]) => { if (data[name]) sv(key, data[name]); });
+      Object.entries(K).forEach(([name, key]) => {
+        if (Object.prototype.hasOwnProperty.call(data, name)) sv(key, data[name]);
+      });
       toast('Data imported ✅', 'green');
       setTimeout(() => location.reload(), 800);
     } catch { toast('Import error', 'red'); }

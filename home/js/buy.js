@@ -130,11 +130,11 @@ function rBuyList() {
 }
 
 function renderRoomGroup(roomId, items, names) {
-  const room   = ROOMS.find(r=>r.id===roomId);
-  const rLabel = room ? room.label : 'Other';
-  const rColor = room ? room.color : '#f3f4f6';
-  const rDark  = room ? room.colorDark : '#374151';
-  const rEmoji = room ? room.emoji : '📦';
+  const room   = getRoomById(roomId);
+  const rLabel = room.label || 'Other';
+  const rColor = room.color || '#f3f4f6';
+  const rDark  = room.colorDark || '#374151';
+  const rEmoji = room.emoji || '📦';
   const total  = items.reduce((s,it)=>s+(it.bought?(it.actualPrice||it.price||0):(it.price||0)),0);
   const spent  = items.filter(i=>i.bought).reduce((s,it)=>s+(it.actualPrice||it.price||0),0);
   const bought = items.filter(i=>i.bought).length;
@@ -173,7 +173,7 @@ function renderRoomGroup(roomId, items, names) {
 
 function renderItemCard(it, names) {
   const prioConf = BUY_PRIOS.find(p=>p.k===it.prio)||{color:'#f1f5f9',colorText:'#64748b',e:'',l:''};
-  const room     = ROOMS.find(r=>r.id===it.roomId);
+  const room     = getRoomById(it.roomId);
   const vs       = voteScore(it);
   const bothYes  = it.voteM==='yes'&&it.voteA==='yes';
   const bothNo   = it.voteM==='no'&&it.voteA==='no';
@@ -205,6 +205,7 @@ function renderItemCard(it, names) {
     <div class="item-card-body">
       <div class="item-card-name">${esc(it.name)}</div>
       ${it.brand?`<div class="item-card-brand">${esc(it.brand)}${it.model?' · '+esc(it.model):''}</div>`:''}
+      ${it.roomId?`<div class="item-card-brand">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
       ${dimTxt?`<div class="item-card-dims">📐 ${esc(dimTxt)}</div>`:''}
       ${it.energyRating?`<div style="margin-top:2px">${energyBadge(it.energyRating)}</div>`:''}
       <div class="item-card-votes" onclick="event.stopPropagation()">
@@ -241,7 +242,7 @@ function openItemDetail(id) {
   const it = getBuyItem(id); if(!it) return;
   const settings = ldSettings();
   const names    = settings.names||{M:'Mari',A:'Alexander'};
-  const room     = ROOMS.find(r=>r.id===it.roomId);
+  const room     = getRoomById(it.roomId);
   const cat      = getCatByKey(it.category);
   const statusConf = ITEM_STATUSES.find(s=>s.k===it.itemStatus)||ITEM_STATUSES[0];
   const photos   = it.photos||[];
@@ -445,6 +446,7 @@ function addBuyItemFromForm() {
 
 function openEditItem(id) {
   const it=getBuyItem(id); if(!it) return;
+  syncRoomSelect('be-room', { blankLabel:'-- none --', selected:it.roomId||'' });
   fSet('be-id',id); fSet('be-name',it.name); fSet('be-brand',it.brand||'');
   fSet('be-model',it.model||''); fSet('be-cat',it.category||'Furniture');
   fSet('be-type',it.type||''); fSet('be-room',it.roomId||'');
@@ -531,18 +533,37 @@ function onBuyCatChange(sel) {
 
 // ── Compare ───────────────────────────────────────────────────
 let _compareIds = new Set();
+let _compareSource = 'buy';
+function updateCompareFab() {
+  const btn = document.getElementById('compare-fab');
+  if (!btn) return;
+  const visible = _compareSource === 'buy' && _compareIds.size;
+  btn.style.display = visible ? 'flex' : 'none';
+  if (visible) btn.textContent = '⚖️ Compare (' + _compareIds.size + ')';
+}
+function resolveCompareItem(id) {
+  return _compareSource === 'cmp' ? getCmpItem(id) : getBuyItem(id);
+}
+function setCompareContext(ids, source = 'buy') {
+  _compareSource = source;
+  _compareIds = new Set(ids);
+  updateCompareFab();
+}
 function addToCompare(id) {
+  if (_compareSource !== 'buy') {
+    _compareIds.clear();
+    _compareSource = 'buy';
+  }
   if(_compareIds.size>=4) { toast('Max 4 items in comparison','warn'); return; }
   _compareIds.add(id);
   toast('Added to comparison ⚖️','info');
-  const btn=document.getElementById('compare-fab');
-  if(btn) { btn.style.display='flex'; btn.textContent='⚖️ Compare ('+_compareIds.size+')'; }
+  updateCompareFab();
 }
-function clearCompare() { _compareIds.clear(); const btn=document.getElementById('compare-fab'); if(btn) btn.style.display='none'; }
+function clearCompare() { _compareIds.clear(); _compareSource = 'buy'; updateCompareFab(); }
 function openCompareForType(type, roomId) {
   const items = ldBuy().filter(it=>it.type===type&&it.roomId===roomId);
   if(items.length<2) { toast('Need at least 2 items to compare','warn'); return; }
-  _compareIds=new Set(items.map(i=>i.id));
+  setCompareContext(items.map(i=>i.id), 'buy');
   openCompareModal();
 }
 function openCompareModal() {
@@ -551,7 +572,7 @@ function openCompareModal() {
 }
 
 function rCompareModal() {
-  const items = [..._compareIds].map(id=>getBuyItem(id)).filter(Boolean);
+  const items = [..._compareIds].map(id=>resolveCompareItem(id)).filter(Boolean);
   if(!items.length) return;
   const el=document.getElementById('compare-modal-content'); if(!el) return;
   const settings=ldSettings(); const names=settings.names||{M:'Mari',A:'Alexander'};
@@ -559,8 +580,7 @@ function rCompareModal() {
   // Score each item
   items.forEach(it=>{
     let s=0;
-    const avgR=((it.ratingM||0)+(it.ratingA||0))/2;
-    s+=(avgR/5)*4;
+    s+=comparePreferenceScore(it);
     if(it.energyRating){ const eScore={'A+++':10,'A++':9,'A+':8,'A':7,'B':5,'C':3,'D':1,'E':0}; s+=(eScore[it.energyRating]||0)/10*2; }
     s+=Math.max(0,Math.min(2,(it.pros||[]).length-(it.cons||[]).length)*.5);
     it._score=Math.max(0,Math.min(10,s));
@@ -575,12 +595,13 @@ function rCompareModal() {
         const isWinner=it._score===maxScore&&maxScore>0;
         const isCheap=it.price>0&&it.price===minPrice;
         const photo=it.photos?.[0]||'';
-        const room=ROOMS.find(r=>r.id===it.roomId);
+        const room=getRoomById(it.roomId);
         return `<div class="cmp-card ${isWinner?'winner':''}">
           ${photo?`<img src="${esc(photo)}" class="cmp-card-img">`:`<div class="cmp-card-img" style="display:flex;align-items:center;justify-content:center;font-size:3rem;background:var(--bg2)">📦</div>`}
           <div class="cmp-card-body">
             <div class="cmp-card-name">${esc(it.name)} ${isWinner?'🏆':''}</div>
             ${it.brand?`<div style="font-size:.65rem;color:var(--bd3)">${esc(it.brand)}</div>`:''}
+            ${it.roomId?`<div style="font-size:.62rem;color:var(--bd3);margin-top:2px">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
             <div style="display:flex;justify-content:space-between;margin:5px 0;font-size:.8rem">
               <strong style="color:${isCheap?'var(--gn)':'var(--pk)'}">${it.price?fmtEur(it.price):'–'}</strong>
               ${isCheap?'<span class="badge green">💰 Cheapest</span>':''}
@@ -600,9 +621,9 @@ function rCompareModal() {
             <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">
               <div class="voter" style="flex-direction:row;gap:3px;align-items:center">
                 <span style="font-size:.6rem;color:var(--bd3)">${esc(names.M)}:</span>
-                <span>${it.voteM?({yes:'👍',no:'👎',meh:'🤔'}[it.voteM]||'–'):'–'}</span>
+                <span>${preferenceInlineLabel(it,'M')}</span>
                 <span style="font-size:.6rem;color:var(--bd3);margin-left:4px">${esc(names.A)}:</span>
-                <span>${it.voteA?({yes:'👍',no:'👎',meh:'🤔'}[it.voteA]||'–'):'–'}</span>
+                <span>${preferenceInlineLabel(it,'A')}</span>
               </div>
             </div>
             ${it.buyLink?`<a href="${esc(it.buyLink)}" target="_blank" class="btn pri full" style="margin-top:8px;font-size:.65rem">🛒 Buy Now</a>`:''}
@@ -622,8 +643,8 @@ function rCompareModal() {
           <tr><td class="feat-cell">Energy</td>${items.map(it=>`<td>${it.energyRating?energyBadge(it.energyRating):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Warranty</td>${items.map(it=>`<td>${esc(it.warranty||'–')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Color</td>${items.map(it=>`<td>${esc(it.color||'–')}</td>`).join('')}</tr>
-          <tr><td class="feat-cell">${names.M}</td>${items.map(it=>`<td>${it.voteM?({yes:'👍 Yes',no:'👎 No',meh:'🤔 Maybe'}[it.voteM]):'–'}</td>`).join('')}</tr>
-          <tr><td class="feat-cell">${names.A}</td>${items.map(it=>`<td>${it.voteA?({yes:'👍 Yes',no:'👎 No',meh:'🤔 Maybe'}[it.voteA]):'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">${names.M}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'M')}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">${names.A}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'A')}</td>`).join('')}</tr>
           <tr style="background:var(--pkl)"><td class="feat-cell" style="font-weight:700">Score</td>${items.map(it=>`<td class="${it._score===maxScore?'best':''}" style="font-weight:700">${it._score.toFixed(1)}/10</td>`).join('')}</tr>
         </tbody>
       </table>
