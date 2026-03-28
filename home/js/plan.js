@@ -14,6 +14,7 @@ let undoStack = [];
 let redoStack = [];
 let hoveredRoom = null;
 let roomColorIdx = 0;
+let lastSavedPlanSnapshot = '';
 const PLAN_SCHEMA_VERSION = PRELOADED_PLAN?._planVersion || 1;
 
 const ROOM_COLORS_CYCLE = [
@@ -28,37 +29,78 @@ function initPlan() {
   if (saved && saved.floors) {
     planState = { floors: saved.floors, scale: saved.scale || 45, activeFloor: saved.activeFloor || 0 };
   }
+  undoStack = [];
+  redoStack = [];
+  lastSavedPlanSnapshot = getPlanHistorySnapshot();
   const canvas = document.getElementById('canvas-plan');
   if (canvas) { setupPlanListeners(canvas); resizePlanCanvas(); }
   window.addEventListener('resize', resizePlanCanvas);
 }
 
-function savePlan() {
-  svPlan({
+function buildPlanPayload() {
+  return {
     floors: planState.floors,
     scale: planState.scale,
     activeFloor: planState.activeFloor,
     _preloaded: true,
     _planVersion: PLAN_SCHEMA_VERSION
-  });
-  pushUndo();
+  };
 }
-function pushUndo() {
-  undoStack.push(JSON.stringify(planState.floors));
-  if (undoStack.length > 30) undoStack.shift();
-  redoStack = [];
+function getPlanHistorySnapshot() {
+  return JSON.stringify({
+    floors: planState.floors,
+    scale: planState.scale,
+    activeFloor: planState.activeFloor
+  });
+}
+function pushHistoryEntry(stack, snapshot) {
+  if (!snapshot) return;
+  stack.push(snapshot);
+  if (stack.length > 30) stack.shift();
+}
+function restorePlanSnapshot(snapshot) {
+  const next = JSON.parse(snapshot);
+  const floors = Array.isArray(next.floors) ? next.floors : [];
+  const maxFloorIdx = Math.max(0, floors.length - 1);
+  planState = {
+    floors,
+    scale: next.scale || 45,
+    activeFloor: Math.min(Math.max(next.activeFloor || 0, 0), maxFloorIdx)
+  };
+  selected = null;
+  dragging = null;
+  drawStart = null;
+  drawCurrent = null;
+  hoveredRoom = null;
+}
+function savePlan(options = {}) {
+  const { recordHistory = true, clearRedo = recordHistory } = options;
+  const snapshot = getPlanHistorySnapshot();
+  const changed = lastSavedPlanSnapshot !== snapshot;
+
+  if (recordHistory && changed && lastSavedPlanSnapshot) {
+    pushHistoryEntry(undoStack, lastSavedPlanSnapshot);
+    if (clearRedo) redoStack = [];
+  }
+
+  svPlan(buildPlanPayload());
+  lastSavedPlanSnapshot = snapshot;
+
+  return changed;
 }
 function undoPlan() {
   if (!undoStack.length) return;
-  redoStack.push(JSON.stringify(planState.floors));
-  planState.floors = JSON.parse(undoStack.pop());
-  savePlan(); renderPlan(); toast('Undone ↺','info');
+  pushHistoryEntry(redoStack, getPlanHistorySnapshot());
+  restorePlanSnapshot(undoStack.pop());
+  savePlan({ recordHistory:false, clearRedo:false });
+  renderFloorTabs(); renderPlan(); rPlanSidebar(); toast('Undone ↺','info');
 }
 function redoPlan() {
   if (!redoStack.length) return;
-  undoStack.push(JSON.stringify(planState.floors));
-  planState.floors = JSON.parse(redoStack.pop());
-  savePlan(); renderPlan(); toast('Redone ↻','info');
+  pushHistoryEntry(undoStack, getPlanHistorySnapshot());
+  restorePlanSnapshot(redoStack.pop());
+  savePlan({ recordHistory:false, clearRedo:false });
+  renderFloorTabs(); renderPlan(); rPlanSidebar(); toast('Redone ↻','info');
 }
 function getFloor() { return planState.floors[planState.activeFloor] || planState.floors[0]; }
 
@@ -222,7 +264,7 @@ function addFloor() {
 }
 function switchFloor(idx) {
   planState.activeFloor=idx; selected=null;
-  savePlan(); renderFloorTabs(); renderPlan(); rPlanSidebar();
+  savePlan({ recordHistory:false }); renderFloorTabs(); renderPlan(); rPlanSidebar();
 }
 function renderFloorTabs() {
   const el=document.getElementById('floor-tabs'); if(!el) return;
