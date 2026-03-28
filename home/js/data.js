@@ -54,8 +54,14 @@ function svBoxes(d)     { sv(K.boxes, d); }
 
 // ── Sell items ───────────────────────────────────────────────
 function ldSell()       { return ld(K.sell, []); }
-function svSell(d)      { sv(K.sell, d); }
-function addSellItem(i) { const d=ldSell(); d.push(i); svSell(d); logActivity('sell','add',i.name); }
+function svSell(d)      { return sv(K.sell, d); }
+function addSellItem(i) {
+  const d=ldSell();
+  d.push(i);
+  const ok = svSell(d);
+  if (ok) logActivity('sell','add',i.name);
+  return ok;
+}
 function updSellItem(i) { const d=ldSell(),idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;svSell(d);} }
 function delSellItem(id){ svSell(ldSell().filter(x=>x.id!==id)); }
 function getSellItem(id){ return ldSell().find(x=>x.id===id); }

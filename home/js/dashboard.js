@@ -85,7 +85,7 @@ function rDash() {
     <div class="dash-box-hdr">⚡ Quick Actions</div>
     <div class="quick-grid">
       <button class="qa-btn" onclick="switchTab('buy');setTimeout(()=>openModal('buy-add-modal'),150)">🛒 Add item to buy</button>
-      <button class="qa-btn" onclick="switchTab('sell');setTimeout(()=>openModal('sell-add-modal'),150)">💸 List item to sell</button>
+      <button class="qa-btn" onclick="switchTab('sell');setTimeout(()=>openSellAddModal(),150)">💸 List item to sell</button>
       <button class="qa-btn" onclick="switchTab('take');setTimeout(()=>openModal('take-add-modal'),150)">📦 Add packing item</button>
       <button class="qa-btn" onclick="switchTab('move');setTimeout(()=>openModal('move-add-modal'),150)">🚚 Add moving company</button>
       <button class="qa-btn" onclick="switchTab('cmp');setTimeout(()=>openModal('cmp-add-modal'),150)">⚖️ Compare products</button>

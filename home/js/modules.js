@@ -423,17 +423,41 @@ function rSellList() {
   }).join('');
 }
 
-let _sellPros=[], _sellCons=[];
+let _sellPros=[], _sellCons=[], _sellDraftPhotos=[];
+function rSellDraftPhotos() {
+  const el=document.getElementById('sell-add-photo-meta'); if(!el) return;
+  el.textContent = _sellDraftPhotos.length
+    ? `${_sellDraftPhotos.length} photo${_sellDraftPhotos.length>1?'s':''} ready to attach when you list this item`
+    : 'No photos selected yet';
+}
+function resetSellAddDraft() {
+  _sellPros=[]; _sellCons=[]; _sellDraftPhotos=[];
+  fClear('s-name','s-price','s-note','s-listing-link');
+  fSet('s-cond','good'); fSet('s-plat','ebay'); fSet('s-room','Other');
+  const input=document.getElementById('sell-photo-input'); if(input) input.value='';
+  rSellAddChips(); rSellDraftPhotos();
+}
+function openSellAddModal() {
+  resetSellAddDraft();
+  openModal('sell-add-modal');
+}
+function cancelSellAddModal() {
+  resetSellAddDraft();
+  closeModal('sell-add-modal');
+}
 function addSellItemFromForm() {
   const name=fVal('s-name');if(!name){toast('Please enter a name','red');return;}
   const price=fNum('s-price');
   const it={id:uid(),name,cond:fVal('s-cond')||'good',price,platform:fVal('s-plat')||'ebay',
     room:fVal('s-room')||'Other',note:fVal('s-note'),listingLink:fVal('s-listing-link'),
     pros:[..._sellPros],cons:[..._sellCons],
-    status:'active',soldPrice:0,soldDate:'',buyer:'',buyers:[],photos:[],
+    status:'active',soldPrice:0,soldDate:'',buyer:'',buyers:[],photos:[..._sellDraftPhotos],
     priceLog:price?[{price,date:todayISO()}]:[],created:Date.now()};
-  addSellItem(it);closeModal('sell-add-modal');fClear('s-name','s-price','s-note','s-listing-link');
-  _sellPros=[];_sellCons=[];rSell();toast(name+' listed 💸','green');updateStatusBar();
+  const ok = addSellItem(it);
+  if(!ok) return;
+  closeModal('sell-add-modal');
+  resetSellAddDraft();
+  rSell();toast(name+' listed 💸','green');updateStatusBar();
 }
 function editSellItem(id) {
   const it=getSellItem(id);if(!it)return;
@@ -458,12 +482,23 @@ function rmSellCon(v){_sellCons=_sellCons.filter(x=>x!==v);rSellAddChips();}
 function rSellAddChips(){
   const pe=document.getElementById('sell-add-pros');if(pe)pe.innerHTML=_sellPros.map(p=>`<span class="chip pro">${esc(p)}<span class="chip-rm" onclick="rmSellPro('${esc(p)}')">✕</span></span>`).join('');
   const ce=document.getElementById('sell-add-cons');if(ce)ce.innerHTML=_sellCons.map(c=>`<span class="chip con">${esc(c)}<span class="chip-rm" onclick="rmSellCon('${esc(c)}')">✕</span></span>`).join('');
+  rSellDraftPhotos();
 }
-async function uploadSellPhotos(id,files) {
+async function uploadSellPhotos(id,files,input) {
   if(!files||!files.length)return;
-  const ok = await attachPhotos(id,Array.from(files),'sell');
+  const selectedFiles = Array.from(files);
+  if(!id) {
+    const urls = await Promise.all(selectedFiles.map(readPhotoAsDataURL));
+    _sellDraftPhotos = [..._sellDraftPhotos, ...urls];
+    if(input) input.value='';
+    rSellDraftPhotos();
+    toast(`${selectedFiles.length} photo${selectedFiles.length>1?'s':''} ready for this listing 📷`,'green');
+    return;
+  }
+  const ok = await attachPhotos(id,selectedFiles,'sell');
+  if(input) input.value='';
   if(!ok)return;
-  rSell();toast(`${files.length} photo${files.length>1?'s':''} added 📷`,'green');
+  rSell();toast(`${selectedFiles.length} photo${selectedFiles.length>1?'s':''} added 📷`,'green');
 }
 
 
