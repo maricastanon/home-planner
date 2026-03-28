@@ -74,7 +74,7 @@ function rMoveList() {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div>
             <div style="font-size:.62rem;font-weight:700;color:var(--gns);margin-bottom:3px">✅ Pros</div>
-            <div class="chip-active">${(c.pros||[]).map(p=>`<span class="chip pro">${esc(p)} <span class="chip-rm" onclick="removeMoverChip('${c.id}','pro','${esc(p)}')">✕</span></span>`).join('')}</div>
+            <div class="chip-active">${(c.pros||[]).map(p=>`<span class="chip pro">${esc(p)} <span class="chip-rm" onclick="removeMoverChip('${c.id}','pro',${jsq(p)})">✕</span></span>`).join('')}</div>
             <div style="display:flex;gap:4px;margin-top:3px">
               <input id="pro-inp-${c.id}" placeholder="+ Pro" class="chip-inp-field">
               <button class="btn sml suc" onclick="addMoverChip('${c.id}','pro')">+</button>
@@ -82,7 +82,7 @@ function rMoveList() {
           </div>
           <div>
             <div style="font-size:.62rem;font-weight:700;color:var(--pks);margin-bottom:3px">❌ Cons</div>
-            <div class="chip-active">${(c.cons||[]).map(p=>`<span class="chip con">${esc(p)} <span class="chip-rm" onclick="removeMoverChip('${c.id}','con','${esc(p)}')">✕</span></span>`).join('')}</div>
+            <div class="chip-active">${(c.cons||[]).map(p=>`<span class="chip con">${esc(p)} <span class="chip-rm" onclick="removeMoverChip('${c.id}','con',${jsq(p)})">✕</span></span>`).join('')}</div>
             <div style="display:flex;gap:4px;margin-top:3px">
               <input id="con-inp-${c.id}" placeholder="+ Con" class="chip-inp-field">
               <button class="btn sml dan" onclick="addMoverChip('${c.id}','con')">+</button>
@@ -273,7 +273,7 @@ function rTakeList() {
         <div style="flex:1"><div class="card-title">${esc(room)}</div>
         <div class="card-sub">${done}/${all} packed</div></div>
         ${progressBar(Math.round(done/all*100),'var(--pk)','5px')}
-        <button class="btn sml suc" onclick="event.stopPropagation();markRoomPacked('${esc(room)}')" title="Pack all">📦 All</button>
+        <button class="btn sml suc" onclick="event.stopPropagation();markRoomPacked(${jsq(room)})" title="Pack all">📦 All</button>
         <span class="chev">▼</span>
       </div>
       <div id="tg-${slugify(room)}" class="card-body" style="display:block;padding:4px 12px">
@@ -329,7 +329,7 @@ function rBoxList() {
           <div style="font-size:.62rem;color:var(--bd3)">${esc(b.room||'')} · ${bi.length} items</div>
           ${bi.length?progressBar(Math.round(packed/bi.length*100),'var(--gn)','4px'):''}
         </div>
-        <button class="btn sml" onclick="copyText('BOX: ${esc(b.name)}\\n'+'${bi.map(i=>esc(i.name)).join(', ')}','Box label')">🏷️</button>
+        <button class="btn sml" onclick="copyText(${jsq(`BOX: ${b.name}\n${bi.map(i=>i.name).join(', ')}`)},'Box label')">🏷️</button>
         <button class="btn sml dan" onclick="deleteBox('${b.id}')">✕</button>
       </div>
     </div>`;
@@ -480,8 +480,8 @@ function addSellCon(v){if(!v?.trim())return;_sellCons.push(v.trim());rSellAddChi
 function rmSellPro(v){_sellPros=_sellPros.filter(x=>x!==v);rSellAddChips();}
 function rmSellCon(v){_sellCons=_sellCons.filter(x=>x!==v);rSellAddChips();}
 function rSellAddChips(){
-  const pe=document.getElementById('sell-add-pros');if(pe)pe.innerHTML=_sellPros.map(p=>`<span class="chip pro">${esc(p)}<span class="chip-rm" onclick="rmSellPro('${esc(p)}')">✕</span></span>`).join('');
-  const ce=document.getElementById('sell-add-cons');if(ce)ce.innerHTML=_sellCons.map(c=>`<span class="chip con">${esc(c)}<span class="chip-rm" onclick="rmSellCon('${esc(c)}')">✕</span></span>`).join('');
+  const pe=document.getElementById('sell-add-pros');if(pe)pe.innerHTML=_sellPros.map(p=>`<span class="chip pro">${esc(p)}<span class="chip-rm" onclick="rmSellPro(${jsq(p)})">✕</span></span>`).join('');
+  const ce=document.getElementById('sell-add-cons');if(ce)ce.innerHTML=_sellCons.map(c=>`<span class="chip con">${esc(c)}<span class="chip-rm" onclick="rmSellCon(${jsq(c)})">✕</span></span>`).join('');
   rSellDraftPhotos();
 }
 async function uploadSellPhotos(id,files,input) {
@@ -526,7 +526,7 @@ function renderCmpGroup(cat,items) {
   return `<div class="cmp-group">
     <div class="cmp-group-hdr">
       <span>${esc(cat)} <span style="font-size:.7rem;opacity:.75">${items.length} options</span></span>
-      <button class="btn sml" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3)" onclick="openCmpModal('${esc(cat)}')">🔍 Card View</button>
+      <button class="btn sml" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3)" onclick="openCmpModal(${jsq(cat)})">🔍 Card View</button>
     </div>
     <div class="cmp-scroll">
       <table class="cmp-table">

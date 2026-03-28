@@ -162,7 +162,7 @@ function renderRoomGroup(roomId, items, names) {
           <div class="type-group-header">
             ${esc(type||'General')}
             <span class="type-group-count">${typeItems.length}</span>
-            <button class="btn sml" style="margin-left:auto" onclick="openCompareForType('${esc(type||'')}','${roomId}')">⚖️ Compare</button>
+            <button class="btn sml" style="margin-left:auto" onclick="openCompareForType(${jsq(type||'')},${jsq(roomId)})">⚖️ Compare</button>
           </div>
           <div class="items-grid">${typeItems.map(it=>renderItemCard(it,names)).join('')}</div>
         </div>`
@@ -265,7 +265,7 @@ function openItemDetail(id) {
           : `<div style="font-size:4rem;opacity:.2">${cat?.k==='Appliances'?'🏠':'🛋️'}</div>`}
       </div>
       ${photos.length>1?`<div class="photo-gallery">${photos.map((p,i)=>`
-        <img src="${esc(p)}" class="photo-thumb ${i===0?'active':''}" onclick="setMainPhoto('${esc(p)}',${i})">`
+        <img src="${esc(p)}" class="photo-thumb ${i===0?'active':''}" onclick="setMainPhoto(${jsq(p)},${i})">`
       ).join('')}</div>`:''}
       <label class="btn ghost" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;margin-top:6px">
         📷 Add photo <input type="file" accept="image/*" multiple style="display:none" onchange="uploadItemPhotos('${it.id}',this.files)">
@@ -462,8 +462,8 @@ function openEditItem(id) {
 }
 
 function rEditBuyChips() {
-  const pe=document.getElementById('edit-buy-pros'); if(pe) pe.innerHTML=_editBuyPros.map(p=>`<span class="chip pro">${esc(p)} <span class="chip-rm" onclick="removeEditPro('${esc(p)}')">✕</span></span>`).join('');
-  const ce=document.getElementById('edit-buy-cons'); if(ce) ce.innerHTML=_editBuyCons.map(c=>`<span class="chip con">${esc(c)} <span class="chip-rm" onclick="removeEditCon('${esc(c)}')">✕</span></span>`).join('');
+  const pe=document.getElementById('edit-buy-pros'); if(pe) pe.innerHTML=_editBuyPros.map(p=>`<span class="chip pro">${esc(p)} <span class="chip-rm" onclick="removeEditPro(${jsq(p)})">✕</span></span>`).join('');
+  const ce=document.getElementById('edit-buy-cons'); if(ce) ce.innerHTML=_editBuyCons.map(c=>`<span class="chip con">${esc(c)} <span class="chip-rm" onclick="removeEditCon(${jsq(c)})">✕</span></span>`).join('');
 }
 function addEditPro(v){ if(!v?.trim()) return; _editBuyPros.push(v.trim()); rEditBuyChips(); }
 function removeEditPro(v){ _editBuyPros=_editBuyPros.filter(x=>x!==v); rEditBuyChips(); }
@@ -505,8 +505,8 @@ function addBuyCon(v){ if(!v?.trim())return; _buyCons.push(v.trim()); rAddBuyChi
 function rmBuyPro(v) { _buyPros=_buyPros.filter(x=>x!==v); rAddBuyChips(); }
 function rmBuyCon(v) { _buyCons=_buyCons.filter(x=>x!==v); rAddBuyChips(); }
 function rAddBuyChips(){
-  const pe=document.getElementById('add-buy-pros'); if(pe) pe.innerHTML=_buyPros.map(p=>`<span class="chip pro">${esc(p)} <span class="chip-rm" onclick="rmBuyPro('${esc(p)}')">✕</span></span>`).join('');
-  const ce=document.getElementById('add-buy-cons'); if(ce) ce.innerHTML=_buyCons.map(c=>`<span class="chip con">${esc(c)} <span class="chip-rm" onclick="rmBuyCon('${esc(c)}')">✕</span></span>`).join('');
+  const pe=document.getElementById('add-buy-pros'); if(pe) pe.innerHTML=_buyPros.map(p=>`<span class="chip pro">${esc(p)} <span class="chip-rm" onclick="rmBuyPro(${jsq(p)})">✕</span></span>`).join('');
+  const ce=document.getElementById('add-buy-cons'); if(ce) ce.innerHTML=_buyCons.map(c=>`<span class="chip con">${esc(c)} <span class="chip-rm" onclick="rmBuyCon(${jsq(c)})">✕</span></span>`).join('');
 }
 
 // ── Dynamic spec fields ───────────────────────────────────────
@@ -525,8 +525,8 @@ function onBuyCatChange(sel) {
   const conSugg = CONS_SUGGESTIONS[cat]||CONS_SUGGESTIONS.default;
   const proEl=document.getElementById('buy-pro-sugg');
   const conEl=document.getElementById('buy-con-sugg');
-  if(proEl) proEl.innerHTML=proSugg.map(s=>`<span class="chip-s" onclick="addBuyPro('${esc(s)}')">${esc(s)}</span>`).join('');
-  if(conEl) conEl.innerHTML=conSugg.map(s=>`<span class="chip-s" onclick="addBuyCon('${esc(s)}')">${esc(s)}</span>`).join('');
+  if(proEl) proEl.innerHTML=proSugg.map(s=>`<span class="chip-s" onclick="addBuyPro(${jsq(s)})">${esc(s)}</span>`).join('');
+  if(conEl) conEl.innerHTML=conSugg.map(s=>`<span class="chip-s" onclick="addBuyCon(${jsq(s)})">${esc(s)}</span>`).join('');
 }
 
 // ── Compare ───────────────────────────────────────────────────

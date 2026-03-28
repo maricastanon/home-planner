@@ -4,6 +4,7 @@
 
 function uid()    { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function esc(s)   { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function jsq(s)   { return esc(JSON.stringify(String(s ?? ''))); }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function trunc(s, n=40) { return s&&s.length>n ? s.slice(0,n)+'…' : (s||''); }
 
@@ -109,7 +110,7 @@ function buildPillFilters(module, key, options, renderFn, { showCounts=false, al
   options.forEach(o => {
     const active = cur === o.k;
     const cntBadge = o.count != null && showCounts ? `<span class="pf-count">${o.count}</span>` : '';
-    h += `<span class="pf ${active?'on':''}" onclick="setPillVal('${module}','${key}','${esc(o.k)}',${renderFn.name})">${o.e?o.e+' ':''}${esc(o.l)}${cntBadge}</span>`;
+    h += `<span class="pf ${active?'on':''}" onclick="setPillVal('${module}','${key}',${jsq(o.k)},${renderFn.name})">${o.e?o.e+' ':''}${esc(o.l)}${cntBadge}</span>`;
   });
   h += '</div>';
   return h;
@@ -127,13 +128,13 @@ function buildChipInput(opts) {
   let h = `<div class="chip-section ${cc}">`;
   // Active chips
   h += `<div class="chip-active" id="chips-${id}">`;
-  h += chips.map(c => `<span class="chip ${cc}">${esc(c)} <span class="chip-rm" onclick="${onRemove}('${esc(c)}')">✕</span></span>`).join('');
+  h += chips.map(c => `<span class="chip ${cc}">${esc(c)} <span class="chip-rm" onclick="${onRemove}(${jsq(c)})">✕</span></span>`).join('');
   h += '</div>';
   // Suggestions
   if (suggestions.length) {
     h += `<div class="chip-sugg">`;
     suggestions.filter(s => !chips.includes(s)).slice(0, 8).forEach(s => {
-      h += `<span class="chip-s" onclick="${onAdd}('${esc(s)}')">${esc(s)}</span>`;
+      h += `<span class="chip-s" onclick="${onAdd}(${jsq(s)})">${esc(s)}</span>`;
     });
     h += '</div>';
   }
