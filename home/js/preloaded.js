@@ -96,22 +96,39 @@ const PRELOADED_PLAN = {
 const ROOM_COLOR_MAP = {};
 PRELOADED_PLAN.floors[0].rooms.forEach(r => { ROOM_COLOR_MAP[r.id] = r.color; });
 
-// Inject preloaded plan on first use (convert meter coords to pixels)
-function maybeInjectPreloaded() {
-  const saved = ld(K.plan, null);
-  const needsInject = !saved || !saved._preloaded;
-  const needsUpdate = saved && saved._preloaded && (!saved._planVersion || saved._planVersion < 2);
-  if (needsInject || needsUpdate) {
-    const plan = JSON.parse(JSON.stringify(PRELOADED_PLAN));
-    const sc = plan.scale || 45;
-    plan.floors.forEach(fl => {
-      (fl.rooms || []).forEach(r => {
-        r.x = Math.round(r.x * sc);
-        r.y = Math.round(r.y * sc);
-        r.w = Math.round(r.w * sc);
-        r.h = Math.round(r.h * sc);
-      });
+function buildPreloadedPlanPixels() {
+  const plan = JSON.parse(JSON.stringify(PRELOADED_PLAN));
+  const sc = plan.scale || 45;
+  plan.floors.forEach(fl => {
+    (fl.rooms || []).forEach(r => {
+      r.x = Math.round(r.x * sc);
+      r.y = Math.round(r.y * sc);
+      r.w = Math.round(r.w * sc);
+      r.h = Math.round(r.h * sc);
     });
-    svPlan(plan);
+  });
+  return plan;
+}
+function hasSavedPlanContent(plan) {
+  return !!(plan && Array.isArray(plan.floors) && plan.floors.length);
+}
+
+// Inject preloaded plan on first use (convert meter coords to pixels)
+// Legacy saved plans are upgraded in place so existing user edits are never overwritten.
+function maybeInjectPreloaded() {
+  const saved = ldPlan();
+  if (!hasSavedPlanContent(saved)) {
+    svPlan(buildPreloadedPlanPixels());
+    return;
+  }
+
+  const nextVersion = PRELOADED_PLAN._planVersion || 1;
+  const shouldBackfillMeta = !saved._preloaded || (saved._planVersion || 0) < nextVersion;
+  if (shouldBackfillMeta) {
+    svPlan({
+      ...saved,
+      _preloaded: true,
+      _planVersion: nextVersion
+    });
   }
 }
