@@ -21,6 +21,9 @@ const COGNITO_CONFIG = Object.freeze({
   region: 'eu-central-1',
   userPoolId: '',
   clientId: '',
+  xorKey: 'hnz-auth-2026',
+  userPoolIdEnc: 'DRtXTgQbABpMXh0DaQUlHWoHGjUtRw==',
+  clientIdEnc: 'WgwIRQ5ATA1MVlEGAA9aT14IGRAGRwVeBwI=',
   storageMode: 'session',
 });
 
