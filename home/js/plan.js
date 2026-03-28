@@ -14,6 +14,7 @@ let undoStack = [];
 let redoStack = [];
 let hoveredRoom = null;
 let roomColorIdx = 0;
+const PLAN_SCHEMA_VERSION = PRELOADED_PLAN?._planVersion || 1;
 
 const ROOM_COLORS_CYCLE = [
   '#dbeafe','#dcfce7','#fce7f3','#ffedd5','#ede9fe',
@@ -33,7 +34,13 @@ function initPlan() {
 }
 
 function savePlan() {
-  svPlan({ floors: planState.floors, scale: planState.scale, activeFloor: planState.activeFloor, _preloaded: true });
+  svPlan({
+    floors: planState.floors,
+    scale: planState.scale,
+    activeFloor: planState.activeFloor,
+    _preloaded: true,
+    _planVersion: PLAN_SCHEMA_VERSION
+  });
   pushUndo();
 }
 function pushUndo() {
