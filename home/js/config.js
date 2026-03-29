@@ -322,8 +322,11 @@ const DEFAULT_SETTINGS = {
 const FURNITURE = {
   'bed-double':  { emoji:'🛏️', l:'Double Bed',       w:2.0, h:2.15, cat:'Master Bedroom', color:'#bfdbfe' },
   'bed-single':  { emoji:'🛏️', l:'Single Bed',       w:1.0, h:2.0,  cat:'Master Bedroom', color:'#bfdbfe' },
+  'nightstand':  { emoji:'🕯️', l:'Nightstand',       w:0.5, h:0.45, cat:'Bedroom',        color:'#ddd6fe' },
+  'dresser':     { emoji:'🪞', l:'Dresser',          w:1.2, h:0.5,  cat:'Bedroom',        color:'#e5e7eb' },
   'sofa':        { emoji:'🛋️', l:'Sofa',              w:2.5, h:1.0,  cat:'Living Room',    color:'#fecaca' },
   'sofa-l':      { emoji:'🛋️', l:'L-Shape Sofa',     w:3.0, h:2.0,  cat:'Living Room',    color:'#fecaca' },
+  'armchair':    { emoji:'🛋️', l:'Armchair',         w:1.05,h:0.95, cat:'Living Room',    color:'#fbcfe8' },
   'wardrobe':    { emoji:'🚪', l:'Wardrobe',           w:2.0, h:0.65, cat:'Bedroom',        color:'#d1d5db' },
   'desk':        { emoji:'🖥️', l:'Desk',               w:1.6, h:0.8,  cat:'Study',          color:'#fef08a' },
   'dining-table':{ emoji:'🪑', l:'Dining Table',      w:1.8, h:0.9,  cat:'Kitchen',        color:'#fed7aa' },

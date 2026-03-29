@@ -601,6 +601,13 @@ body.auth-shell-open {
 }
 .furn-btn:hover { border-color:var(--pk); background:var(--pkl); }
 .furn-btn.active { border-color:var(--pk); background:var(--pkl); color:var(--pks); }
+.furn-btn:disabled {
+  opacity:.45;
+  cursor:not-allowed;
+  border-style:dashed;
+  background:var(--bg2);
+  color:var(--bd3);
+}
 canvas { display:block; touch-action:none; outline:none; max-width:100%; height:auto; }
 .plan-status {
   padding:5px 10px; font-size:.62rem; color:var(--bd3);

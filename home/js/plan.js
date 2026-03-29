@@ -34,6 +34,7 @@ function initPlan() {
   lastSavedPlanSnapshot = getPlanHistorySnapshot();
   const canvas = document.getElementById('canvas-plan');
   if (canvas) { setupPlanListeners(canvas); resizePlanCanvas(); }
+  syncFurnitureButtons();
   window.addEventListener('resize', resizePlanCanvas);
 }
 
@@ -142,6 +143,23 @@ function hitAll(pos) {
 }
 function getSelectedFurniture() {
   return (getFloor().furniture||[]).find(f => f.id === selected) || null;
+}
+function getDefaultFurnitureType() {
+  return FURNITURE[furnType] ? furnType : Object.keys(FURNITURE)[0] || '';
+}
+function syncFurnitureButtons() {
+  const nextType = getDefaultFurnitureType();
+  if (nextType !== furnType) furnType = nextType;
+  document.querySelectorAll('.furn-btn').forEach(btn => {
+    const type = btn.dataset.furn || '';
+    const cfg = FURNITURE[type];
+    const available = Boolean(cfg);
+    btn.disabled = !available;
+    btn.title = available
+      ? `${cfg.l} · ${cfg.w.toFixed(2)}m × ${cfg.h.toFixed(2)}m`
+      : `Unavailable planner type: ${type}`;
+    btn.classList.toggle('active', available && type === furnType);
+  });
 }
 function updatePlanActionState() {
   const rotateBtn = document.getElementById('plan-rotate-btn');
@@ -260,8 +278,14 @@ function setPlanTool(t) {
   document.getElementById('plan-status').textContent = '💡 ' + (tips[t]||'');
 }
 function selectFurnType(type) {
+  if (!FURNITURE[type]) {
+    toast('This furniture type is not available in the planner yet','warn');
+    syncFurnitureButtons();
+    return false;
+  }
   furnType = type;
-  document.querySelectorAll('.furn-btn').forEach(b=>b.classList.toggle('active', b.dataset.furn===type));
+  syncFurnitureButtons();
+  return true;
 }
 function deleteSelected() {
   if (!selected) return;
@@ -496,7 +520,7 @@ function resizePlanCanvas() {
 }
 
 // ── rPlanUI: called when switching to plan tab ───────────────
-function rPlanUI() { renderFloorTabs(); renderPlan(); rPlanSidebar(); }
+function rPlanUI() { syncFurnitureButtons(); renderFloorTabs(); renderPlan(); rPlanSidebar(); }
 
 // ── Place a buy item in floor plan ───────────────────────────
 function placeItemInPlan(itemId) {
