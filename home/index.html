@@ -118,6 +118,7 @@
         <div class="plan-sep"></div>
         <button class="ptool" onclick="undoPlan()" title="Undo Ctrl+Z">↺</button>
         <button class="ptool" onclick="redoPlan()" title="Redo Ctrl+Y">↻</button>
+        <button class="ptool" id="plan-rotate-btn" onclick="rotateSelectedFurniture()" title="Select a furniture item to rotate" disabled>⟳ Rotate</button>
         <button class="ptool" onclick="clearFloor()" style="color:var(--pk)">🗑️ Floor</button>
         <button class="ptool" onclick="downloadPlan()">💾 PNG</button>
       </div>
@@ -156,7 +157,7 @@
         <button class="furn-btn"        data-furn="plant"        onclick="selectFurnType('plant')">🌿 Plant</button>
       </div>
       <canvas id="canvas-plan" width="800" height="465"></canvas>
-      <div class="plan-status" id="plan-status">💡 Select a tool · Draw room: drag · Furniture: click · Dbl-click: rename · Del: delete · Right-click furniture: rotate</div>
+      <div class="plan-status" id="plan-status">💡 Select a tool · Draw room: drag · Furniture: click · Dbl-click: rename · Del: delete · Rotate selected furniture with ⟳ or R</div>
     </div>
     <div id="plan-sidebar">
       <div class="room-sidebar-wrap">

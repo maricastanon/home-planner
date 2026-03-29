@@ -121,6 +121,7 @@ function setupPlanListeners(canvas) {
     if (e.key==='Delete'||e.key==='Backspace') deleteSelected();
     if (e.key==='ArrowRight') nudge(5,0); if (e.key==='ArrowLeft') nudge(-5,0);
     if (e.key==='ArrowUp')    nudge(0,-5);if (e.key==='ArrowDown')  nudge(0,5);
+    if (!e.ctrlKey && !e.metaKey && (e.key==='r'||e.key==='R')) { e.preventDefault(); rotateSelectedFurniture(); }
     if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); undoPlan(); }
     if ((e.ctrlKey||e.metaKey)&&e.key==='y') { e.preventDefault(); redoPlan(); }
   });
@@ -133,14 +134,45 @@ function getPos(e, canvas) {
 function snap(v) { const s = Math.max(5, Math.round(planState.scale/4)); return Math.round(v/s)*s; }
 function hitAll(pos) {
   const fl = getFloor();
-  const all = [...(fl.furniture||[]),...(fl.rooms||[])];
+  const all = [...(fl.rooms||[]),...(fl.furniture||[])];
   for (let i=all.length-1;i>=0;i--) {
     const it=all[i]; if(pos.x>=it.x&&pos.x<=it.x+it.w&&pos.y>=it.y&&pos.y<=it.y+it.h) return it;
   }
   return null;
 }
+function getSelectedFurniture() {
+  return (getFloor().furniture||[]).find(f => f.id === selected) || null;
+}
+function updatePlanActionState() {
+  const rotateBtn = document.getElementById('plan-rotate-btn');
+  if (!rotateBtn) return;
+  const canRotate = Boolean(getSelectedFurniture());
+  rotateBtn.disabled = !canRotate;
+  rotateBtn.title = canRotate ? 'Rotate selected furniture 90° (R)' : 'Select a furniture item to rotate';
+}
+function rotateFurniture(item, options = {}) {
+  const { notify = true } = options;
+  if (!item) return false;
+  const nextW = item.h;
+  item.h = item.w;
+  item.w = nextW;
+  savePlan();
+  renderPlan();
+  rPlanSidebar();
+  if (notify) toast('Rotated 90°','info',1000);
+  return true;
+}
+function rotateSelectedFurniture() {
+  const item = getSelectedFurniture();
+  if (!item) {
+    toast(selected ? 'Only furniture can be rotated' : 'Select furniture to rotate first','warn');
+    return false;
+  }
+  return rotateFurniture(item);
+}
 
 function onPlanDown(e, canvas) {
+  canvas.focus({ preventScroll:true });
   const pos = getPos(e, canvas);
   const fl  = getFloor();
   if (planTool==='room') {
@@ -201,7 +233,10 @@ function onPlanRight(e, canvas) {
   const pos=getPos(e,canvas);
   const fl=getFloor();
   const hit=(fl.furniture||[]).slice().reverse().find(f=>pos.x>=f.x&&pos.x<=f.x+f.w&&pos.y>=f.y&&pos.y<=f.y+f.h);
-  if (hit) { const t=hit.w; hit.w=hit.h; hit.h=t; savePlan(); renderPlan(); toast('Rotated 90°','info',1000); }
+  if (hit) {
+    selected = hit.id;
+    rotateFurniture(hit);
+  }
 }
 
 // ── Tools ────────────────────────────────────────────────────
@@ -216,9 +251,9 @@ function setPlanTool(t) {
   }
   document.getElementById('furn-bar').style.display = t==='furn' ? 'flex' : 'none';
   const tips={
-    select: 'Click to select · Drag to move · Dbl-click to rename · Del to delete · Right-click furniture to rotate',
+    select: 'Click to select · Drag to move · Dbl-click to rename · Del to delete · Rotate button or R key rotates furniture',
     room:   'Drag to draw a room · Dbl-click to rename',
-    furn:   'Click to place furniture · Right-click to rotate',
+    furn:   'Click to place furniture · Select placed furniture, then rotate with button or R',
     erase:  'Click to delete room or furniture',
     paint:  'Click a room to change its colour',
   };
@@ -391,6 +426,8 @@ function renderPlan() {
     ctx.fillText(trunc(it.name,10), x+wPx/2, y+dPx/2+4);
     ctx.restore();
   });
+
+  updatePlanActionState();
 }
 
 // ── Sidebar ──────────────────────────────────────────────────
@@ -415,6 +452,17 @@ function rPlanSidebar() {
   }).join('');
   if (fl.furniture?.length) {
     el.innerHTML += `<div style="font-size:.6rem;color:var(--bd3);padding:6px 4px;border-top:1px solid var(--border);margin-top:4px">${fl.furniture.length} furniture item${fl.furniture.length!==1?'s':''} placed</div>`;
+  }
+  const selFurniture = getSelectedFurniture();
+  if (selFurniture) {
+    const wm=(selFurniture.w/sc).toFixed(1);
+    const hm=(selFurniture.h/sc).toFixed(1);
+    el.innerHTML += `<div class="plan-selection-card">
+      <div class="plan-selection-kicker">Selected furniture</div>
+      <div class="plan-selection-name">${esc(selFurniture.emoji||'🛋️')} ${esc(selFurniture.label||selFurniture.type||'Furniture')}</div>
+      <div class="plan-selection-meta">${wm}×${hm}m on this floor</div>
+      <button class="btn sml pri" onclick="rotateSelectedFurniture()">⟳ Rotate 90°</button>
+    </div>`;
   }
 }
 function selectRoom(id) { selected=id; renderPlan(); rPlanSidebar(); }
