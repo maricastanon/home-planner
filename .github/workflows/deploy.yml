@@ -150,9 +150,9 @@ jobs:
         run: |
           set -e
           while IFS= read -r file; do
-            temp_file="${file}.obf"
+            temp_dir="$(mktemp -d)"
             javascript-obfuscator "$file" \
-              --output "$temp_file" \
+              --output "$temp_dir" \
               --compact true \
               --control-flow-flattening true \
               --control-flow-flattening-threshold 0.5 \
@@ -165,7 +165,8 @@ jobs:
               --self-defending true \
               --disable-console-output false \
               --identifier-names-generator hexadecimal
-            mv "$temp_file" "$file"
+            mv "$temp_dir/$(basename "$file")" "$file"
+            rm -rf "$temp_dir"
           done < <(find dist_protected -type f -name '*.js')
 
       - name: Minify CSS
