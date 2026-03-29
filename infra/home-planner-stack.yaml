@@ -1,0 +1,292 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Home Planner backend stack for Cognito-authenticated state sync and activity logging.
+
+Parameters:
+  AppName:
+    Type: String
+    Default: home-planner
+  EnvironmentName:
+    Type: String
+    Default: prod
+  UserPoolId:
+    Type: String
+  UserPoolClientId:
+    Type: String
+  StateTableName:
+    Type: String
+    Default: home-planner-user-state
+  ActivityTableName:
+    Type: String
+    Default: home-planner-activity
+
+Resources:
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref StateTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userSub
+          AttributeType: S
+        - AttributeName: scopedKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userSub
+          KeyType: HASH
+        - AttributeName: scopedKey
+          KeyType: RANGE
+
+  ActivityTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref ActivityTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userSub
+          AttributeType: S
+        - AttributeName: activityTs
+          AttributeType: N
+      KeySchema:
+        - AttributeName: userSub
+          KeyType: HASH
+        - AttributeName: activityTs
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ApiLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppName}-${EnvironmentName}-api-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: !Sub '${AppName}-${EnvironmentName}-ddb-access'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                Resource:
+                  - !GetAtt StateTable.Arn
+                  - !GetAtt ActivityTable.Arn
+
+  StateSyncFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-${EnvironmentName}-state-sync'
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt ApiLambdaRole.Arn
+      Timeout: 15
+      Environment:
+        Variables:
+          STATE_TABLE_NAME: !Ref StateTableName
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          from decimal import Decimal
+
+          dynamodb = boto3.resource("dynamodb")
+          table = dynamodb.Table(os.environ["STATE_TABLE_NAME"])
+
+          def _coerce(value):
+              if isinstance(value, float):
+                  return Decimal(str(value))
+              if isinstance(value, list):
+                  return [_coerce(item) for item in value]
+              if isinstance(value, dict):
+                  return {key: _coerce(item) for key, item in value.items()}
+              return value
+
+          def _response(status, body):
+              return {
+                  "statusCode": status,
+                  "headers": {"Content-Type": "application/json"},
+                  "body": json.dumps(body),
+              }
+
+          def handler(event, context):
+              claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
+              user_sub = claims.get("sub")
+              if not user_sub:
+                  return _response(401, {"error": "missing_sub"})
+              payload = json.loads(event.get("body") or "{}")
+              scoped_key = payload.get("scopedKey")
+              if not scoped_key:
+                  return _response(400, {"error": "missing_scoped_key"})
+              item = {
+                  "userSub": user_sub,
+                  "scopedKey": scoped_key,
+                  "module": payload.get("module") or "",
+                  "storageScope": payload.get("storageScope") or "",
+                  "updatedAt": int(payload.get("updatedAt") or 0),
+                  "payload": _coerce(payload.get("payload")),
+              }
+              table.put_item(Item=item)
+              return _response(200, {"ok": True, "scopedKey": scoped_key})
+
+  ActivityLogFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-${EnvironmentName}-activity-log'
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt ApiLambdaRole.Arn
+      Timeout: 15
+      Environment:
+        Variables:
+          ACTIVITY_TABLE_NAME: !Ref ActivityTableName
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import time
+          import boto3
+
+          dynamodb = boto3.resource("dynamodb")
+          table = dynamodb.Table(os.environ["ACTIVITY_TABLE_NAME"])
+
+          def _response(status, body):
+              return {
+                  "statusCode": status,
+                  "headers": {"Content-Type": "application/json"},
+                  "body": json.dumps(body),
+              }
+
+          def handler(event, context):
+              claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
+              user_sub = claims.get("sub")
+              if not user_sub:
+                  return _response(401, {"error": "missing_sub"})
+              payload = json.loads(event.get("body") or "{}")
+              ts = int(payload.get("ts") or int(time.time() * 1000))
+              ttl = int(time.time()) + (30 * 24 * 60 * 60)
+              item = {
+                  "userSub": user_sub,
+                  "activityTs": ts,
+                  "activityId": payload.get("id") or f"log-{ts}",
+                  "module": payload.get("module") or "",
+                  "action": payload.get("action") or "",
+                  "label": payload.get("label") or "",
+                  "storageScope": payload.get("storageScope") or "",
+                  "app": payload.get("app") or "",
+                  "version": payload.get("version") or "",
+                  "ttl": ttl,
+              }
+              table.put_item(Item=item)
+              return _response(200, {"ok": True, "activityTs": ts})
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AppName}-${EnvironmentName}-http-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowHeaders:
+          - authorization
+          - content-type
+          - x-home-access-token
+          - x-home-user-sub
+        AllowMethods:
+          - POST
+          - OPTIONS
+        AllowOrigins:
+          - '*'
+
+  JwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      IdentitySource:
+        - '$request.header.Authorization'
+      Name: !Sub '${AppName}-${EnvironmentName}-jwt'
+      JwtConfiguration:
+        Audience:
+          - !Ref UserPoolClientId
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPoolId}'
+
+  ActivityIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ActivityLogFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  StateIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt StateSyncFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  ActivityRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /activity
+      Target: !Sub 'integrations/${ActivityIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  StateRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /state
+      Target: !Sub 'integrations/${StateIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  ActivityInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ActivityLogFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/activity'
+
+  StateInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref StateSyncFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/state'
+
+Outputs:
+  HttpApiId:
+    Value: !Ref HttpApi
+  HttpApiUrl:
+    Value: !GetAtt HttpApi.ApiEndpoint
+  ActivityApiUrl:
+    Value: !Sub '${HttpApi.ApiEndpoint}/activity'
+  StateApiUrl:
+    Value: !Sub '${HttpApi.ApiEndpoint}/state'
+  StateTableNameOut:
+    Value: !Ref StateTableName
+  ActivityTableNameOut:
+    Value: !Ref ActivityTableName
