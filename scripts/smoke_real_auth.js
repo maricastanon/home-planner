@@ -48,10 +48,25 @@ async function run() {
   const page = await context.newPage();
   const pageErrors = [];
   const consoleErrors = [];
+  const cognitoResponses = [];
 
   page.on('pageerror', err => pageErrors.push(err.message));
   page.on('console', msg => {
     if (msg.type() === 'error') consoleErrors.push(msg.text());
+  });
+  page.on('response', async response => {
+    if (!/cognito-idp\./i.test(response.url())) return;
+    let body = '';
+    try {
+      body = await response.text();
+    } catch {}
+    cognitoResponses.push({
+      url: response.url(),
+      status: response.status(),
+      errorType: response.headers()['x-amzn-errortype'] || '',
+      errorMessage: response.headers()['x-amzn-errormessage'] || '',
+      body,
+    });
   });
 
   try {
@@ -79,7 +94,7 @@ async function run() {
       logoutVisible: document.getElementById('logout-btn')?.hidden === false
     }));
 
-    if (!result.authed) throw new Error(`Cognito sign-in failed: ${JSON.stringify(result)}`);
+    if (!result.authed) throw new Error(`Cognito sign-in failed: ${JSON.stringify({ result, cognitoResponses })}`);
     if (!result.logoutVisible) throw new Error(`Authenticated chrome did not appear: ${JSON.stringify(result)}`);
     if (pageErrors.length) throw new Error(`Page error(s): ${pageErrors.join(' | ')}`);
     const filteredConsoleErrors = consoleErrors.filter(msg =>
