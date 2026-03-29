@@ -9,9 +9,10 @@ const APP_BACKGROUND_COLOR = '#f8fafc';
 const APP_RUNTIME = Object.freeze({
   authRequired: true,
   authProvider: 'cognito',
-  deploymentTarget: 's3_cloudfront',
+  deploymentTarget: 'cloudfront_s3_cognito_dynamo',
   installablePwa: true,
   storageScope: 'cognito_user_sub',
+  dataBackend: 'api_gateway_lambda_dynamo',
 });
 const AUTH_GROUPS = Object.freeze({
   admin: 'admin',
@@ -25,6 +26,12 @@ const COGNITO_CONFIG = Object.freeze({
   userPoolIdEnc: 'DRtXTgQbABpMXh0DaQUlHWoHGjUtRw==',
   clientIdEnc: 'WgwIRQ5ATA1MVlEGAA9aT14IGRAGRwVeBwI=',
   storageMode: 'session',
+});
+const AWS_BACKEND_CONFIG = Object.freeze({
+  region: 'eu-central-1',
+  mode: 'api_gateway_lambda_dynamo',
+  activityApiUrl: '',
+  dataSyncUrl: '',
 });
 
 function xorDecodeBase64(encoded, key) {
@@ -57,6 +64,21 @@ function getCognitoConfig() {
 function hasCognitoConfig() {
   const cfg = getCognitoConfig();
   return Boolean(cfg.region && cfg.userPoolId && cfg.clientId);
+}
+function getAwsBackendConfig() {
+  const runtime = window.__HOME_AWS_CONFIG__ || window.__HOME_RUNTIME_CONFIG__ || {};
+  return {
+    region: runtime.region || AWS_BACKEND_CONFIG.region,
+    mode: runtime.mode || AWS_BACKEND_CONFIG.mode,
+    activityApiUrl: runtime.activityApiUrl || runtime.logApiUrl || AWS_BACKEND_CONFIG.activityApiUrl,
+    dataSyncUrl: runtime.dataSyncUrl || runtime.stateApiUrl || AWS_BACKEND_CONFIG.dataSyncUrl,
+  };
+}
+function hasAwsActivityApi() {
+  return Boolean(getAwsBackendConfig().activityApiUrl);
+}
+function hasAwsDataSyncApi() {
+  return Boolean(getAwsBackendConfig().dataSyncUrl);
 }
 
 // Storage keys

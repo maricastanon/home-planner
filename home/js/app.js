@@ -42,7 +42,13 @@ window.HomeApp = (function createHomeApp() {
     if (adminBtn) {
       adminBtn.hidden = !isAdmin;
       adminBtn.onclick = isAdmin
-        ? () => toast('Admin activity dashboard will attach after the AWS log API is wired.', 'warn', 5000)
+        ? () => toast(
+          typeof hasAwsActivityApi === 'function' && hasAwsActivityApi()
+            ? 'AWS log API is configured. The admin dashboard UI is still pending.'
+            : 'Admin activity dashboard will attach after the AWS log API is wired.',
+          'warn',
+          5000
+        )
         : null;
     }
   }

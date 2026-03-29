@@ -46,6 +46,15 @@ function sv(key, val) {
   try {
     localStorage.setItem(scopedKey, JSON.stringify(val));
     _storageFull = false;
+    if (key !== K.activity && window.HomeAws && typeof window.HomeAws.queueDataSync === 'function') {
+      window.HomeAws.queueDataSync({
+        kind: 'state',
+        module: key,
+        scopedKey,
+        storageScope: getStorageScope() || 'legacy',
+        updatedAt: Date.now(),
+      });
+    }
     return true;
   } catch(e) {
     const isQuota = e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22;
@@ -121,8 +130,17 @@ function getCmpItem(id){ return ldCmp().find(x=>x.id===id); }
 // ── Activity log ─────────────────────────────────────────────
 function logActivity(module, action, label) {
   const log = ld(K.activity, []);
-  log.unshift({ id: uid(), module, action, label, ts: Date.now() });
+  const entry = { id: uid(), module, action, label, ts: Date.now() };
+  log.unshift(entry);
   sv(K.activity, log.slice(0, 150));
+  if (window.HomeAws && typeof window.HomeAws.queueActivity === 'function') {
+    window.HomeAws.queueActivity({
+      ...entry,
+      storageScope: getStorageScope() || 'legacy',
+      app: APP_NAME,
+      version: APP_VERSION,
+    });
+  }
 }
 function ldActivity() { return ld(K.activity, []); }
 

@@ -60,7 +60,9 @@ async function run() {
       statusText: document.getElementById('auth-status-note').textContent.trim(),
       feedbackText: document.getElementById('auth-feedback').textContent.trim(),
       installButtonHidden: document.getElementById('auth-install-btn').hidden,
-      manifestHref: document.querySelector('link[rel="manifest"]')?.getAttribute('href') || ''
+      manifestHref: document.querySelector('link[rel="manifest"]')?.getAttribute('href') || '',
+      awsBridgeLoaded: Boolean(window.HomeAws && typeof window.HomeAws.queueActivity === 'function'),
+      awsMode: typeof getAwsBackendConfig === 'function' ? getAwsBackendConfig().mode : ''
     }));
     if (!lockedState.authShellVisible || !lockedState.appShellHidden || !lockedState.bodyLocked) {
       throw new Error(`Auth shell did not gate the app: ${JSON.stringify(lockedState)}`);
@@ -70,6 +72,9 @@ async function run() {
     }
     if (lockedState.manifestHref !== 'manifest.webmanifest') {
       throw new Error(`Manifest link is missing or incorrect: ${lockedState.manifestHref}`);
+    }
+    if (!lockedState.awsBridgeLoaded || lockedState.awsMode !== 'api_gateway_lambda_dynamo') {
+      throw new Error(`AWS bridge did not load as expected: ${JSON.stringify(lockedState)}`);
     }
 
     await page.waitForTimeout(500);

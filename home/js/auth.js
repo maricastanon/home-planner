@@ -151,6 +151,7 @@ window.HomeAuth = (function createHomeAuth() {
     setFeedback('', 'info');
     setStatus('Secure session active.');
     scheduleExpiry(session);
+    if (window.HomeAws && typeof window.HomeAws.flushAll === 'function') window.HomeAws.flushAll();
     if (window.HomeApp) window.HomeApp.boot(state.user);
     if (flashMessage && typeof toast === 'function') toast(flashMessage, 'green');
   }
@@ -315,6 +316,10 @@ window.HomeAuth = (function createHomeAuth() {
     isAuthenticated: () => Boolean(state.user),
     getStorageScope: () => state.user?.sub || '',
     getUser: () => state.user,
+    getSessionTokens: () => ({
+      accessToken: state.session?.getAccessToken?.().getJwtToken?.() || '',
+      idToken: state.session?.getIdToken?.().getJwtToken?.() || '',
+    }),
   };
 })();
 

@@ -42,6 +42,30 @@ jobs:
           mkdir -p dist_protected
           rsync -a home/ dist_protected/
 
+      - name: Inject runtime AWS config
+        env:
+          COGNITO_REGION: ${{ secrets.COGNITO_REGION }}
+          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          COGNITO_APP_CLIENT_ID: ${{ secrets.COGNITO_APP_CLIENT_ID }}
+          AWS_ACTIVITY_API_URL: ${{ secrets.AWS_ACTIVITY_API_URL }}
+          AWS_DATA_SYNC_API_URL: ${{ secrets.AWS_DATA_SYNC_API_URL }}
+        run: |
+          set -e
+          cat > dist_protected/js/runtime-config.js <<EOF
+          window.__HOME_AUTH_CONFIG__ = Object.assign({}, window.__HOME_AUTH_CONFIG__ || {}, {
+            region: '${COGNITO_REGION}',
+            userPoolId: '${COGNITO_USER_POOL_ID}',
+            clientId: '${COGNITO_APP_CLIENT_ID}',
+            storageMode: 'session'
+          });
+          window.__HOME_AWS_CONFIG__ = Object.assign({}, window.__HOME_AWS_CONFIG__ || {}, {
+            region: '${COGNITO_REGION}',
+            mode: 'api_gateway_lambda_dynamo',
+            activityApiUrl: '${AWS_ACTIVITY_API_URL}',
+            dataSyncUrl: '${AWS_DATA_SYNC_API_URL}'
+          });
+          EOF
+
       - name: Obfuscate JavaScript
         run: |
           set -e
