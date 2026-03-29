@@ -65,7 +65,7 @@ window.HomeAuth = (function createHomeAuth() {
   function friendlyAuthError(err) {
     const code = err?.code || err?.name || '';
     const map = {
-      NotAuthorizedException: 'Wrong email or password.',
+      NotAuthorizedException: 'Wrong username/email or password.',
       UserNotFoundException: 'This Cognito user does not exist.',
       PasswordResetRequiredException: 'Password reset is required for this account.',
       UserNotConfirmedException: 'This account is not confirmed yet.',

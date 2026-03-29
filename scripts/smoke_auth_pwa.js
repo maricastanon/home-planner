@@ -65,8 +65,8 @@ async function run() {
     if (!lockedState.authShellVisible || !lockedState.appShellHidden || !lockedState.bodyLocked) {
       throw new Error(`Auth shell did not gate the app: ${JSON.stringify(lockedState)}`);
     }
-    if (!/Planner access is blocked/.test(lockedState.statusText) || !/Cognito configuration is missing/.test(lockedState.feedbackText)) {
-      throw new Error(`Auth gate did not explain the missing Cognito configuration clearly: ${JSON.stringify(lockedState)}`);
+    if (!/Sign in with your Cognito invite/.test(lockedState.statusText) || lockedState.feedbackText) {
+      throw new Error(`Auth gate did not land in the expected sign-in state: ${JSON.stringify(lockedState)}`);
     }
     if (lockedState.manifestHref !== 'manifest.webmanifest') {
       throw new Error(`Manifest link is missing or incorrect: ${lockedState.manifestHref}`);

@@ -1,0 +1,154 @@
+name: Deploy Home Planner
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: home-planner-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  obfuscate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install obfuscation tooling
+        run: |
+          set -e
+          npm install -g javascript-obfuscator
+          python -m pip install --upgrade pip cssmin
+
+      - name: Build protected artifact
+        run: |
+          set -e
+          rm -rf dist_protected
+          mkdir -p dist_protected
+          rsync -a home/ dist_protected/
+
+      - name: Obfuscate JavaScript
+        run: |
+          set -e
+          while IFS= read -r file; do
+            temp_file="${file}.obf"
+            javascript-obfuscator "$file" \
+              --output "$temp_file" \
+              --compact true \
+              --control-flow-flattening true \
+              --control-flow-flattening-threshold 0.5 \
+              --dead-code-injection true \
+              --dead-code-injection-threshold 0.2 \
+              --string-array true \
+              --string-array-encoding rc4 \
+              --string-array-threshold 0.75 \
+              --rename-globals false \
+              --self-defending true \
+              --disable-console-output false \
+              --identifier-names-generator hexadecimal
+            mv "$temp_file" "$file"
+          done < <(find dist_protected -type f -name '*.js')
+
+      - name: Minify CSS
+        run: |
+          set -e
+          python - <<'PY'
+          import pathlib
+          import cssmin
+
+          for path in pathlib.Path('dist_protected').rglob('*.css'):
+              path.write_text(cssmin.cssmin(path.read_text(encoding='utf-8')), encoding='utf-8')
+          PY
+
+      - name: Strip HTML comments and collapse whitespace
+        run: |
+          set -e
+          python - <<'PY'
+          import pathlib
+          import re
+
+          comment_re = re.compile(r'<!--(?!\s*\[if).*?-->', re.S)
+          space_re = re.compile(r'>\s+<')
+
+          for path in pathlib.Path('dist_protected').rglob('*.html'):
+              text = path.read_text(encoding='utf-8')
+              text = comment_re.sub('', text)
+              text = space_re.sub('><', text)
+              path.write_text(text.strip(), encoding='utf-8')
+          PY
+
+      - name: Validate protected JavaScript
+        run: |
+          set -e
+          while IFS= read -r file; do
+            node --check "$file"
+          done < <(find dist_protected -type f -name '*.js')
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync protected build to S3
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          set -e
+          aws s3 sync dist_protected "s3://${S3_BUCKET}" --delete --exact-timestamps
+
+      - name: Normalize content types
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          set -e
+          while IFS= read -r file; do
+            key="${file#dist_protected/}"
+            aws s3 cp "$file" "s3://${S3_BUCKET}/${key}" --content-type text/html --cache-control no-cache
+          done < <(find dist_protected -type f -name '*.html')
+
+          while IFS= read -r file; do
+            key="${file#dist_protected/}"
+            aws s3 cp "$file" "s3://${S3_BUCKET}/${key}" --content-type application/javascript --cache-control no-cache
+          done < <(find dist_protected -type f -name '*.js')
+
+          while IFS= read -r file; do
+            key="${file#dist_protected/}"
+            aws s3 cp "$file" "s3://${S3_BUCKET}/${key}" --content-type text/css --cache-control no-cache
+          done < <(find dist_protected -type f -name '*.css')
+
+          if [ -f dist_protected/manifest.webmanifest ]; then
+            aws s3 cp dist_protected/manifest.webmanifest "s3://${S3_BUCKET}/manifest.webmanifest" --content-type application/manifest+json --cache-control no-cache
+          fi
+
+      - name: Invalidate CloudFront cache
+        env:
+          DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          set -e
+          aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/*"
+
+      - name: Print deployment summary
+        env:
+          DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          set -e
+          DOMAIN=$(aws cloudfront get-distribution --id "${DIST_ID}" --query 'Distribution.DomainName' --output text)
+          echo "CloudFront URL: https://${DOMAIN}/index.html"
+          echo "Deployed at: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
