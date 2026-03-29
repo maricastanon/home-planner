@@ -471,7 +471,7 @@
     </label>
     <div id="sell-add-photo-meta" style="font-size:.62rem;color:var(--bd3);margin:-2px 0 8px 0">No photos selected yet</div>
     <!-- Pros/Cons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <div class="split-grid">
       <div>
         <div style="font-size:.62rem;font-weight:700;color:var(--gns);margin-bottom:3px">✅ Pros</div>
         <div class="chip-active" id="sell-add-pros"></div>
@@ -590,7 +590,7 @@
     </div>
     <!-- Dimensions -->
     <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--bd3);margin-bottom:4px">📐 Dimensions</div>
-    <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;margin-bottom:8px">
+    <div class="form-grid spec-grid-compact" style="margin-bottom:8px">
       <div class="fg"><label>Width (cm)</label><input id="b-width" type="number" placeholder="60"></div>
       <div class="fg"><label>Depth (cm)</label><input id="b-depth" type="number" placeholder="65"></div>
       <div class="fg"><label>Height (cm)</label><input id="b-height" type="number" placeholder="185"></div>
@@ -610,7 +610,7 @@
     <!-- Dynamic spec fields per category -->
     <div class="form-grid" id="b-specs-grid" style="margin-bottom:8px"></div>
     <!-- Pros/Cons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+    <div class="split-grid">
       <div>
         <div style="font-size:.62rem;font-weight:700;color:var(--gns);margin-bottom:3px">✅ Pros</div>
         <div class="chip-active" id="add-buy-pros"></div>
@@ -687,7 +687,7 @@
       <div class="fg"><label>Warranty</label><input id="be-warranty"></div>
     </div>
     <!-- Pros/Cons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <div class="split-grid">
       <div>
         <div style="font-size:.62rem;font-weight:700;color:var(--gns);margin-bottom:3px">✅ Pros</div>
         <div class="chip-active" id="edit-buy-pros"></div>
@@ -792,7 +792,7 @@
       <div class="fg"><label>Depth (cm)</label><input id="cmp-depth" type="number"></div>
       <div class="fg"><label>Height (cm)</label><input id="cmp-height" type="number"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <div class="split-grid">
       <div class="fg"><label>Pros (comma-separated)</label><input id="cmp-pros" placeholder="Quiet, large, efficient"></div>
       <div class="fg"><label>Cons (comma-separated)</label><input id="cmp-cons" placeholder="Expensive, noisy"></div>
     </div>
@@ -843,7 +843,7 @@
       <div class="fg"><label>Depth (cm)</label><input id="cmpe-depth" type="number"></div>
       <div class="fg"><label>Height (cm)</label><input id="cmpe-height" type="number"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <div class="split-grid">
       <div class="fg"><label>Pros</label><input id="cmpe-pros" placeholder="comma-separated"></div>
       <div class="fg"><label>Cons</label><input id="cmpe-cons" placeholder="comma-separated"></div>
     </div>
