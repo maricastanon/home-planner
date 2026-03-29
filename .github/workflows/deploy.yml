@@ -42,7 +42,49 @@ jobs:
           mkdir -p dist_protected
           rsync -a home/ dist_protected/
 
+      - name: Resolve deployment gates
+        id: gates
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+          HOME_PLANNER_STACK_NAME: ${{ secrets.HOME_PLANNER_STACK_NAME }}
+          COGNITO_USER_POOL_ID: ${{ secrets.COGNITO_USER_POOL_ID }}
+          COGNITO_APP_CLIENT_ID: ${{ secrets.COGNITO_APP_CLIENT_ID }}
+        run: |
+          set -e
+          has_aws_creds=false
+          has_backend_stack=false
+          has_frontend_deploy=false
+
+          if [ -n "${AWS_ACCESS_KEY_ID}" ] && [ -n "${AWS_SECRET_ACCESS_KEY}" ] && [ -n "${AWS_REGION}" ]; then
+            has_aws_creds=true
+          fi
+
+          if [ "${has_aws_creds}" = true ] && [ -n "${HOME_PLANNER_STACK_NAME}" ] && [ -n "${COGNITO_USER_POOL_ID}" ] && [ -n "${COGNITO_APP_CLIENT_ID}" ]; then
+            has_backend_stack=true
+          fi
+
+          if [ "${has_aws_creds}" = true ] && [ -n "${S3_BUCKET}" ] && [ -n "${CLOUDFRONT_DISTRIBUTION_ID}" ]; then
+            has_frontend_deploy=true
+          fi
+
+          echo "has_aws_creds=${has_aws_creds}" >> "$GITHUB_OUTPUT"
+          echo "has_backend_stack=${has_backend_stack}" >> "$GITHUB_OUTPUT"
+          echo "has_frontend_deploy=${has_frontend_deploy}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        if: ${{ steps.gates.outputs.has_aws_creds == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Deploy backend stack
+        if: ${{ steps.gates.outputs.has_backend_stack == 'true' }}
         id: backend
         env:
           STACK_NAME: ${{ secrets.HOME_PLANNER_STACK_NAME }}
@@ -161,14 +203,8 @@ jobs:
             node --check "$file"
           done < <(find dist_protected -type f -name '*.js')
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
       - name: Sync protected build to S3
+        if: ${{ steps.gates.outputs.has_frontend_deploy == 'true' }}
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
@@ -176,6 +212,7 @@ jobs:
           aws s3 sync dist_protected "s3://${S3_BUCKET}" --delete --exact-timestamps
 
       - name: Normalize content types
+        if: ${{ steps.gates.outputs.has_frontend_deploy == 'true' }}
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
@@ -200,6 +237,7 @@ jobs:
           fi
 
       - name: Invalidate CloudFront cache
+        if: ${{ steps.gates.outputs.has_frontend_deploy == 'true' }}
         env:
           DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
@@ -207,6 +245,7 @@ jobs:
           aws cloudfront create-invalidation --distribution-id "${DIST_ID}" --paths "/*"
 
       - name: Print deployment summary
+        if: ${{ steps.gates.outputs.has_frontend_deploy == 'true' }}
         env:
           DIST_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
@@ -214,3 +253,9 @@ jobs:
           DOMAIN=$(aws cloudfront get-distribution --id "${DIST_ID}" --query 'Distribution.DomainName' --output text)
           echo "CloudFront URL: https://${DOMAIN}/index.html"
           echo "Deployed at: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+      - name: Print skipped deploy summary
+        if: ${{ steps.gates.outputs.has_frontend_deploy != 'true' }}
+        run: |
+          echo "Protected artifact was built, but S3/CloudFront deployment was skipped."
+          echo "Missing one or more required secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET, CLOUDFRONT_DISTRIBUTION_ID."

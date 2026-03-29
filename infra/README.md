@@ -38,3 +38,18 @@ aws cloudformation deploy `
 - `StateApiUrl` -> `AWS_DATA_SYNC_API_URL`
 
 Those values are injected into [`runtime-config.js`](W:/_Apps_Ready/home-planner/home/js/runtime-config.js) by the GitHub Actions workflow.
+
+## GitHub Actions Deploy Gating
+
+The workflow in [`deploy.yml`](W:/_Apps_Ready/home-planner/.github/workflows/deploy.yml) now separates:
+
+- artifact build + validation
+- backend deployment
+- S3 + CloudFront publish
+
+It will only attempt AWS operations when the matching secrets are present:
+
+- backend stack deploy requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `HOME_PLANNER_STACK_NAME`, `COGNITO_USER_POOL_ID`, and `COGNITO_APP_CLIENT_ID`
+- frontend publish requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET`, and `CLOUDFRONT_DISTRIBUTION_ID`
+
+This keeps pushes safe while Cognito or infrastructure setup is still incomplete.
