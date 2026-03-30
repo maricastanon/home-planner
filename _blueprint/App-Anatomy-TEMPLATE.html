@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌸 App Anatomy — Template</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --pink: #e91e8c;
+    --pink-soft: #f472b6;
+    --pink-glow: #ff6bc240;
+    --pink-bg: #2a1020;
+    --pink-surface: #3d1630;
+    --green: #34d399;
+    --green-soft: #6ee7b7;
+    --green-glow: #34d39940;
+    --green-dark: #064e3b;
+    --green-bg: #0d2818;
+    --bg-deep: #110a0e;
+    --bg-main: #1a0f15;
+    --bg-card: #221520;
+    --bg-card-hover: #2e1c28;
+    --bg-input: #1a1018;
+    --text-primary: #f8eef4;
+    --text-secondary: #d4a8c0;
+    --text-muted: #8c6878;
+    --border: #3a2030;
+    --border-focus: #e91e8c60;
+    --shadow-pink: 0 0 30px #e91e8c15, 0 0 60px #e91e8c08;
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-sm: 8px;
+    --font: 'Outfit', Calibri, sans-serif;
+    --mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+    --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --tag-tabs: #e91e8c;
+    --tag-buttons: #f59e0b;
+    --tag-functions: #34d399;
+    --tag-variables: #e06098;
+    --tag-styles: #ec4899;
+    --tag-connections: #2dd4a8;
+    --tag-bugs: #ef4444;
+}
+
+/* LIGHT THEME */
+body.light {
+    --pink: #d4167a;
+    --pink-soft: #e84da0;
+    --pink-glow: #e91e8c25;
+    --pink-bg: #fdf0f7;
+    --pink-surface: #fce4ef;
+    --green: #1a9e6e;
+    --green-soft: #28b67e;
+    --green-glow: #34d39925;
+    --green-dark: #c9f5e3;
+    --green-bg: #ecfdf5;
+    --bg-deep: #f9f4f6;
+    --bg-main: #ffffff;
+    --bg-card: #fff8fb;
+    --bg-card-hover: #fef0f5;
+    --bg-input: #ffffff;
+    --text-primary: #2d1520;
+    --text-secondary: #6b3e55;
+    --text-muted: #a07088;
+    --border: #e8c8d8;
+    --border-focus: #e91e8c40;
+    --shadow-pink: 0 0 30px #e91e8c10, 0 0 60px #e91e8c05;
+    --tag-tabs: #d4167a;
+    --tag-buttons: #d48a06;
+    --tag-functions: #1a9e6e;
+    --tag-variables: #c44880;
+    --tag-styles: #d4167a;
+    --tag-connections: #1a9e6e;
+    --tag-bugs: #dc2626;
+}
+body.light::before { background: radial-gradient(ellipse 600px 400px at 15% 20%, #e91e8c06 0%, transparent 70%), radial-gradient(ellipse 500px 500px at 85% 80%, #34d39904 0%, transparent 70%); }
+body.light .header { background: transparent; }
+body.light .entry-id { color: #fff; }
+body.light .code-block { background: #fdf0f7; }
+body.light .guide-diagram { background: #fff8fb; }
+body.light .prop-table th { background: #fdf0f7; }
+body.light .infra-type-badge { background: #fdf0f7; }
+body.light .note-type-badge.general { background: #f0e8ec; color: var(--text-muted); }
+body.light .vault-field-value { background: #fdf0f7; }
+body.light ::-webkit-scrollbar-thumb { background: #e8c8d8; }
+body.light .prompt-text { background: #fff8fb; }
+body.light .toast.success { background: #ecfdf5; color: #1a9e6e; border-color: #1a9e6e; }
+body.light .toast.info { background: #fdf0f7; color: #d4167a; border-color: #d4167a; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 15px; scroll-behavior: smooth; }
+body { font-family: var(--font); background: var(--bg-deep); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse 600px 400px at 15% 20%, #e91e8c08 0%, transparent 70%),
+                radial-gradient(ellipse 500px 500px at 85% 80%, #34d39906 0%, transparent 70%);
+}
+
+/* TOP STICKY (header + links + tabs always visible) */
+.top-sticky { position: sticky; top: 0; z-index: 100; background: var(--bg-deep); transition: background 0.3s; }
+body.light .top-sticky { background: var(--bg-deep); }
+
+/* HEADER */
+.header { background: transparent; backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 14px 24px; }
+.header-inner { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--pink), var(--green)); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; animation: logoPulse 4s ease-in-out infinite; }
+@keyframes logoPulse { 0%,100%{box-shadow:0 0 20px #e91e8c20} 50%{box-shadow:0 0 30px #e91e8c35,0 0 60px #34d39915} }
+.logo-text { font-weight: 700; font-size: 1.1rem; background: linear-gradient(135deg, var(--pink-soft), var(--green-soft)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.logo-sub { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.app-name-display { font-size: 0.82rem; color: var(--text-secondary); padding: 5px 12px; background: var(--bg-card); border-radius: 20px; border: 1px solid var(--border); cursor: pointer; transition: var(--transition); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-name-display:hover { border-color: var(--pink); }
+
+/* SEARCH */
+.search-wrap { flex: 1; min-width: 180px; max-width: 480px; position: relative; }
+.search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); width: 16px; height: 16px; transition: var(--transition); }
+.search-input { width: 100%; padding: 9px 12px 9px 38px; background: var(--bg-input); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text-primary); font-family: var(--font); font-size: 0.88rem; outline: none; transition: var(--transition); }
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var(--pink-glow); }
+.search-count { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: var(--text-muted); background: var(--bg-card); padding: 2px 7px; border-radius: 10px; display: none; }
+.search-count.visible { display: block; }
+.header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-icon { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); font-size: 0.9rem; }
+.btn-icon:hover { border-color: var(--pink); color: var(--pink); background: var(--pink-bg); }
+.btn-export { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--green); background: var(--green-bg); color: var(--green); cursor: pointer; font-family: var(--font); font-weight: 600; font-size: 0.78rem; transition: var(--transition); }
+.btn-export:hover { background: var(--green); color: var(--bg-deep); }
+
+/* QUICK LINKS BAR */
+.quick-links-bar { max-width: 1400px; margin: 0 auto; padding: 8px 24px; }
+.quick-links-inner { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.qlink { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; text-decoration: none; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); transition: var(--transition); cursor: pointer; white-space: nowrap; }
+.qlink:hover { border-color: var(--pink); color: var(--pink-soft); background: var(--pink-bg); }
+.qlink.set { color: var(--green-soft); border-color: var(--green-dark); }
+.qlink.set:hover { color: var(--green); border-color: var(--green); }
+.qlink .ql-icon { font-size: 0.85rem; }
+.qlink-edit { width: 18px; height: 18px; border-radius: 50%; border: 1px dashed var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; transition: var(--transition); margin-left: 2px; flex-shrink: 0; }
+.qlink-edit:hover { border-color: var(--pink); color: var(--pink); }
+
+/* TABS */
+.main-tabs { display: flex; gap: 2px; padding: 6px 24px 0; max-width: 1400px; margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
+.main-tabs::-webkit-scrollbar { display: none; }
+.main-tab { padding: 9px 14px; border-radius: 10px 10px 0 0; border: 1px solid transparent; border-bottom: none; background: transparent; color: var(--text-muted); font-family: var(--font); font-weight: 500; font-size: 0.8rem; cursor: pointer; transition: var(--transition); white-space: nowrap; display: flex; align-items: center; gap: 6px; position: relative; }
+.main-tab .tab-count { font-size: 0.65rem; background: var(--bg-input); padding: 1px 6px; border-radius: 10px; font-weight: 600; }
+.main-tab:hover { color: var(--text-secondary); background: var(--bg-card); }
+.main-tab.active { color: var(--text-primary); background: var(--bg-card); border-color: var(--border); }
+.main-tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--pink), var(--green)); border-radius: 2px; }
+
+/* CONTENT */
+.content-area { max-width: 1400px; margin: 0 auto; padding: 0 24px 40px; position: relative; z-index: 1; }
+.tab-panel { display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0 var(--radius) var(--radius) var(--radius); padding: 24px; animation: fadeIn 0.3s ease; }
+.tab-panel.active { display: block; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; } }
+
+/* GUIDE */
+.guide-section { margin-bottom: 24px; }
+.guide-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.guide-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 10px; }
+.guide-card p { color: var(--text-secondary); line-height: 1.7; font-size: 0.88rem; }
+.guide-card code { font-family: var(--mono); font-size: 0.8rem; background: #e91e8c15; color: var(--pink-soft); padding: 2px 6px; border-radius: 4px; }
+.guide-diagram { background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; font-family: var(--mono); font-size: 0.76rem; line-height: 1.8; color: var(--text-secondary); overflow-x: auto; white-space: pre; margin: 10px 0; }
+.guide-diagram .hl-pink { color: var(--pink-soft); }
+.guide-diagram .hl-green { color: var(--green-soft); }
+.guide-diagram .hl-muted { color: var(--text-muted); }
+.three-layers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 14px 0; }
+.layer-card { background: var(--bg-deep); border-radius: var(--radius); padding: 16px; border-left: 3px solid; transition: var(--transition); }
+.layer-card:hover { transform: translateY(-2px); }
+.layer-card.html-layer { border-color: var(--pink); }
+.layer-card.js-layer { border-color: var(--green); }
+.layer-card.css-layer { border-color: #ec4899; }
+.layer-card h4 { font-size: 0.88rem; margin-bottom: 5px; }
+.layer-card p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; }
+
+/* ENTRIES */
+.entries-toolbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.filter-tags { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+.filter-tag { padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: var(--transition); font-family: var(--font); }
+.filter-tag:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.filter-tag.active { border-color: var(--pink); color: var(--pink); background: #e91e8c10; }
+.btn-add-entry { padding: 6px 14px; border-radius: var(--radius-sm); border: 1.5px dashed var(--pink); background: transparent; color: var(--pink); cursor: pointer; font-family: var(--font); font-weight: 600; font-size: 0.78rem; transition: var(--transition); }
+.btn-add-entry:hover { background: var(--pink-bg); }
+.entries-grid { display: flex; flex-direction: column; gap: 6px; }
+
+/* ENTRY CARD */
+.entry-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: var(--transition); }
+.entry-card:hover { border-color: #ffffff15; }
+.entry-card.highlight { border-color: var(--pink); box-shadow: 0 0 0 2px var(--pink-glow); }
+.entry-header { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: var(--transition); user-select: none; }
+.entry-header:hover { background: var(--bg-card-hover); }
+.entry-id { font-family: var(--mono); font-size: 0.7rem; font-weight: 600; color: var(--bg-deep); padding: 2px 7px; border-radius: 5px; flex-shrink: 0; min-width: 58px; text-align: center; }
+.entry-id.cat-tabs { background: var(--tag-tabs); }
+.entry-id.cat-buttons { background: var(--tag-buttons); }
+.entry-id.cat-functions { background: var(--tag-functions); }
+.entry-id.cat-variables { background: var(--tag-variables); }
+.entry-id.cat-styles { background: var(--tag-styles); }
+.entry-id.cat-connections { background: var(--tag-connections); }
+.entry-id.cat-bugs { background: var(--tag-bugs); }
+.entry-id.cat-files { background: var(--tag-connections); }
+.entry-name { font-weight: 600; font-size: 0.9rem; flex: 1; }
+.entry-oneliner { color: var(--text-muted); font-size: 0.78rem; flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-tags { display: flex; gap: 3px; flex-shrink: 0; }
+.entry-tag { font-size: 0.62rem; padding: 2px 7px; border-radius: 10px; font-weight: 600; background: #ffffff08; color: var(--text-muted); border: 1px solid var(--border); text-transform: uppercase; }
+.role-badge { font-size: 0.6rem; padding: 2px 7px; border-radius: 10px; font-weight: 700; letter-spacing: 0.03em; flex-shrink: 0; }
+.role-badge.role-all { background: #34d39918; color: var(--green); border: 1px solid #34d39930; }
+.role-badge.role-admin { background: #ef444418; color: #ef4444; border: 1px solid #ef444430; }
+.role-badge.role-teacher { background: #f59e0b18; color: #f59e0b; border: 1px solid #f59e0b30; }
+.role-badge.role-student { background: #e91e8c18; color: var(--pink-soft); border: 1px solid #e91e8c30; }
+.role-badge.role-guest { background: #ffffff10; color: var(--text-muted); border: 1px solid var(--border); }
+.role-badge.role-custom { background: #2dd4a818; color: #2dd4a8; border: 1px solid #2dd4a830; }
+.role-filter-bar { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.role-filter-btn { padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: var(--transition); font-family: var(--font); }
+.role-filter-btn:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.role-filter-btn.active { border-color: var(--pink); color: var(--pink); background: #e91e8c10; }
+.entry-chevron { width: 18px; height: 18px; color: var(--text-muted); transition: var(--transition); flex-shrink: 0; }
+.entry-card.open .entry-chevron { transform: rotate(180deg); color: var(--pink); }
+.entry-body { display: none; padding: 0 16px 16px; animation: slideDown 0.3s ease; }
+.entry-card.open .entry-body { display: block; }
+@keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; } }
+
+/* PROPS TABLE */
+.prop-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 0.82rem; }
+.prop-table th { text-align: left; padding: 7px 10px; background: var(--bg-deep); color: var(--text-muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); }
+.prop-table td { padding: 7px 10px; border-bottom: 1px solid #e91e8c08; vertical-align: top; }
+.prop-table td:first-child { color: var(--text-secondary); font-weight: 500; white-space: nowrap; width: 130px; }
+.prop-table td:last-child { font-family: var(--mono); font-size: 0.78rem; color: var(--green-soft); }
+
+/* ENTRY SECTIONS */
+.entry-section { margin-bottom: 14px; }
+.entry-section-title { font-size: 0.8rem; font-weight: 700; color: var(--pink-soft); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.entry-section-title:hover { color: var(--pink); }
+.entry-section-title .caret { font-size: 0.7rem; transition: var(--transition); }
+.entry-section.collapsed .entry-section-content { display: none; }
+.entry-section.collapsed .caret { transform: rotate(-90deg); }
+.entry-section-content { background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-size: 0.82rem; line-height: 1.7; color: var(--text-secondary); }
+.entry-section-content ol { padding-left: 18px; }
+.entry-section-content ol li { margin-bottom: 3px; }
+.code-block { background: #0e080c; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-family: var(--mono); font-size: 0.76rem; line-height: 1.8; overflow-x: auto; margin: 6px 0; color: var(--text-secondary); position: relative; }
+.code-block .code-label { position: absolute; top: 5px; right: 8px; font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+.empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.5; }
+.empty-state h3 { font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+.empty-state p { font-size: 0.82rem; max-width: 380px; margin: 0 auto; line-height: 1.6; }
+
+/* VAULT */
+.vault-grid { display: flex; flex-direction: column; gap: 8px; }
+.vault-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; transition: var(--transition); }
+.vault-card:hover { border-color: #ffffff15; }
+.vault-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vault-card-header h4 { flex: 1; font-size: 0.9rem; }
+.vault-field { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.82rem; }
+.vault-field-label { color: var(--text-muted); width: 90px; flex-shrink: 0; font-weight: 500; }
+.vault-field-value { font-family: var(--mono); font-size: 0.78rem; color: var(--green-soft); background: var(--bg-deep); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vault-field-value.masked { color: var(--text-muted); letter-spacing: 2px; }
+.vault-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; transition: var(--transition); flex-shrink: 0; }
+.vault-btn:hover { border-color: var(--pink); color: var(--pink); }
+.vault-warning { font-size: 0.75rem; color: var(--text-muted); padding: 10px 14px; background: var(--bg-main); border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 14px; line-height: 1.6; }
+
+/* PROMPTS */
+.prompt-categories { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.prompt-cat-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-family: var(--font); font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: var(--transition); }
+.prompt-cat-btn:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.prompt-cat-btn.active { border-color: var(--pink); color: var(--pink); background: #e91e8c10; }
+.prompt-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+.prompt-header { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: var(--transition); }
+.prompt-header:hover { background: var(--bg-card-hover); }
+.prompt-color { width: 6px; height: 24px; border-radius: 3px; flex-shrink: 0; }
+.prompt-title { font-weight: 600; font-size: 0.88rem; flex: 1; }
+.prompt-desc { color: var(--text-muted); font-size: 0.76rem; flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prompt-body { display: none; padding: 0 16px 16px; }
+.prompt-card.open .prompt-body { display: block; }
+.prompt-text { background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; font-family: var(--mono); font-size: 0.78rem; line-height: 1.7; color: var(--text-secondary); white-space: pre-wrap; word-wrap: break-word; position: relative; }
+.prompt-copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--green); background: var(--green-bg); color: var(--green); cursor: pointer; font-family: var(--font); font-size: 0.72rem; font-weight: 600; transition: var(--transition); }
+.prompt-copy-btn:hover { background: var(--green); color: var(--bg-deep); }
+.prompt-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; padding: 8px 12px; background: var(--pink-bg); border-radius: var(--radius-sm); border: 1px solid #e91e8c20; line-height: 1.5; }
+
+/* MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: #00000080; z-index: 200; backdrop-filter: blur(8px); align-items: center; justify-content: center; }
+.modal-overlay.visible { display: flex; }
+.modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; animation: modalIn 0.3s ease; }
+@keyframes modalIn { from { opacity:0; transform:scale(0.95) translateY(10px); } to { opacity:1; } }
+.modal h2 { font-size: 1.05rem; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.modal label { display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 3px; font-weight: 500; }
+.modal input[type="text"], .modal input[type="password"], .modal select, .modal textarea { width: 100%; padding: 9px 11px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font); font-size: 0.86rem; outline: none; margin-bottom: 12px; transition: var(--transition); }
+.modal input:focus, .modal select:focus, .modal textarea:focus { border-color: var(--pink); }
+.modal textarea { min-height: 70px; resize: vertical; font-family: var(--mono); font-size: 0.8rem; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.btn { padding: 8px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-main); color: var(--text-secondary); cursor: pointer; font-family: var(--font); font-weight: 600; font-size: 0.82rem; transition: var(--transition); }
+.btn:hover { border-color: var(--text-muted); }
+.btn.btn-pink { background: var(--pink); color: white; border-color: var(--pink); }
+.btn.btn-pink:hover { background: #d1187e; }
+
+/* TOAST */
+.toast { position: fixed; bottom: 20px; right: 20px; padding: 10px 18px; border-radius: var(--radius); font-size: 0.82rem; font-weight: 500; z-index: 300; animation: toastIn 0.3s ease; box-shadow: 0 8px 32px #00000060; }
+.toast.success { background: var(--green-dark); color: var(--green-soft); border: 1px solid var(--green); }
+.toast.info { background: var(--pink-bg); color: var(--pink-soft); border: 1px solid var(--pink); }
+@keyframes toastIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; } }
+.kbd { font-family: var(--mono); font-size: 0.68rem; padding: 2px 5px; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); }
+
+/* QA TESTING */
+.qa-search-wrap { position: relative; margin-bottom: 14px; }
+.qa-search { width: 100%; padding: 10px 14px 10px 40px; background: var(--bg-main); border: 1.5px solid var(--border); border-radius: 10px; color: var(--text-primary); font-family: var(--font); font-size: 0.88rem; outline: none; transition: var(--transition); }
+.qa-search:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var(--pink-glow); }
+.qa-search::placeholder { color: var(--text-muted); }
+.qa-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 1rem; }
+.qa-search-count { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; color: var(--text-muted); background: var(--bg-card); padding: 2px 8px; border-radius: 10px; }
+.qa-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.qa-stat { padding: 8px 14px; background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; transition: var(--transition); }
+.qa-stat:hover { border-color: var(--pink); }
+.qa-stat.active { border-color: var(--pink); background: var(--pink-bg); }
+.qa-stat-num { font-weight: 700; font-size: 1rem; }
+.qa-stat-num.pass { color: var(--green); }
+.qa-stat-num.fail { color: #ef4444; }
+.qa-stat-num.untested { color: var(--text-muted); }
+.qa-stat-num.blocked { color: #f59e0b; }
+.qa-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 6px; overflow: hidden; transition: var(--transition); }
+.qa-card:hover { border-color: #ffffff15; }
+.qa-card.highlight { border-color: var(--pink); box-shadow: 0 0 0 2px var(--pink-glow); }
+.qa-card-header { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: var(--transition); user-select: none; }
+.qa-card-header:hover { background: var(--bg-card-hover); }
+.qa-card.open .qa-card-body { display: block; }
+.qa-card-body { display: none; padding: 0 16px 16px; animation: slideDown 0.3s ease; }
+.qa-status { font-size: 0.7rem; font-weight: 700; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
+.qa-status.pass { background: #34d39920; color: var(--green); }
+.qa-status.fail { background: #ef444420; color: #ef4444; }
+.qa-status.untested { background: #ffffff10; color: var(--text-muted); }
+.qa-status.blocked { background: #f59e0b20; color: #f59e0b; }
+.qa-feature-link { font-family: var(--mono); font-size: 0.7rem; padding: 2px 7px; border-radius: 5px; background: var(--bg-card); border: 1px solid var(--border); color: var(--pink-soft); flex-shrink: 0; }
+.qa-title { font-weight: 600; font-size: 0.88rem; flex: 1; }
+.qa-severity { font-size: 0.68rem; font-weight: 600; flex-shrink: 0; }
+.qa-severity.critical { color: #ef4444; }
+.qa-severity.high { color: #f59e0b; }
+.qa-severity.medium { color: var(--pink-soft); }
+.qa-severity.low { color: var(--text-muted); }
+.qa-keywords { display: flex; gap: 3px; flex-wrap: wrap; margin: 8px 0; }
+.qa-keyword { font-size: 0.62rem; padding: 2px 7px; border-radius: 10px; font-weight: 600; background: #e91e8c10; color: var(--pink-soft); border: 1px solid #e91e8c20; cursor: pointer; transition: var(--transition); text-transform: lowercase; }
+.qa-keyword:hover { background: var(--pink-bg); border-color: var(--pink); }
+.qa-steps { counter-reset: qa-step; }
+.qa-step { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e91e8c08; font-size: 0.84rem; line-height: 1.6; }
+.qa-step:last-child { border-bottom: none; }
+.qa-step-num { counter-increment: qa-step; font-family: var(--mono); font-size: 0.72rem; font-weight: 700; color: var(--pink); background: var(--pink-bg); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.qa-step-num::after { content: counter(qa-step); }
+.qa-step-text { flex: 1; color: var(--text-secondary); }
+.qa-step-text strong { color: var(--text-primary); }
+.qa-step-text code { font-family: var(--mono); font-size: 0.78rem; background: #e91e8c10; color: var(--pink-soft); padding: 1px 5px; border-radius: 3px; }
+.qa-expected { background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; margin-top: 8px; }
+.qa-expected-label { font-weight: 700; color: var(--green); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.qa-expected-text { color: var(--text-secondary); line-height: 1.6; font-size: 0.82rem; }
+.qa-fail-hint { background: #ef444410; border: 1px solid #ef444425; border-radius: var(--radius-sm); padding: 10px 14px; margin-top: 8px; }
+.qa-fail-hint-label { font-weight: 700; color: #ef4444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.qa-status-btns { display: flex; gap: 4px; margin-top: 10px; }
+.qa-status-btn { padding: 5px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; font-family: var(--font); font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: var(--transition); color: var(--text-muted); }
+.qa-status-btn:hover { border-color: var(--text-secondary); }
+.qa-status-btn.active-pass { background: #34d39920; color: var(--green); border-color: var(--green); }
+.qa-status-btn.active-fail { background: #ef444420; color: #ef4444; border-color: #ef4444; }
+.qa-status-btn.active-blocked { background: #f59e0b20; color: #f59e0b; border-color: #f59e0b; }
+
+/* NOTES */
+.notes-toolbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+
+/* FILE TREE */
+.ft-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 4px; font-size: 0.82rem; transition: var(--transition); }
+.ft-item:hover { border-color: #ffffff15; }
+.ft-indent { width: 16px; flex-shrink: 0; border-left: 1px dashed var(--border); height: 100%; }
+.ft-icon { font-size: 1rem; flex-shrink: 0; }
+.ft-name { font-family: var(--mono); font-size: 0.78rem; color: var(--text-primary); flex: 1; }
+.ft-role { font-size: 0.75rem; color: var(--text-muted); flex: 2; }
+.ft-size { font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted); width: 60px; text-align: right; flex-shrink: 0; }
+.ft-deploy { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; flex-shrink: 0; white-space: nowrap; }
+.ft-deploy.yes { background: #34d39918; color: var(--green); border: 1px solid #34d39930; }
+.ft-deploy.no { background: #ef444418; color: #ef4444; border: 1px solid #ef444430; }
+.ft-deploy.dev { background: #f59e0b18; color: #f59e0b; border: 1px solid #f59e0b30; }
+.ft-action { font-size: 0.68rem; color: var(--text-muted); font-style: italic; width: 100px; flex-shrink: 0; }
+.ft-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; font-size: 0.78rem; color: var(--text-muted); }
+
+/* FLOWCHART */
+.flow-container { background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; overflow: auto; min-height: 300px; }
+.flow-svg text { font-family: var(--font); }
+
+/* NOTES */
+.notes-group-btns { display: flex; gap: 4px; }
+.notes-group-btn { padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-family: var(--font); font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: var(--transition); }
+.notes-group-btn:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.notes-group-btn.active { border-color: var(--pink); color: var(--pink); background: #e91e8c10; }
+.note-type-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 10px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.note-type-badge.idea { background: #34d39918; color: var(--green); border: 1px solid #34d39930; }
+.note-type-badge.todo { background: #f59e0b18; color: #f59e0b; border: 1px solid #f59e0b30; }
+.note-type-badge.question { background: #e91e8c18; color: var(--pink-soft); border: 1px solid #e91e8c30; }
+.note-type-badge.bug-note { background: #ef444418; color: #ef4444; border: 1px solid #ef444430; }
+.note-type-badge.decision { background: #2dd4a818; color: #2dd4a8; border: 1px solid #2dd4a830; }
+.note-type-badge.general { background: #ffffff08; color: var(--text-muted); border: 1px solid var(--border); }
+.note-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 6px; transition: var(--transition); }
+.note-card:hover { border-color: #ffffff15; }
+.note-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.note-linked { font-family: var(--mono); font-size: 0.7rem; padding: 2px 7px; border-radius: 5px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; transition: var(--transition); text-decoration: none; }
+.note-linked:hover { border-color: var(--pink); color: var(--pink); }
+.note-date { font-size: 0.7rem; color: var(--text-muted); margin-left: auto; }
+.note-text { font-size: 0.84rem; line-height: 1.7; color: var(--text-secondary); white-space: pre-wrap; word-wrap: break-word; }
+.note-actions { display: flex; gap: 4px; margin-top: 8px; }
+.note-group-header { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); padding: 10px 0 6px; border-bottom: 1px dashed var(--border); margin-top: 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.note-group-header:first-child { margin-top: 0; }
+.note-count-inline { font-size: 0.68rem; padding: 1px 6px; border-radius: 10px; background: var(--pink-bg); color: var(--pink-soft); font-weight: 600; cursor: pointer; margin-left: 2px; border: 1px solid #e91e8c20; transition: var(--transition); }
+.note-count-inline:hover { background: var(--pink); color: white; }
+
+/* LAMBDAS */
+.lambda-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 8px; transition: var(--transition); }
+.lambda-card:hover { border-color: #ffffff15; }
+.lambda-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.lambda-header h4 { flex: 1; font-size: 0.92rem; }
+.lambda-runtime { font-family: var(--mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: var(--green-bg); color: var(--green); border: 1px solid #34d39930; }
+.lambda-detail { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px; }
+.lambda-detail-label { color: var(--text-muted); font-weight: 500; min-width: 80px; }
+.lambda-envs { font-family: var(--mono); font-size: 0.75rem; background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; color: var(--green-soft); white-space: pre-wrap; }
+
+/* API ROUTES */
+.route-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.route-table th { text-align: left; padding: 8px 10px; background: var(--bg-deep); color: var(--text-muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.route-table td { padding: 8px 10px; border-bottom: 1px solid #e91e8c08; vertical-align: middle; }
+.route-table tr:hover td { background: var(--bg-card-hover); }
+.route-method { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+.route-method.GET { background: #34d39918; color: var(--green); }
+.route-method.POST { background: #f59e0b18; color: #f59e0b; }
+.route-method.PUT { background: #3b82f618; color: #60a5fa; }
+.route-method.DELETE { background: #ef444418; color: #ef4444; }
+.route-method.OPTIONS { background: #ffffff08; color: var(--text-muted); }
+.route-path { font-family: var(--mono); font-size: 0.78rem; color: var(--pink-soft); }
+.route-auth { font-size: 0.72rem; }
+
+/* SCRIPTS */
+.script-card { background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 6px; transition: var(--transition); }
+.script-card:hover { border-color: #ffffff15; }
+.script-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.script-header h4 { font-family: var(--mono); font-size: 0.88rem; flex: 1; }
+.script-type-badge { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.script-type-badge.setup { background: var(--green-bg); color: var(--green); border: 1px solid #34d39930; }
+.script-type-badge.maintenance { background: #f59e0b18; color: #f59e0b; border: 1px solid #f59e0b30; }
+.script-type-badge.deploy { background: var(--pink-bg); color: var(--pink-soft); border: 1px solid #e91e8c30; }
+.script-type-badge.migration { background: #2dd4a818; color: #2dd4a8; border: 1px solid #2dd4a830; }
+.script-type-badge.diagnostic { background: #ffffff08; color: var(--text-muted); border: 1px solid var(--border); }
+.script-usage { font-family: var(--mono); font-size: 0.76rem; background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; color: var(--green-soft); margin-top: 6px; }
+
+/* INFRA */
+.infra-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.infra-stat { padding: 10px 16px; background: var(--bg-main); border: 1px solid var(--border); border-radius: var(--radius); display: flex; align-items: center; gap: 8px; font-size: 0.82rem; }
+.infra-stat-num { font-weight: 700; font-size: 1.1rem; color: var(--green-soft); }
+.infra-stat-label { color: var(--text-muted); }
+.infra-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.infra-table th { text-align: left; padding: 9px 12px; background: var(--bg-deep); color: var(--text-muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.infra-table td { padding: 9px 12px; border-bottom: 1px solid #e91e8c08; vertical-align: middle; }
+.infra-table tr:hover td { background: var(--bg-card-hover); }
+.infra-type-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 10px; font-size: 0.72rem; font-weight: 600; background: var(--pink-bg); color: var(--pink-soft); border: 1px solid #e91e8c20; white-space: nowrap; }
+.infra-region { font-family: var(--mono); font-size: 0.76rem; color: var(--green-soft); }
+.infra-ident { font-family: var(--mono); font-size: 0.76rem; color: var(--text-secondary); }
+.infra-status { font-size: 0.75rem; font-weight: 600; }
+.infra-status.active { color: var(--green); }
+.infra-status.staging { color: #f59e0b; }
+.infra-status.dev { color: var(--pink-soft); }
+.infra-status.inactive { color: var(--text-muted); }
+.infra-status.deprecated { color: #ef4444; }
+.infra-endpoint { font-family: var(--mono); font-size: 0.72rem; color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.infra-endpoint a { color: var(--green-soft); text-decoration: none; }
+.infra-endpoint a:hover { text-decoration: underline; }
+.infra-actions { display: flex; gap: 4px; }
+.infra-region-group { font-size: 0.78rem; color: var(--text-muted); padding: 12px 0 6px; font-weight: 600; border-bottom: 1px dashed var(--border); margin-top: 8px; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+    .search-wrap { min-width: 100%; order: 10; }
+    .entry-oneliner, .prompt-desc { display: none; }
+    .tab-panel { padding: 14px; }
+    .main-tab { padding: 7px 10px; font-size: 0.75rem; }
+    .three-layers { grid-template-columns: 1fr; }
+    .entry-tags { display: none; }
+    .quick-links-bar { padding: 6px 16px; }
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pink); }
+</style>
+</head>
+<body>
+
+<div class="top-sticky">
+<header class="header">
+    <div class="header-inner">
+        <div class="logo">
+            <div class="logo-icon">🧬</div>
+            <div><div class="logo-text">App Anatomy</div><div class="logo-sub">Living Blueprint</div></div>
+        </div>
+        <div class="app-name-display" onclick="openSettings()" id="appNameDisplay">📌 No app mapped yet</div>
+        <div class="search-wrap">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search everything... (Ctrl+K)" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span class="search-count" id="searchCount"></span>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="Toggle Light/Dark">🌙</button>
+            <button class="btn-icon" onclick="toggleExpandAll()" title="Expand/Collapse All (Ctrl+E)">📂</button>
+            <button class="btn-icon" onclick="openSettings()" title="App Settings">⚙️</button>
+            <button class="btn-export" onclick="exportJSON()">💾 Export</button>
+            <button class="btn-export" style="border-color:var(--pink);background:var(--pink-bg);color:var(--pink)" onclick="importJSON()">📥 Import</button>
+        </div>
+    </div>
+</header>
+
+<div class="quick-links-bar">
+    <div class="quick-links-inner" id="quickLinksBar"></div>
+</div>
+
+<nav class="main-tabs" id="mainTabs">
+    <button class="main-tab active" data-tab="guide"><span>📖</span> Guide</button>
+    <button class="main-tab" data-tab="tabs"><span>🗂</span> Tabs <span class="tab-count" data-count="tabs">0</span></button>
+    <button class="main-tab" data-tab="buttons"><span>🖱</span> Buttons <span class="tab-count" data-count="buttons">0</span></button>
+    <button class="main-tab" data-tab="functions"><span>⚙️</span> Functions <span class="tab-count" data-count="functions">0</span></button>
+    <button class="main-tab" data-tab="variables"><span>📦</span> Variables <span class="tab-count" data-count="variables">0</span></button>
+    <button class="main-tab" data-tab="styles"><span>🎨</span> Styles <span class="tab-count" data-count="styles">0</span></button>
+    <button class="main-tab" data-tab="connections"><span>🔗</span> Connections <span class="tab-count" data-count="connections">0</span></button>
+    <button class="main-tab" data-tab="bugs"><span>🩺</span> Issues <span class="tab-count" data-count="bugs">0</span></button>
+    <button class="main-tab" data-tab="files"><span>📁</span> Files <span class="tab-count" data-count="files">0</span></button>
+    <button class="main-tab" data-tab="vault"><span>🔐</span> Vault</button>
+    <button class="main-tab" data-tab="infra"><span>☁️</span> Infra</button>
+    <button class="main-tab" data-tab="lambdas"><span>⚡</span> Lambdas</button>
+    <button class="main-tab" data-tab="apiroutes"><span>🔌</span> API Routes</button>
+    <button class="main-tab" data-tab="scripts"><span>🔧</span> Scripts</button>
+    <button class="main-tab" data-tab="qa"><span>🧪</span> QA Tests</button>
+    <button class="main-tab" data-tab="notes"><span>💭</span> Notes</button>
+    <button class="main-tab" data-tab="prompts"><span>💬</span> Prompts</button>
+    <button class="main-tab" data-tab="filetree"><span>🌳</span> Files Tree</button>
+    <button class="main-tab" data-tab="flowchart"><span>🔀</span> Flowchart</button>
+    <button class="main-tab" data-tab="porting"><span>🌸</span> Porting</button>
+</nav>
+</div><!-- /top-sticky -->
+
+<main class="content-area">
+    <!-- GUIDE -->
+    <div class="tab-panel active" id="panel-guide">
+        <div class="guide-section"><h3>📖 What Is This File?</h3>
+            <div class="guide-card"><p>The <strong>complete X-ray</strong> of your app. Every tab, button, function, variable, style, connection, and bug — visible, labeled, and explained in plain English. Designed so you can <strong>understand, modify, and port features</strong> yourself.</p></div>
+        </div>
+        <div class="guide-section"><h3>🧬 The Three Layers</h3>
+            <div class="three-layers">
+                <div class="layer-card html-layer"><h4>🌸 HTML — Skeleton</h4><p>The visible structure. Buttons, containers, inputs. What the user <strong>sees and touches</strong>.</p></div>
+                <div class="layer-card js-layer"><h4>🌿 JS — Brain</h4><p>The logic. Functions that run on click, type, or load. What <strong>makes things happen</strong>.</p></div>
+                <div class="layer-card css-layer"><h4>🎀 CSS — Skin</h4><p>Colors, sizes, spacing. <strong>How things look</strong>. Uses <code>var(--name)</code> for reusable values.</p></div>
+            </div>
+        </div>
+        <div class="guide-section"><h3>📐 HTML Nesting</h3>
+            <div class="guide-diagram"><span class="hl-pink">&lt;div id="app"&gt;</span>                         <span class="hl-muted">← outermost box</span>
+├── <span class="hl-pink">&lt;nav id="tab-bar"&gt;</span>                <span class="hl-muted">← navigation</span>
+│   ├── <span class="hl-green">&lt;button&gt;</span>Tab 1<span class="hl-green">&lt;/button&gt;</span>
+│   └── <span class="hl-green">&lt;button&gt;</span>Tab 2<span class="hl-green">&lt;/button&gt;</span>
+├── <span class="hl-pink">&lt;div id="tab-1"&gt;</span>                  <span class="hl-muted">← tab content</span>
+│   ├── <span class="hl-green">&lt;div class="toolbar"&gt;</span>
+│   │   └── <span class="hl-green">&lt;button&gt;</span>Action<span class="hl-green">&lt;/button&gt;</span>
+│   └── <span class="hl-green">&lt;div class="content"&gt;</span>
+└── <span class="hl-pink">&lt;div id="modal"&gt;</span>                  <span class="hl-muted">← popup</span></div>
+        </div>
+        <div class="guide-section"><h3>🔗 Golden Rule</h3>
+            <div class="guide-card"><p>Rename an <code>id</code> in HTML → also rename in JS & CSS. Rename a function → update <code>onclick</code>. Delete a CSS variable → elements using it break.<br><strong style="color:var(--pink-soft)">This anatomy maps all three layers for every feature.</strong></p></div>
+        </div>
+        <div class="guide-section"><h3>⌨️ Shortcuts</h3>
+            <div class="guide-card"><p><span class="kbd">Ctrl+K</span> Search &nbsp; <span class="kbd">Ctrl+E</span> Expand/Collapse &nbsp; <span class="kbd">Ctrl+T</span> Theme &nbsp; <span class="kbd">Esc</span> Close &nbsp; <span class="kbd">1-9</span> Tabs</p></div>
+        </div>
+    </div>
+
+    <!-- DYNAMIC PANELS -->
+    <div class="tab-panel" id="panel-tabs"></div>
+    <div class="tab-panel" id="panel-buttons"></div>
+    <div class="tab-panel" id="panel-functions"></div>
+    <div class="tab-panel" id="panel-variables"></div>
+    <div class="tab-panel" id="panel-styles"></div>
+    <div class="tab-panel" id="panel-connections"></div>
+    <div class="tab-panel" id="panel-bugs"></div>
+    <div class="tab-panel" id="panel-files"></div>
+
+    <!-- VAULT -->
+    <div class="tab-panel" id="panel-vault"></div>
+
+    <!-- INFRA -->
+    <div class="tab-panel" id="panel-infra"></div>
+
+    <!-- LAMBDAS -->
+    <div class="tab-panel" id="panel-lambdas"></div>
+
+    <!-- API ROUTES -->
+    <div class="tab-panel" id="panel-apiroutes"></div>
+
+    <!-- SCRIPTS -->
+    <div class="tab-panel" id="panel-scripts"></div>
+
+    <!-- QA TESTS -->
+    <div class="tab-panel" id="panel-qa"></div>
+
+    <!-- FILES TREE -->
+    <div class="tab-panel" id="panel-filetree"></div>
+
+    <!-- FLOWCHART -->
+    <div class="tab-panel" id="panel-flowchart"></div>
+
+    <!-- NOTES -->
+    <div class="tab-panel" id="panel-notes"></div>
+
+    <!-- PROMPTS -->
+    <div class="tab-panel" id="panel-prompts"></div>
+
+    <!-- PORTING -->
+    <div class="tab-panel" id="panel-porting"></div>
+</main>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal"><div class="modal">
+    <h2>⚙️ App Info</h2>
+    <label>App Name</label><input type="text" id="sName" placeholder="e.g. Piano Learning Manager" />
+    <label>Version</label><input type="text" id="sVersion" placeholder="e.g. 2.1" />
+    <label>App Type</label><select id="sType"><option>Single-file HTML</option><option>Modular SPA</option><option>Multi-page</option><option>PWA</option></select>
+    <label>Main File(s)</label><input type="text" id="sFile" placeholder="e.g. index.html" />
+    <label>Storage</label><input type="text" id="sStorage" placeholder="e.g. localStorage, DynamoDB" />
+    <label>Theme</label><input type="text" id="sTheme" placeholder="e.g. Pink & Green" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('settingsModal')">Cancel</button><button class="btn btn-pink" onclick="saveSettings()">Save</button></div>
+</div></div>
+
+<!-- ADD ENTRY MODAL -->
+<div class="modal-overlay" id="addModal"><div class="modal" style="max-width:600px">
+    <h2 id="addModalTitle">✨ Add Entry</h2>
+    <label>Category</label><select id="aCat"><option value="tabs">🗂 Tab</option><option value="buttons">🖱 Button</option><option value="functions">⚙️ Function</option><option value="variables">📦 Variable</option><option value="styles">🎨 Style</option><option value="connections">🔗 Connection</option><option value="bugs">🩺 Issue</option><option value="files">📁 File</option></select>
+    <label>Name</label><input type="text" id="aName" placeholder="e.g. Save Button, renderList()" />
+    <label>One-liner</label><input type="text" id="aOne" placeholder="What it does, in one sentence" />
+    <label>Tags (comma separated)</label><input type="text" id="aTags" placeholder="e.g. critical, toolbar, state" />
+    <label>Visible to (who can see/use this feature)</label>
+    <select id="aRoles" multiple style="min-height:70px"><option value="all" selected>👥 All Users</option><option value="admin">🛡 Admin Only</option><option value="teacher">👩‍🏫 Teacher</option><option value="student">🎓 Student</option><option value="guest">👤 Guest</option><option value="custom">🔧 Custom Role</option></select>
+    <div style="font-size:0.72rem;color:var(--text-muted);margin:-8px 0 12px">Hold Ctrl/Cmd to select multiple. Leave "All Users" if no restriction.</div>
+    <label>How it works (step by step)</label><textarea id="aHow" placeholder="1. User clicks...&#10;2. This triggers..."></textarea>
+    <label>How to change it</label><textarea id="aChange" placeholder="- To change X → edit Y"></textarea>
+    <label>HTML Structure</label><textarea id="aHtml" placeholder="Paste HTML snippet"></textarea>
+    <label>JS Code</label><textarea id="aJs" placeholder="Paste JS function"></textarea>
+    <input type="hidden" id="aEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('addModal')">Cancel</button><button class="btn btn-pink" onclick="saveEntry()">Save Entry</button></div>
+</div></div>
+
+<!-- QUICK LINK MODAL -->
+<div class="modal-overlay" id="qlModal"><div class="modal" style="max-width:420px">
+    <h2 id="qlModalTitle">🔗 Edit Link</h2>
+    <label>URL / Path</label><input type="text" id="qlUrl" placeholder="https:// or file:// or /path/to/..." />
+    <input type="hidden" id="qlKey" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('qlModal')">Cancel</button><button class="btn" style="color:#ef4444;border-color:#ef4444" onclick="clearQL()">Clear</button><button class="btn btn-pink" onclick="saveQL()">Save</button></div>
+</div></div>
+
+<!-- VAULT MODAL -->
+<div class="modal-overlay" id="vaultModal"><div class="modal" style="max-width:480px">
+    <h2 id="vaultModalTitle">🔐 Add Credential</h2>
+    <label>Label</label><input type="text" id="vLabel" placeholder="e.g. Admin Panel, AWS, Database" />
+    <label>Type</label><select id="vType"><option value="login">🔑 Login (user + password)</option><option value="token">🎫 API Token / Key</option><option value="gate">🚪 Site Gate / Basic Auth</option><option value="db">🗄 Database</option><option value="other">📋 Other</option></select>
+    <label>Username / Key Name</label><input type="text" id="vUser" placeholder="e.g. admin, API_KEY" />
+    <label>Password / Secret / Value</label><input type="text" id="vPass" placeholder="••••••••" />
+    <label>URL / Endpoint</label><input type="text" id="vUrl" placeholder="https://..." />
+    <label>Notes</label><textarea id="vNotes" placeholder="Extra info, 2FA setup, etc." style="min-height:50px"></textarea>
+    <input type="hidden" id="vEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('vaultModal')">Cancel</button><button class="btn btn-pink" onclick="saveVault()">Save</button></div>
+</div></div>
+
+<!-- QA TEST MODAL -->
+<div class="modal-overlay" id="qaModal"><div class="modal" style="max-width:620px">
+    <h2 id="qaModalTitle">🧪 Add Test</h2>
+    <label>Test Name</label><input type="text" id="qaName" placeholder="e.g. Add new piece, Save button works, Login flow" />
+    <label>Linked Feature (optional)</label><select id="qaLinked"><option value="">— None —</option></select>
+    <label>Severity</label><select id="qaSev"><option value="critical">🔴 Critical — app breaks if this fails</option><option value="high">🟠 High — major feature blocked</option><option value="medium">🟡 Medium — feature degraded</option><option value="low">🟢 Low — cosmetic or minor</option></select>
+    <label>Category</label><select id="qaCat"><option value="ui">🖥 UI / Visual</option><option value="function">⚙️ Functionality</option><option value="data">💾 Data / Storage</option><option value="auth">🔐 Auth / Permissions</option><option value="api">🔌 API / Network</option><option value="performance">⚡ Performance</option><option value="pwa">📱 PWA / Offline</option><option value="integration">🔗 Integration</option></select>
+    <label>Searchable Keywords (comma separated)</label><input type="text" id="qaKeywords" placeholder="e.g. save button, toolbar, repertoire tab, Store.set, modal, render" />
+    <label>Visible to (which user roles see this feature)</label>
+    <select id="qaRoles" multiple style="min-height:56px"><option value="all" selected>👥 All</option><option value="admin">🛡 Admin</option><option value="teacher">👩‍🏫 Teacher</option><option value="student">🎓 Student</option><option value="guest">👤 Guest</option></select>
+    <label>Test Steps (one per line — what the user does)</label><textarea id="qaSteps" placeholder="1. Open the Pieces tab&#10;2. Click '+ Add Piece'&#10;3. Fill in title: 'Test Piece'&#10;4. Click Save&#10;5. Check piece appears in list" style="min-height:110px;font-family:var(--font);font-size:0.84rem"></textarea>
+    <label>Expected Result (what should happen if it works)</label><textarea id="qaExpected" placeholder="New piece card appears in the list with title 'Test Piece', status 'Learning', and today's date." style="min-height:60px;font-family:var(--font);font-size:0.84rem"></textarea>
+    <label>If It Fails — Where to Look (debugging hints)</label><textarea id="qaFailHint" placeholder="- Check browser console for errors&#10;- Check Store.get('repertoire') has the new item&#10;- Check RepertoireModule._save() is called&#10;- Check cloud sync status dot" style="min-height:80px;font-family:var(--font);font-size:0.84rem"></textarea>
+    <input type="hidden" id="qaEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('qaModal')">Cancel</button><button class="btn btn-pink" onclick="saveQA()">Save Test</button></div>
+</div></div>
+
+<!-- NOTES MODAL -->
+<div class="modal-overlay" id="noteModal"><div class="modal" style="max-width:520px">
+    <h2 id="noteModalTitle">💭 Add Note</h2>
+    <label>Type</label><select id="nType">
+        <option value="general">📝 General</option><option value="idea">💡 Idea</option><option value="todo">✅ To-Do</option>
+        <option value="question">❓ Question</option><option value="bug-note">🐛 Bug Note</option><option value="decision">🎯 Decision</option>
+    </select>
+    <label>Linked to entry (optional)</label>
+    <select id="nLinked"><option value="">— None (standalone note) —</option></select>
+    <label>Your note</label><textarea id="nText" placeholder="Write your thoughts, observations, ideas..." style="min-height:100px;font-family:var(--font);font-size:0.86rem"></textarea>
+    <label>Tags (comma separated, optional)</label><input type="text" id="nTags" placeholder="e.g. urgent, phase-2, ask-alex" />
+    <input type="hidden" id="nEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('noteModal')">Cancel</button><button class="btn btn-pink" onclick="saveNote()">Save Note</button></div>
+</div></div>
+
+<!-- LAMBDA MODAL -->
+<div class="modal-overlay" id="lambdaModal"><div class="modal" style="max-width:550px">
+    <h2 id="lambdaModalTitle">⚡ Add Lambda</h2>
+    <label>Function Name</label><input type="text" id="lName" placeholder="e.g. piano-s3-api" />
+    <label>Handler File</label><input type="text" id="lHandler" placeholder="e.g. aws-lambda/s3-api/index.mjs" />
+    <label>Runtime</label><select id="lRuntime"><option value="nodejs20.x">Node.js 20.x</option><option value="nodejs18.x">Node.js 18.x</option><option value="python3.12">Python 3.12</option><option value="python3.11">Python 3.11</option><option value="custom">Custom</option></select>
+    <label>Region</label><input type="text" id="lRegion" value="eu-central-1" />
+    <label>Trigger</label><select id="lTrigger"><option value="API Gateway">API Gateway</option><option value="Function URL">Function URL</option><option value="S3 Event">S3 Event</option><option value="DynamoDB Stream">DynamoDB Stream</option><option value="CloudWatch">CloudWatch Schedule</option><option value="Cognito">Cognito</option><option value="SNS">SNS</option><option value="SQS">SQS</option><option value="Manual">Manual / CLI</option></select>
+    <label>Endpoint / Function URL</label><input type="text" id="lEndpoint" placeholder="https://..." />
+    <label>Environment Variables (one per line: KEY=value)</label><textarea id="lEnvVars" placeholder="S3_BUCKET=my-bucket&#10;DYNAMO_TABLE=my-table" style="min-height:60px"></textarea>
+    <label>Purpose (what it does)</label><textarea id="lPurpose" placeholder="Handles file uploads to S3..." style="min-height:50px;font-family:var(--font)"></textarea>
+    <label>Dependencies / Layers</label><input type="text" id="lDeps" placeholder="e.g. @aws-sdk/client-s3, busboy" />
+    <input type="hidden" id="lEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('lambdaModal')">Cancel</button><button class="btn btn-pink" onclick="saveLambda()">Save</button></div>
+</div></div>
+
+<!-- API ROUTE MODAL -->
+<div class="modal-overlay" id="routeModal"><div class="modal" style="max-width:480px">
+    <h2 id="routeModalTitle">🔌 Add Route</h2>
+    <label>Method</label><select id="rMethod"><option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option><option>OPTIONS</option></select>
+    <label>Path</label><input type="text" id="rPath" placeholder="e.g. /list, /upload, /file/{key}" />
+    <label>Backend / Integration</label><input type="text" id="rBackend" placeholder="e.g. piano-s3-api Lambda" />
+    <label>Auth Required?</label><select id="rAuth"><option value="none">🔓 None</option><option value="header">🔑 X-Auth Header</option><option value="cognito">👤 Cognito</option><option value="iam">🛡 IAM</option><option value="apikey">🎫 API Key</option></select>
+    <label>Description</label><input type="text" id="rDesc" placeholder="What this endpoint does" />
+    <label>Request Body / Params</label><input type="text" id="rParams" placeholder="e.g. FormData(file, key) or ?prefix=scores/" />
+    <label>Response</label><input type="text" id="rResponse" placeholder="e.g. {files: [...]} or {ok: true}" />
+    <input type="hidden" id="rEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('routeModal')">Cancel</button><button class="btn btn-pink" onclick="saveRoute()">Save</button></div>
+</div></div>
+
+<!-- SCRIPT MODAL -->
+<div class="modal-overlay" id="scriptModal"><div class="modal" style="max-width:520px">
+    <h2 id="scriptModalTitle">🔧 Add Script</h2>
+    <label>Script Name / File</label><input type="text" id="scName" placeholder="e.g. bulk-upload.js, deploy.sh" />
+    <label>Path</label><input type="text" id="scPath" placeholder="e.g. server/scripts/bulk-upload.js" />
+    <label>Type</label><select id="scType"><option value="setup">🏗 Setup / Provisioning</option><option value="deploy">🚀 Deploy</option><option value="maintenance">🔧 Maintenance / Cleanup</option><option value="migration">📦 Migration / Seed</option><option value="diagnostic">🩺 Diagnostic / Verify</option></select>
+    <label>Runtime</label><select id="scRuntime"><option value="node">Node.js</option><option value="bash">Bash</option><option value="python">Python</option><option value="other">Other</option></select>
+    <label>Usage / Command</label><input type="text" id="scUsage" placeholder="e.g. node bulk-upload.js 'F:\\Piano' --dry-run" />
+    <label>Description</label><textarea id="scDesc" placeholder="What this script does..." style="min-height:60px;font-family:var(--font)"></textarea>
+    <label>Dependencies (external tools, APIs)</label><input type="text" id="scDeps" placeholder="e.g. Claude Vision API, AWS CLI, S3" />
+    <label>When to run</label><input type="text" id="scWhen" placeholder="e.g. One-time setup, After adding files, Before deploy" />
+    <input type="hidden" id="scEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('scriptModal')">Cancel</button><button class="btn btn-pink" onclick="saveScript()">Save</button></div>
+</div></div>
+
+<!-- INFRA MODAL -->
+<div class="modal-overlay" id="infraModal"><div class="modal" style="max-width:520px">
+    <h2 id="infraModalTitle">☁️ Add Resource</h2>
+    <label>Resource Name</label><input type="text" id="iName" placeholder="e.g. S3 hosting bucket, Lambda API" />
+    <label>Identifier / ARN</label><input type="text" id="iIdent" placeholder="e.g. marex-pm-hosting, arn:aws:..." />
+    <label>Type</label><select id="iType">
+        <option value="S3">🪣 S3 Bucket</option><option value="Lambda">⚡ Lambda</option><option value="DynamoDB">🗄 DynamoDB</option>
+        <option value="Cognito">👤 Cognito</option><option value="CloudFront">☁️ CloudFront</option><option value="API Gateway">🔌 API Gateway</option>
+        <option value="EC2">🖥 EC2</option><option value="RDS">💾 RDS</option><option value="SES">📧 SES</option>
+        <option value="SNS">📢 SNS</option><option value="SQS">📬 SQS</option><option value="IAM">🔑 IAM Role</option>
+        <option value="Route53">🌐 Route53</option><option value="ACM">🔒 ACM Certificate</option><option value="Amplify">📱 Amplify</option>
+        <option value="Other">📋 Other</option>
+    </select>
+    <label>Region</label><select id="iRegion">
+        <option value="eu-central-1">eu-central-1 (Frankfurt)</option><option value="eu-west-1">eu-west-1 (Ireland)</option>
+        <option value="eu-west-2">eu-west-2 (London)</option><option value="us-east-1">us-east-1 (N. Virginia)</option>
+        <option value="us-west-2">us-west-2 (Oregon)</option><option value="ap-southeast-1">ap-southeast-1 (Singapore)</option>
+        <option value="global">🌍 Global</option><option value="other">Other</option>
+    </select>
+    <label>Status</label><select id="iStatus">
+        <option value="active">✅ Active</option><option value="staging">⚠️ Staging</option><option value="dev">🔧 Dev</option>
+        <option value="inactive">⏸ Inactive</option><option value="deprecated">🔴 Deprecated</option>
+    </select>
+    <label>Endpoint / URL</label><input type="text" id="iEndpoint" placeholder="https://... (optional)" />
+    <label>Notes</label><textarea id="iNotes" placeholder="Config details, limits, etc." style="min-height:50px"></textarea>
+    <input type="hidden" id="iEditId" value="" />
+    <div class="modal-actions"><button class="btn" onclick="closeModal('infraModal')">Cancel</button><button class="btn btn-pink" onclick="saveInfra()">Save</button></div>
+</div></div>
+
+<input type="file" id="importInput" accept=".json" style="display:none" />
+
+<script>
+// ═══════════════════════════════════════
+//  🌸 APP ANATOMY ENGINE v2
+// ═══════════════════════════════════════
+
+const APP = {
+    name:'', version:'', type:'Single-file HTML', mainFile:'', storage:'', theme:'',
+    entries: [],
+    links: { localDrive:'', website:'', pwaPath:'', repo:'', s3Bucket:'', cloudfront:'', apiEndpoint:'', adminPanel:'', cicd:'' },
+    vault: [],
+    infra: [],
+    lambdas: [],
+    apiroutes: [],
+    scripts: [],
+    qa: [],
+    notes: [],
+    filetree: [],
+    flowchart: []
+};
+
+const LINK_DEFS = [
+    { key:'localDrive', icon:'📂', label:'Local Drive' },
+    { key:'website', icon:'🌐', label:'Website' },
+    { key:'pwaPath', icon:'📱', label:'PWA Local' },
+    { key:'repo', icon:'🐙', label:'Repo' },
+    { key:'s3Bucket', icon:'🪣', label:'S3 Bucket' },
+    { key:'cloudfront', icon:'☁️', label:'CloudFront' },
+    { key:'apiEndpoint', icon:'⚡', label:'API' },
+    { key:'adminPanel', icon:'🛡', label:'Admin' },
+    { key:'cicd', icon:'🔄', label:'CI/CD' }
+];
+
+const CAT = {
+    tabs:        { emoji:'🗂', prefix:'TAB', label:'Tabs & Views' },
+    buttons:     { emoji:'🖱', prefix:'BTN', label:'Buttons & Controls' },
+    functions:   { emoji:'⚙️', prefix:'FN',  label:'Functions' },
+    variables:   { emoji:'📦', prefix:'VAR', label:'Variables & State' },
+    styles:      { emoji:'🎨', prefix:'STY', label:'Styles & Theme' },
+    connections: { emoji:'🔗', prefix:'CON', label:'Connections' },
+    bugs:        { emoji:'🩺', prefix:'BUG', label:'Known Issues' },
+    files:       { emoji:'📁', prefix:'FILE', label:'Files' }
+};
+const PROPS = {
+    tabs:[['Container ID',''],['Nav Button',''],['Default Visible',''],['Key Features',''],['Dependencies','']],
+    buttons:[['Selector',''],['Type','Button'],['Location',''],['Triggers',''],['Affected by',''],['Modifiable','✅']],
+    functions:[['File',''],['Line',''],['Called by',''],['Calls',''],['Reads',''],['Modifies',''],['Returns',''],['Side Effects','']],
+    variables:[['Type',''],['Declared in',''],['Default',''],['Set by',''],['Read by',''],['Persisted?',''],['Modifiable','']],
+    styles:[['Variable',''],['Value',''],['Used for',''],['File',''],['Modifiable','✅']],
+    connections:[['From',''],['To',''],['Type',''],['Risk if Broken','']],
+    bugs:[['Severity',''],['Where',''],['What',''],['Cause',''],['Consequence',''],['Fix','']],
+    files:[['Path',''],['Role',''],['Contents',''],['Dependencies','']]
+};
+
+// ═══ PROMPTS DATA ═══
+const PROMPTS = [
+    { cat:'setup', color:'var(--green)', title:'🟢 First-Time Mapping', desc:'Create anatomy from scratch for a new app',
+      text:`Read the App-Anatomy-Blueprint.html file in the project root. Study the entire codebase of this project. Create a complete anatomy by mapping EVERY tab, button, control, function, variable, CSS variable, connection, and file.\n\nFor each entry include:\n- Human-readable step-by-step walkthrough\n- HTML structure with indentation level comments\n- JS logic with line-by-line explanation\n- CSS rules and variables used\n- "How to change it" practical instructions\n- Connections to other features\n\nAlso populate the 🔗 Connections map and report any bugs found in the 🩺 Issues section. Save the populated anatomy back to App-Anatomy-Blueprint.html.`,
+      note:'Use this when an app has NO anatomy yet. Drop the template HTML into the project root first.' },
+
+    { cat:'setup', color:'var(--green)', title:'🟢 First Mapping — Lite', desc:'Quick mapping with essentials only, faster',
+      text:`Read App-Anatomy-Blueprint.html. Scan the codebase and create a quick anatomy with one entry per feature. For each entry: fill in the properties table and a 2-3 step "how it works" summary. Skip detailed HTML/JS snippets for now — we'll add those later. Focus on coverage: make sure every tab, button, function, variable, and style is listed.`,
+      note:'Good for large apps where a full deep mapping would take too long. Follow up with "Add More Details" later.' },
+
+    { cat:'update', color:'#06d4a8', title:'🔵 Update After Changes', desc:'Sync anatomy with current codebase after edits',
+      text:`Read App-Anatomy-Blueprint.html and compare its data against the current codebase. Update every outdated, incorrect, or missing entry. Add new entries for any features added since the last mapping. Remove entries for features that no longer exist. Update line numbers, selectors, function names, and connections. Show me a summary of what changed.`,
+      note:'Run this after any coding session to keep the anatomy in sync.' },
+
+    { cat:'update', color:'#06d4a8', title:'🔵 Map One Feature', desc:'Add/update mapping for a single specific feature',
+      text:`Read App-Anatomy-Blueprint.html. I just added/changed this feature: [DESCRIBE FEATURE HERE].\n\nStudy the relevant code and add or update its entry with all layers:\n- Properties table\n- Step-by-step walkthrough\n- HTML structure with indentation\n- JS logic with line-by-line comments\n- CSS variables/rules\n- Connections to other features\n- "How to change it" instructions\n\nAssign the next available ID in its category.`,
+      note:'Replace [DESCRIBE FEATURE HERE] with what you built or changed.' },
+
+    { cat:'audit', color:'var(--pink)', title:'🔴 Full Audit & Drift Fix', desc:'Deep verification of every entry against actual code',
+      text:`Read App-Anatomy-Blueprint.html. Perform a full audit: verify EVERY entry against the actual codebase.\n\nFor each entry check:\n1. The element/function still exists\n2. The ID/selector is correct\n3. Line numbers are still accurate\n4. The "Called by" / "Calls" / "Reads" / "Modifies" chains are valid\n5. Connections map is accurate\n6. "How to change it" instructions still work\n\nFlag mismatches as 🔴 DRIFT. Fix all drifted entries. Add unmapped features. Remove phantom entries. Provide a drift report at the end.`,
+      note:'Use after a major refactor or when you suspect the anatomy has gone stale.' },
+
+    { cat:'audit', color:'var(--pink)', title:'⚪ Quick Verify (No Fixes)', desc:'Fast sanity check — report only, no changes',
+      text:`Read App-Anatomy-Blueprint.html. Quick verification pass:\n\n1. Count mapped features vs actual features in code\n2. List PHANTOMS (in anatomy but NOT in code)\n3. List UNMAPPED (in code but NOT in anatomy)\n4. Flag obviously wrong line numbers or selectors\n\nDo NOT fix anything — just report. I will decide what to update.`,
+      note:'Quick 2-minute health check. Good before starting a new task.' },
+
+    { cat:'detail', color:'var(--tag-buttons)', title:'🟡 Add More Details', desc:'Enrich existing entries with deeper explanations',
+      text:`Read App-Anatomy-Blueprint.html. For every entry that is missing any of these sections, add them now:\n\n- "How it works" step-by-step (minimum 3 steps)\n- "How to change it" practical guide\n- HTML structure snippet with indentation comments\n- JS code snippet with line-by-line comments\n\nDo NOT change any existing content — only ADD what's missing. Show me a count of how many entries were enriched.`,
+      note:'Perfect follow-up after a "Lite" first mapping.' },
+
+    { cat:'detail', color:'var(--tag-buttons)', title:'🟡 Deep-Dive One Feature', desc:'Get exhaustive documentation for a single feature',
+      text:`Read App-Anatomy-Blueprint.html. I want a deep dive on feature: [FEATURE ID or NAME].\n\nProvide the most detailed possible documentation:\n- Every property filled with exact values\n- Step-by-step walkthrough of the full execution path\n- Complete HTML block with every nesting level annotated\n- Full JS function(s) with every line explained\n- Every CSS rule that affects this feature\n- Every connection (what calls it, what it calls, what it reads, what it writes)\n- Edge cases and potential failure modes\n- "How to change it" with specific line references`,
+      note:'Replace [FEATURE ID or NAME] with the entry you want deep-dived.' },
+
+    { cat:'detail', color:'var(--tag-buttons)', title:'🟡 Explain Like I\'m Not a Dev', desc:'Rewrite explanations in the simplest possible language',
+      text:`Read App-Anatomy-Blueprint.html. Go through every entry and rewrite the "How it works" and "How to change it" sections using the simplest possible language. Assume the reader has never written code before. Use analogies, avoid jargon, and explain what each code snippet does in terms of what the USER sees on screen. Keep technical accuracy but make it friendly and approachable.`,
+      note:'Makes the anatomy accessible to non-developers or when you want crystal-clear docs.' },
+
+    { cat:'bugs', color:'#ef4444', title:'🩺 Bug Scan Only', desc:'Fresh bug hunt, results go to Issues tab',
+      text:`Read App-Anatomy-Blueprint.html. Perform a fresh bug, fragility, and structural risk scan of the entire codebase.\n\nAdd every finding to the 🩺 Issues section with:\n- Severity (🔴 Critical / 🟡 Medium / 🟢 Low)\n- Location (file, line, function)\n- What's wrong (plain English)\n- Root cause\n- Consequence for the user\n- Proposed fix\n\nDo NOT touch any other section of the anatomy.`,
+      note:'Focused bug hunt. Doesn\'t change anything else in the anatomy.' },
+
+    { cat:'porting', color:'var(--pink-soft)', title:'🟣 Extract Feature for Porting', desc:'Package a feature for use in another app',
+      text:`Read App-Anatomy-Blueprint.html. I want to extract feature [FEATURE ID or NAME] as a self-contained portable package.\n\nProvide:\n1. Complete HTML block with proper indentation and comments\n2. ALL JS functions it needs (including transitive dependencies)\n3. ALL CSS rules and variables it requires\n4. List of state variables it reads/writes\n5. Step-by-step integration instructions for pasting into a new app\n6. Checklist of IDs/names to make unique if the target app has conflicts\n7. Minimal test to verify it works after porting`,
+      note:'Replace [FEATURE ID or NAME]. Great for reusing features across your apps.' },
+
+    { cat:'porting', color:'var(--pink-soft)', title:'🟣 Compare Two Apps', desc:'Find shared features and differences between two anatomies',
+      text:`I have two App-Anatomy-Blueprint.html files:\n- App A: [APP A NAME / PATH]\n- App B: [APP B NAME / PATH]\n\nRead both anatomies and produce a comparison report:\n1. Features that exist in BOTH apps (with ID mapping)\n2. Features unique to App A\n3. Features unique to App B\n4. Features with the same purpose but different implementation\n5. Shared CSS variables / theme values\n6. Recommendations for which features could be ported between them`,
+      note:'Useful when you want to unify or cross-pollinate between your projects.' },
+
+    { cat:'rebuild', color:'var(--text-muted)', title:'🔄 Full Redo', desc:'Scrap everything and remap from zero',
+      text:`Delete ALL entries in App-Anatomy-Blueprint.html. Then perform a complete fresh mapping of the entire codebase from scratch, as if this were the first time. Map every tab, button, control, function, variable, CSS variable, connection, and file. Include full details: step-by-step explanations, HTML structure, JS logic, CSS rules, "how to change it" guides, and connections. This is a clean slate — rebuild everything.`,
+      note:'Nuclear option. Use when the anatomy is so out of date that updating would be harder than starting over.' },
+
+    { cat:'rebuild', color:'var(--text-muted)', title:'🔄 Rebuild One Category', desc:'Redo all entries in a single category',
+      text:`Read App-Anatomy-Blueprint.html. Delete all entries in the [CATEGORY] category (e.g., functions, buttons, styles). Then rescan the codebase and recreate all entries for that category from scratch with full details. Leave all other categories untouched.`,
+      note:'Replace [CATEGORY]. Good when one section went completely stale but the rest is fine.' },
+
+    { cat:'auto', color:'var(--green-soft)', title:'⚡ Auto-Integration Line', desc:'One line to append to any task for auto-updating',
+      text:`After completing this task, update App-Anatomy-Blueprint.html to reflect any changes made. Follow the anatomy template format exactly.`,
+      note:'Add this single line to the END of any Claude Code task command. It makes anatomy updates automatic.' },
+
+    { cat:'filetree', color:'#2dd4a8', title:'🌳 Map File Tree', desc:'Auto-generate complete file tree with deployment analysis',
+      text:`Read App-Anatomy-Blueprint.html. Scan the entire project directory tree. For each file, determine:\n1. Path (relative to project root)\n2. Role (what it does, one line)\n3. Size (human readable)\n4. Deploy status: "yes" (needed in production), "no" (not needed), or "dev" (development only)\n5. Action for non-deploy files: "keep" (useful locally), "move" (to a /dev or /tools folder), or "delete" (safe to remove)\n\nPopulate the filetree array in the anatomy. Group files logically. Flag any files that are unreferenced by any other file.`,
+      note:'Maps your entire project structure with deployment analysis.' },
+
+    { cat:'filetree', color:'#2dd4a8', title:'🔀 Map File Dependencies', desc:'Auto-generate dependency flowchart between all files',
+      text:`Read App-Anatomy-Blueprint.html. Analyze the entire codebase to determine which files depend on which other files. A dependency means: script tag loading, import/require, CSS link, fetch/XMLHttpRequest to a local file, or a function call to a global defined in another file.\n\nCreate a flowchart with:\n- Nodes: each source file (assign layers: 0 = entry points/HTML, 1 = core libs, 2 = modules, 3 = utilities)\n- Edges: from → to (meaning "from" depends on "to")\n\nPopulate the flowchart array in the anatomy. Highlight any circular dependencies or files with no incoming edges (potentially unused).`,
+      note:'Creates a visual dependency graph. Helps spot unused files and fragile coupling.' },
+
+    { cat:'aws', color:'#f59e0b', title:'⚡ Map Lambda Functions', desc:'Auto-detect and map all Lambda/serverless functions',
+      text:`Read App-Anatomy-Blueprint.html. Scan the codebase for Lambda function handlers (index.mjs, handler.js, etc.), Cloudflare Workers, or any serverless function code.\n\nFor each function found, populate the lambdas array with:\n- Function name (from file or config)\n- Handler file path\n- Runtime (nodejs20.x, python3.12, etc.)\n- Region\n- Trigger type (API Gateway, Function URL, S3 Event, etc.)\n- Endpoint URL if known\n- Environment variables used (from code or config)\n- Purpose (what it does)\n- Dependencies (npm packages, layers)\n\nAlso check for: wrangler.toml (Cloudflare), serverless.yml, SAM template, CDK code.`,
+      note:'Finds and maps all serverless functions in your project.' },
+
+    { cat:'aws', color:'#f59e0b', title:'🔌 Map API Routes', desc:'Auto-detect all API endpoints and their integrations',
+      text:`Read App-Anatomy-Blueprint.html. Scan the codebase for API route definitions. Look in:\n- Lambda handlers (path matching/routing logic)\n- Express/Fastify route definitions\n- API Gateway configs\n- Cloudflare Worker fetch handlers\n- Frontend code (fetch/XMLHttpRequest calls to backend)\n\nFor each route found, populate the apiroutes array with:\n- HTTP method (GET/POST/PUT/DELETE)\n- Path pattern (e.g. /list, /upload, /file/{key})\n- Backend integration (which Lambda/server handles it)\n- Auth requirement (none, X-Auth header, Cognito, IAM, API key)\n- Description\n- Request body/params format\n- Response format\n\nInclude both documented and undocumented endpoints found in code.`,
+      note:'Maps your full API surface. Finds endpoints you might have forgotten about.' },
+
+    { cat:'aws', color:'#f59e0b', title:'🔧 Map Scripts & Tools', desc:'Auto-detect all operational, deploy, and maintenance scripts',
+      text:`Read App-Anatomy-Blueprint.html. Scan the project for scripts that run outside the main app:\n- Shell scripts (.sh)\n- Node CLI scripts (#!/usr/bin/env node, or scripts in package.json)\n- Python scripts (.py)\n- Setup/provisioning scripts (AWS SDK, Terraform, CDK)\n- Deploy scripts\n- Database migration/seed scripts\n- Cleanup/maintenance scripts\n- Diagnostic/verification scripts\n\nFor each, populate the scripts array with:\n- Name and file path\n- Type (setup/deploy/maintenance/migration/diagnostic)\n- Runtime (node/bash/python)\n- Usage command (how to run it)\n- Description (what it does)\n- Dependencies (external tools, APIs, env vars needed)\n- When to run (one-time, before deploy, after changes, etc.)`,
+      note:'Maps your tooling ecosystem. Crucial for onboarding and disaster recovery.' },
+
+    { cat:'aws', color:'#f59e0b', title:'☁️ Map Full AWS Stack', desc:'Comprehensive scan of all AWS resources used by this app',
+      text:`Read App-Anatomy-Blueprint.html. Scan the entire codebase for AWS resource references:\n- S3 bucket names and ARNs\n- DynamoDB table names, key schemas, indexes\n- Lambda function names, ARNs, Function URLs\n- API Gateway IDs and endpoints\n- CloudFront distribution IDs and domains\n- Cognito User Pool IDs and App Client IDs\n- IAM role names and policies\n- Route53 hosted zones\n- ACM certificate ARNs\n- SES/SNS/SQS resources\n- Amplify app IDs\n\nPopulate the infra array with each resource found. Also check:\n- deploy.sh / auto-deploy.sh for bucket names and CF distribution IDs\n- setup.js / CDK / SAM templates for provisioned resources\n- .env files for resource identifiers\n- Lambda env vars for connected services\n\nFor DynamoDB: note the table schema (partition key, sort key, GSIs).\nFor Cognito: note the auth flow type and app client settings.\nFor each resource: name, identifier/ARN, type, region, status, endpoint.`,
+      note:'Complete AWS infrastructure audit. Finds every resource your app touches.' },
+
+    { cat:'qa', color:'#a855f7', title:'🧪 Generate All Test Paths', desc:'Auto-create test cases for every mapped feature',
+      text:`Read App-Anatomy-Blueprint.html. For EVERY entry in the anatomy (tabs, buttons, functions, variables), generate a test case and add it to the qa array.\n\nFor each test include:\n- name: descriptive test title\n- linked: the entry ID (e.g. TAB-001, BTN-003, FN-002)\n- severity: critical/high/medium/low based on feature importance\n- category: ui/function/data/auth/api/performance/pwa/integration\n- keywords: EXTENSIVE list of searchable terms — include:\n  * The visible button text (e.g. "Save", "+ Add Piece")\n  * The tab name (e.g. "Pieces", "Practice")\n  * The HTML element IDs and selectors\n  * The JS function names (e.g. "renderList", "saveCurrentWork")\n  * The Store keys involved (e.g. "repertoire", "exercises")\n  * The module name (e.g. "RepertoireModule")\n  * Related concepts (e.g. "upload", "delete", "filter", "search")\n- steps: numbered step-by-step user actions to test the feature\n- expected: what the user should see if it works correctly\n- failHint: specific debugging instructions — which files, functions, console commands, and Store keys to check\n\nGenerate at minimum: 1 test per tab, 1 per major button, 1 per critical function, 1 per data flow, 1 per API endpoint. For complex features (Practice, Library, Settings), generate 3-5 tests covering different paths.`,
+      note:'Creates your full test suite. Run this once, then update after changes.' },
+
+    { cat:'qa', color:'#a855f7', title:'🧪 Test One Feature', desc:'Generate detailed test paths for a single feature',
+      text:`Read App-Anatomy-Blueprint.html. I want thorough test coverage for feature: [FEATURE ID or NAME].\n\nGenerate 3-5 test cases covering:\n1. Happy path — normal usage, everything works\n2. Edge case — empty data, very long input, special characters\n3. Error path — what happens when something fails (network down, storage full)\n4. Integration — does it correctly interact with connected features\n\nFor each test include extensive keywords covering every button label, function name, Store key, DOM element, and concept the user might search for. Make the "If It Fails" section extremely detailed — list specific console commands like:\n- Store.get('key') to check data\n- document.getElementById('x') to check DOM\n- Which .js file and approximate line to inspect\n- What the console error message likely says`,
+      note:'Deep testing for one feature. Replace [FEATURE ID or NAME].' },
+
+    { cat:'qa', color:'#a855f7', title:'🧪 Reset All Test Status', desc:'Mark all tests as untested for a fresh QA pass',
+      text:`Read App-Anatomy-Blueprint.html. Reset the status of ALL tests in the qa array to "untested" and clear all lastTested dates. This prepares for a fresh QA pass. Do NOT delete any tests — only reset their status.`,
+      note:'Use before a full QA session after deploying changes.' },
+
+    { cat:'qa', color:'#a855f7', title:'🧪 Generate Regression Tests', desc:'Create tests specifically for recently found bugs',
+      text:`Read App-Anatomy-Blueprint.html. Look at the 🩺 Issues section (bugs array). For EACH bug, create a regression test that:\n1. Reproduces the exact steps that trigger the bug\n2. Describes what the CORRECT behavior should be\n3. Includes keywords matching the bug location (function, file, feature)\n4. Has severity matching the bug severity\n5. Has a detailed failHint pointing to the exact code that was fixed\n\nThis ensures bugs don't come back after being fixed.`,
+      note:'Prevents regression. Run after a bug-fix session.' },
+
+    { cat:'safety', color:'#ef4444', title:'🛡️ Safe Edit Mode', desc:'AI triple-checks before modifying anything in the anatomy',
+      text:`SAFETY MODE ACTIVE. Before editing ANY entry in App-Anatomy-Blueprint.html, you MUST:\n\n1. STATE what you intend to change and WHY\n2. VERIFY the change is correct by:\n   a) Reading the actual source code that the entry describes\n   b) Confirming the entry's current content is actually wrong or outdated\n   c) Confirming your replacement is factually accurate against the code\n3. CHECK for side effects — will this change make other entries inconsistent?\n\nOnly after all 3 checks pass, make the edit. If ANY check fails, do NOT edit — report what you found instead.\n\nApply this rule to EVERY SINGLE entry modification in this session.`,
+      note:'Use this when you want AI to be extra careful. Prevents false edits that corrupt your anatomy.' },
+
+    { cat:'safety', color:'#ef4444', title:'🛡️ Read-Only Analysis', desc:'AI analyzes but changes NOTHING',
+      text:`READ-ONLY MODE. Analyze the App-Anatomy-Blueprint.html and the codebase. Report:\n1. Entries that are outdated or incorrect\n2. Features in code that are unmapped\n3. Connections that are missing\n4. Bugs or risks you notice\n\nDo NOT modify the anatomy file. Output a report only. I will decide what to update.`,
+      note:'For when you want a status report without any risk of accidental edits.' },
+
+    { cat:'safety', color:'#ef4444', title:'🛡️ Confirm Before Each Edit', desc:'AI asks permission before every single change',
+      text:`INTERACTIVE EDIT MODE. For each change you want to make to App-Anatomy-Blueprint.html:\n1. Show me the CURRENT entry content\n2. Show me the PROPOSED new content\n3. Explain WHY the change is needed\n4. WAIT for my explicit "yes" before applying\n\nDo NOT batch changes. One entry at a time. If I say "skip", move to the next. If I say "stop", end the session.`,
+      note:'Maximum control. Every change requires your explicit approval.' },
+];
+
+const PROMPT_CATS = [
+    { id:'all', label:'All' },
+    { id:'setup', label:'🟢 Setup' },
+    { id:'update', label:'🔵 Update' },
+    { id:'detail', label:'🟡 Detail' },
+    { id:'audit', label:'🔴 Audit' },
+    { id:'bugs', label:'🩺 Bugs' },
+    { id:'porting', label:'🟣 Porting' },
+    { id:'rebuild', label:'🔄 Rebuild' },
+    { id:'filetree', label:'🌳 Files' },
+    { id:'aws', label:'☁️ AWS' },
+    { id:'qa', label:'🧪 QA' },
+    { id:'safety', label:'🛡️ Safety' },
+    { id:'auto', label:'⚡ Auto' }
+];
+
+let expandAll=false, currentSearch='', activePromptCat='all', notesGroupBy='entry', roleFilter='all';
+
+// ═══ THEME ═══
+function toggleTheme(){
+    document.body.classList.toggle('light');
+    const isLight = document.body.classList.contains('light');
+    document.getElementById('themeBtn').textContent = isLight ? '☀️' : '🌙';
+    localStorage.setItem('app-anatomy-theme', isLight ? 'light' : 'dark');
+}
+function loadTheme(){
+    const saved = localStorage.getItem('app-anatomy-theme');
+    if(saved==='light'){ document.body.classList.add('light'); document.getElementById('themeBtn').textContent='☀️'; }
+}
+
+// ═══ INIT ═══
+function init() {
+    loadTheme();
+    load();
+    setupTabs(); setupSearch(); setupKeys();
+    if(!APP.entries.length) loadSample();
+    if(!APP.links) APP.links = { localDrive:'',website:'',pwaPath:'',repo:'',s3Bucket:'',cloudfront:'',apiEndpoint:'',adminPanel:'',cicd:'' };
+    if(!APP.vault) APP.vault = [];
+    if(!APP.infra) APP.infra = [];
+    if(!APP.lambdas) APP.lambdas = [];
+    if(!APP.apiroutes) APP.apiroutes = [];
+    if(!APP.scripts) APP.scripts = [];
+    if(!APP.qa) APP.qa = [];
+    if(!APP.notes) APP.notes = [];
+    if(!APP.filetree) APP.filetree = [];
+    if(!APP.flowchart) APP.flowchart = [];
+    renderAll(); renderQuickLinks(); renderVault(); renderInfra(); renderLambdas(); renderApiRoutes(); renderScripts(); renderQA(); renderNotes(); renderFileTree(); renderFlowchart(); renderPrompts();
+    updateCounts(); updateName();
+}
+
+// ═══ TABS ═══
+function setupTabs() {
+    document.querySelectorAll('.main-tab').forEach(b => b.addEventListener('click', () => {
+        document.querySelectorAll('.main-tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        const p = document.getElementById('panel-'+b.dataset.tab);
+        if(p) p.classList.add('active');
+    }));
+}
+
+// ═══ SEARCH ═══
+function setupSearch() {
+    const inp=document.getElementById('searchInput'), cnt=document.getElementById('searchCount');
+    inp.addEventListener('input', () => {
+        currentSearch = inp.value.toLowerCase().trim();
+        const n = APP.entries.filter(matchEntry).length;
+        cnt.textContent = currentSearch ? n+' found' : '';
+        cnt.classList.toggle('visible', !!currentSearch);
+        renderAll();
+    });
+}
+function matchEntry(e) {
+    if(!currentSearch) return true;
+    const s=currentSearch;
+    return e.name.toLowerCase().includes(s)||e.oneliner.toLowerCase().includes(s)||e.id.toLowerCase().includes(s)||
+           e.tags.some(t=>t.toLowerCase().includes(s))||e.properties.some(p=>p[1].toLowerCase().includes(s))||
+           (e.howItWorks||'').toLowerCase().includes(s)||(e.howToChange||'').toLowerCase().includes(s);
+}
+
+// ═══ KEYS ═══
+function setupKeys() {
+    document.addEventListener('keydown', e => {
+        if(e.ctrlKey&&e.key==='k'){e.preventDefault();document.getElementById('searchInput').focus();}
+        if(e.ctrlKey&&e.key==='e'){e.preventDefault();toggleExpandAll();}
+        if(e.ctrlKey&&e.key==='t'){e.preventDefault();toggleTheme();}
+        if(e.key==='Escape'){document.getElementById('searchInput').value='';currentSearch='';document.getElementById('searchCount').classList.remove('visible');document.querySelectorAll('.modal-overlay').forEach(m=>m.classList.remove('visible'));renderAll();}
+        if(!e.ctrlKey&&!e.altKey&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'&&e.target.tagName!=='SELECT'){const n=parseInt(e.key);if(n>=1&&n<=9){const tabs=document.querySelectorAll('.main-tab');if(tabs[n-1])tabs[n-1].click();}}
+    });
+}
+
+// ═══ QUICK LINKS ═══
+function renderQuickLinks() {
+    const bar=document.getElementById('quickLinksBar');
+    bar.innerHTML = LINK_DEFS.map(d => {
+        const val = APP.links[d.key]||'';
+        const isSet = !!val;
+        if(isSet) {
+            return `<a class="qlink set" href="${esc(val)}" target="_blank" title="${esc(val)}"><span class="ql-icon">${d.icon}</span>${d.label}</a><button class="qlink-edit" onclick="openQL('${d.key}')" title="Edit">✏</button>`;
+        }
+        return `<button class="qlink" onclick="openQL('${d.key}')"><span class="ql-icon">${d.icon}</span>${d.label}</button>`;
+    }).join('');
+}
+function openQL(key) {
+    const def = LINK_DEFS.find(d=>d.key===key);
+    document.getElementById('qlModalTitle').textContent = '🔗 '+def.label;
+    document.getElementById('qlUrl').value = APP.links[key]||'';
+    document.getElementById('qlKey').value = key;
+    document.getElementById('qlModal').classList.add('visible');
+}
+function saveQL() {
+    APP.links[document.getElementById('qlKey').value] = document.getElementById('qlUrl').value.trim();
+    save(); renderQuickLinks(); closeModal('qlModal'); toast('🔗 Link saved!','success');
+}
+function clearQL() {
+    APP.links[document.getElementById('qlKey').value] = '';
+    save(); renderQuickLinks(); closeModal('qlModal'); toast('Link cleared','info');
+}
+
+// ═══ RENDER ENTRIES ═══
+function renderAll() { Object.keys(CAT).forEach(renderPanel); renderPorting(); }
+
+function renderPanel(cat) {
+    const panel=document.getElementById('panel-'+cat); if(!panel) return;
+    let entries=APP.entries.filter(e=>e.category===cat);
+    if(currentSearch) entries=entries.filter(matchEntry);
+    if(roleFilter!=='all') entries=entries.filter(e=>{const r=e.roles||['all'];return r.includes('all')||r.includes(roleFilter);});
+    const m=CAT[cat];
+    if(!entries.length&&!currentSearch&&roleFilter==='all'){panel.innerHTML=`<div class="empty-state"><div class="empty-icon">${m.emoji}</div><h3>No ${m.label} mapped yet</h3><p>Use a prompt from the 💬 Prompts tab or add manually.</p><button class="btn-add-entry" style="margin:16px auto 0;display:inline-flex" onclick="openAdd('${cat}')">+ Add</button></div>`;return;}
+    if(!entries.length){panel.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><h3>No results${currentSearch?' for "'+esc(currentSearch)+'"':''}${roleFilter!=='all'?' for role "'+roleFilter+'"':''}</h3></div>`;return;}
+    const allTags=[...new Set(entries.flatMap(e=>e.tags))].sort();
+    const allRoles=[...new Set(APP.entries.filter(e=>e.category===cat).flatMap(e=>e.roles||['all']))].sort();
+    const roleIcons={all:'👥',admin:'🛡',teacher:'👩‍🏫',student:'🎓',guest:'👤',custom:'🔧'};
+    let h=`<div class="entries-toolbar"><div class="filter-tags">${allTags.map(t=>`<button class="filter-tag" onclick="toggleFilter(this,'${esc(t)}')">${esc(t)}</button>`).join('')}</div>`;
+    if(allRoles.length>1||!allRoles.includes('all')){
+        h+=`<div class="role-filter-bar"><span style="font-size:.7rem;color:var(--text-muted)">Role:</span>${['all',...allRoles.filter(r=>r!=='all')].map(r=>`<button class="role-filter-btn ${roleFilter===r?'active':''}" onclick="roleFilter='${r}';renderAll()">${roleIcons[r]||'👥'} ${r}</button>`).join('')}</div>`;
+    }
+    h+=`<button class="btn-add-entry" onclick="openAdd('${cat}')">+ Add</button></div><div class="entries-grid">`;
+    entries.forEach(e=>{h+=renderCard(e);});
+    h+='</div>'; panel.innerHTML=h;
+}
+
+function renderCard(e) {
+    const open=expandAll, hl=currentSearch&&(e.name.toLowerCase().includes(currentSearch)||e.id.toLowerCase().includes(currentSearch));
+    let rows=e.properties.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('');
+    let sec='';
+    if(e.howItWorks){const st=e.howItWorks.split('\n').filter(l=>l.trim());sec+=`<div class="entry-section"><div class="entry-section-title" onclick="this.parentElement.classList.toggle('collapsed')"><span class="caret">▼</span> 🌿 How It Works</div><div class="entry-section-content"><ol>${st.map(s=>`<li>${esc(s.replace(/^\d+\.\s*/,''))}</li>`).join('')}</ol></div></div>`;}
+    if(e.howToChange){sec+=`<div class="entry-section"><div class="entry-section-title" onclick="this.parentElement.classList.toggle('collapsed')"><span class="caret">▼</span> 🔧 How To Change</div><div class="entry-section-content">${esc(e.howToChange).replace(/\n/g,'<br>')}</div></div>`;}
+    if(e.htmlSnippet){sec+=`<div class="entry-section"><div class="entry-section-title" onclick="this.parentElement.classList.toggle('collapsed')"><span class="caret">▼</span> 🌸 HTML</div><div class="code-block"><span class="code-label">HTML</span>${esc(e.htmlSnippet)}</div></div>`;}
+    if(e.jsSnippet){sec+=`<div class="entry-section"><div class="entry-section-title" onclick="this.parentElement.classList.toggle('collapsed')"><span class="caret">▼</span> 🌿 JS</div><div class="code-block"><span class="code-label">JS</span>${esc(e.jsSnippet)}</div></div>`;}
+    const noteCount = APP.notes.filter(n=>n.linked===e.id).length;
+    const notesBadge = noteCount ? `<span class="note-count-inline" onclick="event.stopPropagation();openNoteAddFor('${e.id}')" title="${noteCount} note${noteCount>1?'s':''}">${noteCount} 💭</span>` : '';
+    const roles=e.roles||['all'];
+    const roleIcons={all:'👥',admin:'🛡',teacher:'👩‍🏫',student:'🎓',guest:'👤',custom:'🔧'};
+    const roleBadges=roles.includes('all')&&roles.length===1?'':`<span style="display:inline-flex;gap:2px;margin-left:4px">${roles.map(r=>`<span class="role-badge role-${r}" title="Visible to: ${r}">${roleIcons[r]||'👥'} ${r}</span>`).join('')}</span>`;
+    let notesSec='';
+    if(noteCount){
+        const entryNotes=APP.notes.filter(n=>n.linked===e.id);
+        notesSec=`<div class="entry-section"><div class="entry-section-title" onclick="this.parentElement.classList.toggle('collapsed')"><span class="caret">▼</span> 💭 Notes (${noteCount})</div><div class="entry-section-content" style="padding:8px">`;
+        entryNotes.forEach(n=>{
+            const tl={idea:'💡',todo:'✅',question:'❓','bug-note':'🐛',decision:'🎯',general:'📝'};
+            notesSec+=`<div style="margin-bottom:8px;padding:8px 10px;background:var(--bg-main);border-radius:8px;border:1px solid var(--border)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span class="note-type-badge ${n.type}">${tl[n.type]||'📝'} ${n.type}</span><span style="font-size:0.68rem;color:var(--text-muted);margin-left:auto">${n.date}</span></div><div style="font-size:0.82rem;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap">${esc(n.text)}</div></div>`;
+        });
+        notesSec+=`</div></div>`;
+    }
+    return `<div class="entry-card ${open?'open':''} ${hl?'highlight':''}" data-id="${e.id}" data-tags="${e.tags.join(',')}"><div class="entry-header" onclick="this.parentElement.classList.toggle('open')"><span class="entry-id cat-${e.category}">${e.id}</span><span class="entry-name">${esc(e.name)}${notesBadge}${roleBadges}</span><span class="entry-oneliner">${esc(e.oneliner)}</span><span class="entry-tags">${e.tags.slice(0,3).map(t=>`<span class="entry-tag">${esc(t)}</span>`).join('')}</span><svg class="entry-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div><div class="entry-body"><table class="prop-table"><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody>${rows}</tbody></table>${sec}${notesSec}<div style="display:flex;gap:6px;margin-top:10px"><button class="btn" style="font-size:.76rem;padding:5px 10px" onclick="editEntry('${e.id}')">✏️ Edit</button><button class="btn" style="font-size:.76rem;padding:5px 10px" onclick="openNoteAddFor('${e.id}')">💭 Note</button><button class="btn" style="font-size:.76rem;padding:5px 10px;color:#ef4444;border-color:#ef4444" onclick="deleteEntry('${e.id}')">🗑</button></div></div></div>`;
+}
+
+// ═══ VAULT ═══
+function renderVault() {
+    const panel=document.getElementById('panel-vault');
+    let h=`<div class="vault-warning">🔒 <strong>Local only.</strong> Credentials are stored in your browser's localStorage. They are NOT encrypted and NOT synced. Clear browser data = gone. For sensitive production secrets, use a real password manager. This is for quick reference during development.</div>`;
+    h+=`<div style="margin-bottom:14px"><button class="btn-add-entry" onclick="openVaultAdd()">+ Add Credential</button></div>`;
+    if(!APP.vault.length){h+=`<div class="empty-state"><div class="empty-icon">🔐</div><h3>No credentials stored</h3><p>Add usernames, passwords, API keys, site gate credentials for quick reference.</p></div>`;panel.innerHTML=h;return;}
+    h+='<div class="vault-grid">';
+    APP.vault.forEach((v,i)=>{
+        const typeLabels={login:'🔑',token:'🎫',gate:'🚪',db:'🗄',other:'📋'};
+        h+=`<div class="vault-card"><div class="vault-card-header"><span>${typeLabels[v.type]||'📋'}</span><h4>${esc(v.label)}</h4><button class="vault-btn" onclick="editVault(${i})" title="Edit">✏️</button><button class="vault-btn" onclick="deleteVault(${i})" title="Delete" style="color:#ef4444">🗑</button></div>`;
+        if(v.url) h+=`<div class="vault-field"><span class="vault-field-label">URL</span><span class="vault-field-value">${esc(v.url)}</span><button class="vault-btn" onclick="copyVal(this,'${escAttr(v.url)}')" title="Copy">📋</button></div>`;
+        if(v.user) h+=`<div class="vault-field"><span class="vault-field-label">User</span><span class="vault-field-value">${esc(v.user)}</span><button class="vault-btn" onclick="copyVal(this,'${escAttr(v.user)}')" title="Copy">📋</button></div>`;
+        if(v.pass) h+=`<div class="vault-field"><span class="vault-field-label">Secret</span><span class="vault-field-value masked" id="vf-${i}" data-v="${escAttr(v.pass)}">••••••••</span><button class="vault-btn" onclick="toggleMask(${i})" title="Show/Hide">👁</button><button class="vault-btn" onclick="copyVal(this,'${escAttr(v.pass)}')" title="Copy">📋</button></div>`;
+        if(v.notes) h+=`<div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;padding:6px 10px;background:var(--bg-deep);border-radius:6px">${esc(v.notes)}</div>`;
+        h+='</div>';
+    });
+    h+='</div>'; panel.innerHTML=h;
+}
+function openVaultAdd(){
+    ['vLabel','vUser','vPass','vUrl','vNotes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('vType').value='login';
+    document.getElementById('vEditId').value='';
+    document.getElementById('vaultModalTitle').textContent='🔐 Add Credential';
+    document.getElementById('vaultModal').classList.add('visible');
+}
+function editVault(i){
+    const v=APP.vault[i];
+    document.getElementById('vLabel').value=v.label;document.getElementById('vType').value=v.type;
+    document.getElementById('vUser').value=v.user;document.getElementById('vPass').value=v.pass;
+    document.getElementById('vUrl').value=v.url;document.getElementById('vNotes').value=v.notes||'';
+    document.getElementById('vEditId').value=i;
+    document.getElementById('vaultModalTitle').textContent='✏️ Edit '+v.label;
+    document.getElementById('vaultModal').classList.add('visible');
+}
+function saveVault(){
+    const label=document.getElementById('vLabel').value.trim();
+    if(!label){toast('Enter a label','info');return;}
+    const entry={label,type:document.getElementById('vType').value,user:document.getElementById('vUser').value.trim(),pass:document.getElementById('vPass').value.trim(),url:document.getElementById('vUrl').value.trim(),notes:document.getElementById('vNotes').value.trim()};
+    const editId=document.getElementById('vEditId').value;
+    if(editId!=='') APP.vault[parseInt(editId)]=entry; else APP.vault.push(entry);
+    save();renderVault();closeModal('vaultModal');toast('🔐 Credential saved!','success');
+}
+function deleteVault(i){if(!confirm('Delete "'+APP.vault[i].label+'"?'))return;APP.vault.splice(i,1);save();renderVault();toast('Removed','info');}
+function toggleMask(i){const el=document.getElementById('vf-'+i);if(el.classList.contains('masked')){el.textContent=el.dataset.v;el.classList.remove('masked');}else{el.textContent='••••••••';el.classList.add('masked');}}
+function copyVal(btn,val){navigator.clipboard.writeText(val).then(()=>{btn.textContent='✅';setTimeout(()=>btn.textContent='📋',1200);});}
+
+// ═══ INFRA ═══
+const INFRA_ICONS = {S3:'🪣',Lambda:'⚡',DynamoDB:'🗄',Cognito:'👤',CloudFront:'☁️','API Gateway':'🔌',EC2:'🖥',RDS:'💾',SES:'📧',SNS:'📢',SQS:'📬',IAM:'🔑',Route53:'🌐',ACM:'🔒',Amplify:'📱',Other:'📋'};
+const STATUS_LABELS = {active:'✅ Active',staging:'⚠️ Staging',dev:'🔧 Dev',inactive:'⏸ Inactive',deprecated:'🔴 Deprecated'};
+
+function renderInfra(){
+    const panel=document.getElementById('panel-infra');
+    let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px"><div style="font-size:0.82rem;color:var(--text-muted)">Cloud resources, services, and infrastructure for this app.</div><button class="btn-add-entry" onclick="openInfraAdd()">+ Add Resource</button></div>`;
+
+    if(!APP.infra.length){
+        h+=`<div class="empty-state"><div class="empty-icon">☁️</div><h3>No infrastructure mapped</h3><p>Add your AWS resources — S3 buckets, Lambdas, DynamoDB tables, Cognito pools, etc.</p></div>`;
+        panel.innerHTML=h; return;
+    }
+
+    // Summary stats
+    const types={};const regions={};let activeCount=0;
+    APP.infra.forEach(r=>{types[r.type]=(types[r.type]||0)+1;regions[r.region]=(regions[r.region]||0)+1;if(r.status==='active')activeCount++;});
+    h+=`<div class="infra-summary"><div class="infra-stat"><span class="infra-stat-num">${APP.infra.length}</span><span class="infra-stat-label">Resources</span></div><div class="infra-stat"><span class="infra-stat-num">${activeCount}</span><span class="infra-stat-label">Active</span></div><div class="infra-stat"><span class="infra-stat-num">${Object.keys(regions).length}</span><span class="infra-stat-label">Regions</span></div><div class="infra-stat"><span class="infra-stat-num">${Object.keys(types).length}</span><span class="infra-stat-label">Service Types</span></div></div>`;
+
+    // Group by region
+    const byRegion={};
+    APP.infra.forEach((r,i)=>{if(!byRegion[r.region])byRegion[r.region]=[];byRegion[r.region].push({...r,_i:i});});
+
+    Object.keys(byRegion).sort().forEach(region=>{
+        const items=byRegion[region];
+        const regionLabel = region==='global'?'🌍 Global':region;
+        h+=`<div class="infra-region-group">📍 ${esc(regionLabel)} — ${items.length} resource${items.length>1?'s':''}</div>`;
+        h+=`<table class="infra-table"><thead><tr><th>Resource</th><th>Identifier</th><th>Type</th><th>Status</th><th>Endpoint</th><th></th></tr></thead><tbody>`;
+        items.forEach(r=>{
+            const icon=INFRA_ICONS[r.type]||'📋';
+            const endpointHtml=r.endpoint?`<a href="${esc(r.endpoint)}" target="_blank" title="${esc(r.endpoint)}">${esc(r.endpoint)}</a>`:'—';
+            h+=`<tr><td><strong>${esc(r.name)}</strong>${r.notes?`<br><span style="font-size:0.72rem;color:var(--text-muted)">${esc(r.notes)}</span>`:''}</td><td class="infra-ident">${esc(r.ident)}</td><td><span class="infra-type-badge">${icon} ${esc(r.type)}</span></td><td><span class="infra-status ${r.status}">${STATUS_LABELS[r.status]||r.status}</span></td><td class="infra-endpoint">${endpointHtml}</td><td class="infra-actions"><button class="vault-btn" onclick="editInfra(${r._i})" title="Edit">✏️</button><button class="vault-btn" onclick="deleteInfra(${r._i})" title="Delete" style="color:#ef4444">🗑</button></td></tr>`;
+        });
+        h+=`</tbody></table>`;
+    });
+
+    panel.innerHTML=h;
+}
+
+function openInfraAdd(){
+    ['iName','iIdent','iEndpoint','iNotes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('iType').value='S3';
+    document.getElementById('iRegion').value='eu-central-1';
+    document.getElementById('iStatus').value='active';
+    document.getElementById('iEditId').value='';
+    document.getElementById('infraModalTitle').textContent='☁️ Add Resource';
+    document.getElementById('infraModal').classList.add('visible');
+}
+
+function editInfra(i){
+    const r=APP.infra[i];
+    document.getElementById('iName').value=r.name;
+    document.getElementById('iIdent').value=r.ident;
+    document.getElementById('iType').value=r.type;
+    document.getElementById('iRegion').value=r.region;
+    document.getElementById('iStatus').value=r.status;
+    document.getElementById('iEndpoint').value=r.endpoint||'';
+    document.getElementById('iNotes').value=r.notes||'';
+    document.getElementById('iEditId').value=i;
+    document.getElementById('infraModalTitle').textContent='✏️ '+r.name;
+    document.getElementById('infraModal').classList.add('visible');
+}
+
+function saveInfra(){
+    const name=document.getElementById('iName').value.trim();
+    if(!name){toast('Enter a resource name','info');return;}
+    const entry={name,ident:document.getElementById('iIdent').value.trim(),type:document.getElementById('iType').value,region:document.getElementById('iRegion').value,status:document.getElementById('iStatus').value,endpoint:document.getElementById('iEndpoint').value.trim(),notes:document.getElementById('iNotes').value.trim()};
+    const editId=document.getElementById('iEditId').value;
+    if(editId!=='') APP.infra[parseInt(editId)]=entry; else APP.infra.push(entry);
+    save();renderInfra();closeModal('infraModal');toast('☁️ '+name+' saved!','success');
+}
+
+function deleteInfra(i){if(!confirm('Delete "'+APP.infra[i].name+'"?'))return;APP.infra.splice(i,1);save();renderInfra();toast('Removed','info');}
+
+// ═══ LAMBDAS ═══
+function renderLambdas(){
+    const panel=document.getElementById('panel-lambdas');if(!panel)return;
+    if(!APP.lambdas||!APP.lambdas.length){panel.innerHTML=`<div class="guide-card" style="margin-bottom:14px"><p>Map your AWS Lambda functions — handler code, runtime, triggers, environment variables, and endpoints. Also works for Azure Functions, GCP Cloud Functions, or Cloudflare Workers.</p></div><button class="btn-add-entry" onclick="openLambdaAdd()">+ Add Lambda</button><div class="empty-state" style="margin-top:20px"><div class="empty-icon">⚡</div><h3>No Lambda functions mapped</h3></div>`;return;}
+    let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:0.82rem;color:var(--text-muted)">${APP.lambdas.length} function${APP.lambdas.length>1?'s':''} mapped</span><button class="btn-add-entry" onclick="openLambdaAdd()">+ Add Lambda</button></div>`;
+    APP.lambdas.forEach((l,i)=>{
+        h+=`<div class="lambda-card"><div class="lambda-header"><span style="font-size:1.1rem">⚡</span><h4>${esc(l.name)}</h4><span class="lambda-runtime">${esc(l.runtime)}</span><button class="vault-btn" onclick="editLambda(${i})">✏️</button><button class="vault-btn" onclick="deleteLambda(${i})" style="color:#ef4444">🗑</button></div>`;
+        h+=`<div class="lambda-detail"><span class="lambda-detail-label">Handler</span><span style="font-family:var(--mono);font-size:.78rem">${esc(l.handler)}</span></div>`;
+        h+=`<div class="lambda-detail"><span class="lambda-detail-label">Trigger</span><span>${esc(l.trigger)}</span></div>`;
+        h+=`<div class="lambda-detail"><span class="lambda-detail-label">Region</span><span style="font-family:var(--mono);font-size:.78rem;color:var(--green-soft)">${esc(l.region)}</span></div>`;
+        if(l.endpoint) h+=`<div class="lambda-detail"><span class="lambda-detail-label">Endpoint</span><a href="${esc(l.endpoint)}" target="_blank" style="font-family:var(--mono);font-size:.76rem;color:var(--green-soft)">${esc(l.endpoint)}</a></div>`;
+        if(l.purpose) h+=`<div class="lambda-detail"><span class="lambda-detail-label">Purpose</span><span>${esc(l.purpose)}</span></div>`;
+        if(l.deps) h+=`<div class="lambda-detail"><span class="lambda-detail-label">Deps</span><span style="font-family:var(--mono);font-size:.76rem">${esc(l.deps)}</span></div>`;
+        if(l.envVars) h+=`<div class="lambda-envs">${esc(l.envVars)}</div>`;
+        h+=`</div>`;
+    });
+    panel.innerHTML=h;
+}
+function openLambdaAdd(){['lName','lHandler','lRegion','lEndpoint','lEnvVars','lPurpose','lDeps'].forEach(id=>{const el=document.getElementById(id);if(el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value=id==='lRegion'?'eu-central-1':'';});document.getElementById('lRuntime').value='nodejs20.x';document.getElementById('lTrigger').value='API Gateway';document.getElementById('lEditId').value='';document.getElementById('lambdaModalTitle').textContent='⚡ Add Lambda';document.getElementById('lambdaModal').classList.add('visible');}
+function editLambda(i){const l=APP.lambdas[i];document.getElementById('lName').value=l.name;document.getElementById('lHandler').value=l.handler;document.getElementById('lRuntime').value=l.runtime;document.getElementById('lRegion').value=l.region;document.getElementById('lTrigger').value=l.trigger;document.getElementById('lEndpoint').value=l.endpoint||'';document.getElementById('lEnvVars').value=l.envVars||'';document.getElementById('lPurpose').value=l.purpose||'';document.getElementById('lDeps').value=l.deps||'';document.getElementById('lEditId').value=i;document.getElementById('lambdaModalTitle').textContent='✏️ '+l.name;document.getElementById('lambdaModal').classList.add('visible');}
+function saveLambda(){const name=document.getElementById('lName').value.trim();if(!name){toast('Enter a name','info');return;}const entry={name,handler:document.getElementById('lHandler').value.trim(),runtime:document.getElementById('lRuntime').value,region:document.getElementById('lRegion').value.trim(),trigger:document.getElementById('lTrigger').value,endpoint:document.getElementById('lEndpoint').value.trim(),envVars:document.getElementById('lEnvVars').value.trim(),purpose:document.getElementById('lPurpose').value.trim(),deps:document.getElementById('lDeps').value.trim()};const eid=document.getElementById('lEditId').value;if(eid!=='')APP.lambdas[parseInt(eid)]=entry;else APP.lambdas.push(entry);save();renderLambdas();closeModal('lambdaModal');toast('⚡ '+name+' saved!','success');}
+function deleteLambda(i){if(!confirm('Delete "'+APP.lambdas[i].name+'"?'))return;APP.lambdas.splice(i,1);save();renderLambdas();toast('Removed','info');}
+
+// ═══ API ROUTES ═══
+function renderApiRoutes(){
+    const panel=document.getElementById('panel-apiroutes');if(!panel)return;
+    if(!APP.apiroutes||!APP.apiroutes.length){panel.innerHTML=`<div class="guide-card" style="margin-bottom:14px"><p>Map all your API endpoints — method, path, backend integration, auth requirements, and request/response format. Works for API Gateway, Express, Cloudflare Workers routes, etc.</p></div><button class="btn-add-entry" onclick="openRouteAdd()">+ Add Route</button><div class="empty-state" style="margin-top:20px"><div class="empty-icon">🔌</div><h3>No API routes mapped</h3></div>`;return;}
+    let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:0.82rem;color:var(--text-muted)">${APP.apiroutes.length} endpoint${APP.apiroutes.length>1?'s':''}</span><button class="btn-add-entry" onclick="openRouteAdd()">+ Add Route</button></div>`;
+    h+=`<table class="route-table"><thead><tr><th>Method</th><th>Path</th><th>Backend</th><th>Auth</th><th>Description</th><th>Request</th><th>Response</th><th></th></tr></thead><tbody>`;
+    APP.apiroutes.forEach((r,i)=>{
+        const authIcons={none:'🔓',header:'🔑',cognito:'👤',iam:'🛡',apikey:'🎫'};
+        h+=`<tr><td><span class="route-method ${r.method}">${r.method}</span></td><td class="route-path">${esc(r.path)}</td><td style="font-size:.78rem">${esc(r.backend)}</td><td class="route-auth">${authIcons[r.auth]||'?'} ${esc(r.auth)}</td><td style="font-size:.78rem;color:var(--text-muted)">${esc(r.desc)}</td><td style="font-family:var(--mono);font-size:.72rem;color:var(--text-muted)">${esc(r.params)}</td><td style="font-family:var(--mono);font-size:.72rem;color:var(--green-soft)">${esc(r.response)}</td><td class="infra-actions"><button class="vault-btn" onclick="editRoute(${i})">✏️</button><button class="vault-btn" onclick="deleteRoute(${i})" style="color:#ef4444">🗑</button></td></tr>`;
+    });
+    h+=`</tbody></table>`;
+    panel.innerHTML=h;
+}
+function openRouteAdd(){['rPath','rBackend','rDesc','rParams','rResponse'].forEach(id=>document.getElementById(id).value='');document.getElementById('rMethod').value='GET';document.getElementById('rAuth').value='none';document.getElementById('rEditId').value='';document.getElementById('routeModalTitle').textContent='🔌 Add Route';document.getElementById('routeModal').classList.add('visible');}
+function editRoute(i){const r=APP.apiroutes[i];document.getElementById('rMethod').value=r.method;document.getElementById('rPath').value=r.path;document.getElementById('rBackend').value=r.backend;document.getElementById('rAuth').value=r.auth;document.getElementById('rDesc').value=r.desc||'';document.getElementById('rParams').value=r.params||'';document.getElementById('rResponse').value=r.response||'';document.getElementById('rEditId').value=i;document.getElementById('routeModalTitle').textContent='✏️ '+r.method+' '+r.path;document.getElementById('routeModal').classList.add('visible');}
+function saveRoute(){const path=document.getElementById('rPath').value.trim();if(!path){toast('Enter a path','info');return;}const entry={method:document.getElementById('rMethod').value,path,backend:document.getElementById('rBackend').value.trim(),auth:document.getElementById('rAuth').value,desc:document.getElementById('rDesc').value.trim(),params:document.getElementById('rParams').value.trim(),response:document.getElementById('rResponse').value.trim()};const eid=document.getElementById('rEditId').value;if(eid!=='')APP.apiroutes[parseInt(eid)]=entry;else APP.apiroutes.push(entry);save();renderApiRoutes();closeModal('routeModal');toast('🔌 Route saved!','success');}
+function deleteRoute(i){if(!confirm('Delete route?'))return;APP.apiroutes.splice(i,1);save();renderApiRoutes();toast('Removed','info');}
+
+// ═══ SCRIPTS ═══
+function renderScripts(){
+    const panel=document.getElementById('panel-scripts');if(!panel)return;
+    if(!APP.scripts||!APP.scripts.length){panel.innerHTML=`<div class="guide-card" style="margin-bottom:14px"><p>Map operational, setup, deployment, and maintenance scripts. Includes CLI commands, Python scripts, bash scripts, Node tooling — anything that runs outside the app but supports it.</p></div><button class="btn-add-entry" onclick="openScriptAdd()">+ Add Script</button><div class="empty-state" style="margin-top:20px"><div class="empty-icon">🔧</div><h3>No scripts mapped</h3></div>`;return;}
+    const groups={setup:[],deploy:[],maintenance:[],migration:[],diagnostic:[]};
+    APP.scripts.forEach((s,i)=>{s._i=i;(groups[s.type]||groups.maintenance).push(s);});
+    const icons={setup:'🏗',deploy:'🚀',maintenance:'🔧',migration:'📦',diagnostic:'🩺'};
+    const labels={setup:'Setup / Provisioning',deploy:'Deploy',maintenance:'Maintenance / Cleanup',migration:'Migration / Seed',diagnostic:'Diagnostic / Verify'};
+    let h=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:0.82rem;color:var(--text-muted)">${APP.scripts.length} script${APP.scripts.length>1?'s':''}</span><button class="btn-add-entry" onclick="openScriptAdd()">+ Add Script</button></div>`;
+    Object.keys(groups).forEach(type=>{
+        if(!groups[type].length)return;
+        h+=`<div class="infra-region-group">${icons[type]} ${labels[type]} (${groups[type].length})</div>`;
+        groups[type].forEach(s=>{
+            h+=`<div class="script-card"><div class="script-header"><span style="font-size:1rem">${icons[s.type]||'🔧'}</span><h4>${esc(s.name)}</h4><span class="script-type-badge ${s.type}">${esc(s.runtime||'node')}</span><button class="vault-btn" onclick="editScript(${s._i})">✏️</button><button class="vault-btn" onclick="deleteScript(${s._i})" style="color:#ef4444">🗑</button></div>`;
+            if(s.desc) h+=`<div style="font-size:.82rem;color:var(--text-secondary);margin-bottom:6px">${esc(s.desc)}</div>`;
+            if(s.path) h+=`<div style="font-size:.78rem;color:var(--text-muted)">📂 <span style="font-family:var(--mono)">${esc(s.path)}</span></div>`;
+            if(s.deps) h+=`<div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">📦 ${esc(s.deps)}</div>`;
+            if(s.when) h+=`<div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">⏰ ${esc(s.when)}</div>`;
+            if(s.usage) h+=`<div class="script-usage">$ ${esc(s.usage)}</div>`;
+            h+=`</div>`;
+        });
+    });
+    panel.innerHTML=h;
+}
+function openScriptAdd(){['scName','scPath','scUsage','scDesc','scDeps','scWhen'].forEach(id=>document.getElementById(id).value='');document.getElementById('scType').value='maintenance';document.getElementById('scRuntime').value='node';document.getElementById('scEditId').value='';document.getElementById('scriptModalTitle').textContent='🔧 Add Script';document.getElementById('scriptModal').classList.add('visible');}
+function editScript(i){const s=APP.scripts[i];document.getElementById('scName').value=s.name;document.getElementById('scPath').value=s.path||'';document.getElementById('scType').value=s.type;document.getElementById('scRuntime').value=s.runtime||'node';document.getElementById('scUsage').value=s.usage||'';document.getElementById('scDesc').value=s.desc||'';document.getElementById('scDeps').value=s.deps||'';document.getElementById('scWhen').value=s.when||'';document.getElementById('scEditId').value=i;document.getElementById('scriptModalTitle').textContent='✏️ '+s.name;document.getElementById('scriptModal').classList.add('visible');}
+function saveScript(){const name=document.getElementById('scName').value.trim();if(!name){toast('Enter a name','info');return;}const entry={name,path:document.getElementById('scPath').value.trim(),type:document.getElementById('scType').value,runtime:document.getElementById('scRuntime').value,usage:document.getElementById('scUsage').value.trim(),desc:document.getElementById('scDesc').value.trim(),deps:document.getElementById('scDeps').value.trim(),when:document.getElementById('scWhen').value.trim()};const eid=document.getElementById('scEditId').value;if(eid!=='')APP.scripts[parseInt(eid)]=entry;else APP.scripts.push(entry);save();renderScripts();closeModal('scriptModal');toast('🔧 '+name+' saved!','success');}
+function deleteScript(i){if(!confirm('Delete "'+APP.scripts[i].name+'"?'))return;APP.scripts.splice(i,1);save();renderScripts();toast('Removed','info');}
+
+// ═══ QA TESTS ═══
+let qaSearch='', qaStatusFilter='all', qaRoleFilter='all';
+
+function renderQA(){
+    const panel=document.getElementById('panel-qa');if(!panel)return;
+    if(!APP.qa) APP.qa=[];
+
+    // Compute stats
+    const stats={pass:0,fail:0,untested:0,blocked:0};
+    APP.qa.forEach(t=>{stats[t.status||'untested']=(stats[t.status||'untested']||0)+1;});
+    const total=APP.qa.length;
+
+    // Filter
+    let tests=APP.qa.map((t,i)=>({...t,_i:i}));
+    if(qaStatusFilter!=='all') tests=tests.filter(t=>(t.status||'untested')===qaStatusFilter);
+    if(qaRoleFilter!=='all') tests=tests.filter(t=>{const r=t.roles||['all'];return r.includes('all')||r.includes(qaRoleFilter);});
+    if(qaSearch){
+        const q=qaSearch.toLowerCase();
+        tests=tests.filter(t=>
+            t.name.toLowerCase().includes(q)||
+            (t.keywords||[]).some(k=>k.toLowerCase().includes(q))||
+            (t.linked||'').toLowerCase().includes(q)||
+            (t.steps||'').toLowerCase().includes(q)||
+            (t.expected||'').toLowerCase().includes(q)||
+            (t.failHint||'').toLowerCase().includes(q)||
+            (t.category||'').toLowerCase().includes(q)||
+            // Also search entry names that match the linked ID
+            (t.linked && APP.entries.find(e=>e.id===t.linked)?.name.toLowerCase().includes(q))
+        );
+    }
+
+    let h=`<div class="guide-card" style="margin-bottom:14px"><p>🧪 <strong>Test every feature.</strong> Each test has step-by-step instructions, expected results, and debugging hints for when things fail. Search by <strong>button name, tab, function, keyword</strong> — anything you remember about the feature.</p></div>`;
+
+    // Search bar
+    h+=`<div class="qa-search-wrap"><span class="qa-search-icon">🔍</span><input type="text" class="qa-search" id="qaSearchInput" placeholder="Search by button name, tab, function, feature, keyword..." value="${esc(qaSearch)}" oninput="qaSearch=this.value;renderQA()"/>`;
+    if(qaSearch) h+=`<span class="qa-search-count">${tests.length} of ${total}</span>`;
+    h+=`</div>`;
+
+    // Stats pills
+    h+=`<div class="qa-stats">`;
+    h+=`<div class="qa-stat ${qaStatusFilter==='all'?'active':''}" onclick="qaStatusFilter='all';renderQA()"><span class="qa-stat-num" style="color:var(--text-primary)">${total}</span> All</div>`;
+    h+=`<div class="qa-stat ${qaStatusFilter==='pass'?'active':''}" onclick="qaStatusFilter='pass';renderQA()"><span class="qa-stat-num pass">${stats.pass}</span> Pass</div>`;
+    h+=`<div class="qa-stat ${qaStatusFilter==='fail'?'active':''}" onclick="qaStatusFilter='fail';renderQA()"><span class="qa-stat-num fail">${stats.fail}</span> Fail</div>`;
+    h+=`<div class="qa-stat ${qaStatusFilter==='blocked'?'active':''}" onclick="qaStatusFilter='blocked';renderQA()"><span class="qa-stat-num blocked">${stats.blocked}</span> Blocked</div>`;
+    h+=`<div class="qa-stat ${qaStatusFilter==='untested'?'active':''}" onclick="qaStatusFilter='untested';renderQA()"><span class="qa-stat-num untested">${stats.untested}</span> Untested</div>`;
+    // Role filter
+    const qaAllRoles=[...new Set(APP.qa.flatMap(t=>t.roles||['all']))];
+    if(qaAllRoles.length>1||!qaAllRoles.includes('all')){
+        const ri={all:'👥',admin:'🛡',teacher:'👩‍🏫',student:'🎓',guest:'👤',custom:'🔧'};
+        h+=`<div class="role-filter-bar" style="margin-left:8px"><span style="font-size:.68rem;color:var(--text-muted)">Role:</span>${['all',...qaAllRoles.filter(r=>r!=='all')].map(r=>`<button class="role-filter-btn ${qaRoleFilter===r?'active':''}" onclick="qaRoleFilter='${r}';renderQA()">${ri[r]||'👥'} ${r}</button>`).join('')}</div>`;
+    }
+    h+=`<div style="margin-left:auto"><button class="btn-add-entry" onclick="openQAAdd()">+ Add Test</button></div>`;
+    h+=`</div>`;
+
+    if(!total){
+        h+=`<div class="empty-state"><div class="empty-icon">🧪</div><h3>No tests mapped yet</h3><p>Add test paths for each feature so you can verify everything works. Use the 💬 Prompts tab to auto-generate tests from your anatomy.</p></div>`;
+        panel.innerHTML=h;return;
+    }
+    if(!tests.length){
+        h+=`<div class="empty-state"><div class="empty-icon">🔍</div><h3>No tests match "${esc(qaSearch||qaStatusFilter)}"</h3></div>`;
+        panel.innerHTML=h;return;
+    }
+
+    // Group by category
+    const groups={};
+    const catLabels={ui:'🖥 UI / Visual',function:'⚙️ Functionality',data:'💾 Data / Storage',auth:'🔐 Auth / Permissions',api:'🔌 API / Network',performance:'⚡ Performance',pwa:'📱 PWA / Offline',integration:'🔗 Integration'};
+    tests.forEach(t=>{const c=t.category||'function';if(!groups[c])groups[c]=[];groups[c].push(t);});
+
+    Object.keys(groups).forEach(cat=>{
+        h+=`<div class="infra-region-group">${catLabels[cat]||cat} (${groups[cat].length})</div>`;
+        groups[cat].forEach(t=>{
+            const st=t.status||'untested';
+            const stLabels={pass:'✅ Pass',fail:'❌ Fail',untested:'⬜ Untested',blocked:'⚠️ Blocked'};
+            const entry=t.linked?APP.entries.find(e=>e.id===t.linked):null;
+            const isMatch=qaSearch&&(t.name.toLowerCase().includes(qaSearch.toLowerCase())||(t.keywords||[]).some(k=>k.toLowerCase().includes(qaSearch.toLowerCase())));
+
+            h+=`<div class="qa-card ${isMatch?'highlight':''}" data-qi="${t._i}">`;
+            h+=`<div class="qa-card-header" onclick="this.parentElement.classList.toggle('open')">`;
+            h+=`<span class="qa-status ${st}">${stLabels[st]}</span>`;
+            if(t.linked) h+=`<span class="qa-feature-link">${t.linked}</span>`;
+            h+=`<span class="qa-title">${esc(t.name)}</span>`;
+            h+=`<span class="qa-severity ${t.severity||'medium'}">${(t.severity||'medium').toUpperCase()}</span>`;
+            const qRoles=t.roles||['all'];const qRoleIcons={all:'👥',admin:'🛡',teacher:'👩‍🏫',student:'🎓',guest:'👤',custom:'🔧'};
+            if(!qRoles.includes('all')||qRoles.length>1) h+=qRoles.map(r=>`<span class="role-badge role-${r}" style="font-size:.58rem">${qRoleIcons[r]||'👥'}</span>`).join('');
+            h+=`<svg style="width:18px;height:18px;color:var(--text-muted);transition:var(--transition);flex-shrink:0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>`;
+            h+=`</div>`;
+
+            h+=`<div class="qa-card-body">`;
+
+            // Keywords
+            if(t.keywords&&t.keywords.length){
+                h+=`<div class="qa-keywords">${t.keywords.map(k=>`<span class="qa-keyword" onclick="event.stopPropagation();qaSearch='${esc(k)}';document.getElementById('qaSearchInput').value='${esc(k)}';renderQA()">${esc(k)}</span>`).join('')}</div>`;
+            }
+
+            // Steps
+            if(t.steps){
+                const lines=t.steps.split('\n').filter(l=>l.trim());
+                h+=`<div class="qa-steps">`;
+                lines.forEach(line=>{
+                    const cleaned=line.replace(/^\d+[\.\)]\s*/,'');
+                    h+=`<div class="qa-step"><div class="qa-step-num"></div><div class="qa-step-text">${esc(cleaned)}</div></div>`;
+                });
+                h+=`</div>`;
+            }
+
+            // Expected
+            if(t.expected){
+                h+=`<div class="qa-expected"><div class="qa-expected-label">✅ Expected Result</div><div class="qa-expected-text">${esc(t.expected)}</div></div>`;
+            }
+
+            // Fail hint
+            if(t.failHint){
+                h+=`<div class="qa-fail-hint"><div class="qa-fail-hint-label">🔍 If It Fails — Where to Look</div><div style="color:var(--text-secondary);font-size:.82rem;line-height:1.6;white-space:pre-wrap">${esc(t.failHint)}</div></div>`;
+            }
+
+            // Status buttons + actions
+            h+=`<div class="qa-status-btns">`;
+            h+=`<button class="qa-status-btn ${st==='pass'?'active-pass':''}" onclick="setQAStatus(${t._i},'pass')">✅ Pass</button>`;
+            h+=`<button class="qa-status-btn ${st==='fail'?'active-fail':''}" onclick="setQAStatus(${t._i},'fail')">❌ Fail</button>`;
+            h+=`<button class="qa-status-btn ${st==='blocked'?'active-blocked':''}" onclick="setQAStatus(${t._i},'blocked')">⚠️ Blocked</button>`;
+            h+=`<button class="qa-status-btn" onclick="setQAStatus(${t._i},'untested')">⬜ Reset</button>`;
+            h+=`<span style="flex:1"></span>`;
+            h+=`<button class="vault-btn" onclick="editQA(${t._i})" title="Edit">✏️</button>`;
+            h+=`<button class="vault-btn" onclick="deleteQA(${t._i})" title="Delete" style="color:#ef4444">🗑</button>`;
+            h+=`</div>`;
+
+            h+=`</div></div>`;
+        });
+    });
+
+    panel.innerHTML=h;
+    // Restore search focus
+    const si=document.getElementById('qaSearchInput');
+    if(si&&qaSearch){si.focus();si.setSelectionRange(si.value.length,si.value.length);}
+}
+
+function setQAStatus(i,status){APP.qa[i].status=status;APP.qa[i].lastTested=new Date().toISOString().split('T')[0];save();renderQA();}
+
+function populateQALinked(){
+    const sel=document.getElementById('qaLinked');
+    sel.innerHTML='<option value="">— None —</option>';
+    APP.entries.forEach(e=>{sel.innerHTML+=`<option value="${e.id}">${e.id} — ${esc(e.name)}</option>`;});
+}
+
+function openQAAdd(){
+    populateQALinked();
+    ['qaName','qaKeywords','qaSteps','qaExpected','qaFailHint'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('qaLinked').value='';
+    document.getElementById('qaSev').value='medium';
+    document.getElementById('qaCat').value='function';
+    document.getElementById('qaEditId').value='';
+    const rs=document.getElementById('qaRoles');[...rs.options].forEach(o=>o.selected=o.value==='all');
+    document.getElementById('qaModalTitle').textContent='🧪 Add Test';
+    document.getElementById('qaModal').classList.add('visible');
+}
+
+function editQA(i){
+    const t=APP.qa[i];
+    populateQALinked();
+    document.getElementById('qaName').value=t.name;
+    document.getElementById('qaLinked').value=t.linked||'';
+    document.getElementById('qaSev').value=t.severity||'medium';
+    document.getElementById('qaCat').value=t.category||'function';
+    document.getElementById('qaKeywords').value=(t.keywords||[]).join(', ');
+    document.getElementById('qaSteps').value=t.steps||'';
+    document.getElementById('qaExpected').value=t.expected||'';
+    document.getElementById('qaFailHint').value=t.failHint||'';
+    document.getElementById('qaEditId').value=i;
+    const rs=document.getElementById('qaRoles');const roles=t.roles||['all'];[...rs.options].forEach(o=>o.selected=roles.includes(o.value));
+    document.getElementById('qaModalTitle').textContent='✏️ '+t.name;
+    document.getElementById('qaModal').classList.add('visible');
+}
+
+function saveQA(){
+    const name=document.getElementById('qaName').value.trim();
+    if(!name){toast('Enter a test name','info');return;}
+    const roles=[...document.getElementById('qaRoles').selectedOptions].map(o=>o.value);
+    const entry={
+        name,
+        linked:document.getElementById('qaLinked').value||'',
+        severity:document.getElementById('qaSev').value,
+        category:document.getElementById('qaCat').value,
+        keywords:document.getElementById('qaKeywords').value.split(',').map(k=>k.trim()).filter(Boolean),
+        roles:roles.length?roles:['all'],
+        steps:document.getElementById('qaSteps').value.trim(),
+        expected:document.getElementById('qaExpected').value.trim(),
+        failHint:document.getElementById('qaFailHint').value.trim(),
+        status:'untested',
+        lastTested:''
+    };
+    const eid=document.getElementById('qaEditId').value;
+    if(eid!==''){entry.status=APP.qa[parseInt(eid)].status;entry.lastTested=APP.qa[parseInt(eid)].lastTested;APP.qa[parseInt(eid)]=entry;}
+    else APP.qa.push(entry);
+    save();renderQA();closeModal('qaModal');toast('🧪 Test saved!','success');
+}
+
+function deleteQA(i){if(!confirm('Delete test "'+APP.qa[i].name+'"?'))return;APP.qa.splice(i,1);save();renderQA();toast('Removed','info');}
+
+// ═══ NOTES ═══
+const NOTE_TYPES={general:{icon:'📝',label:'General'},idea:{icon:'💡',label:'Idea'},todo:{icon:'✅',label:'To-Do'},question:{icon:'❓',label:'Question'},'bug-note':{icon:'🐛',label:'Bug Note'},decision:{icon:'🎯',label:'Decision'}};
+const NOTES_GROUPS=[{id:'entry',label:'By Entry'},{id:'type',label:'By Type'},{id:'date',label:'By Date'},{id:'tag',label:'By Tag'},{id:'standalone',label:'Standalone Only'}];
+
+function renderNotes(){
+    const panel=document.getElementById('panel-notes');
+    let h=`<div class="notes-toolbar"><div class="notes-group-btns"><span style="font-size:0.75rem;color:var(--text-muted);margin-right:4px">Group:</span>${NOTES_GROUPS.map(g=>`<button class="notes-group-btn ${notesGroupBy===g.id?'active':''}" onclick="notesGroupBy='${g.id}';renderNotes()">${g.label}</button>`).join('')}</div><button class="btn-add-entry" onclick="openNoteAdd()">+ Add Note</button></div>`;
+
+    if(!APP.notes.length){
+        h+=`<div class="empty-state"><div class="empty-icon">💭</div><h3>No notes yet</h3><p>Add comments, ideas, questions, to-dos — linked to specific features or standalone. Use the 💭 button inside any entry card, or add one here.</p></div>`;
+        panel.innerHTML=h; return;
+    }
+
+    const tl=n=>NOTE_TYPES[n.type]||NOTE_TYPES.general;
+
+    if(notesGroupBy==='entry'){
+        const linked={},standalone=[];
+        APP.notes.forEach((n,i)=>{n._i=i;if(n.linked){if(!linked[n.linked])linked[n.linked]=[];linked[n.linked].push(n);}else standalone.push(n);});
+        Object.keys(linked).sort().forEach(eid=>{
+            const entry=APP.entries.find(e=>e.id===eid);
+            h+=`<div class="note-group-header"><span class="entry-id cat-${entry?entry.category:'files'}" style="font-size:0.65rem">${eid}</span> ${entry?esc(entry.name):'(deleted entry)'}</div>`;
+            linked[eid].forEach(n=>{h+=renderNoteCard(n);});
+        });
+        if(standalone.length){
+            h+=`<div class="note-group-header">📌 Standalone Notes</div>`;
+            standalone.forEach(n=>{h+=renderNoteCard(n);});
+        }
+    } else if(notesGroupBy==='type'){
+        const byType={};
+        APP.notes.forEach((n,i)=>{n._i=i;if(!byType[n.type])byType[n.type]=[];byType[n.type].push(n);});
+        Object.keys(byType).forEach(type=>{
+            const t=NOTE_TYPES[type]||NOTE_TYPES.general;
+            h+=`<div class="note-group-header">${t.icon} ${t.label} (${byType[type].length})</div>`;
+            byType[type].forEach(n=>{h+=renderNoteCard(n);});
+        });
+    } else if(notesGroupBy==='date'){
+        const byDate={};
+        APP.notes.forEach((n,i)=>{n._i=i;const d=n.date||'Unknown';if(!byDate[d])byDate[d]=[];byDate[d].push(n);});
+        Object.keys(byDate).sort().reverse().forEach(date=>{
+            h+=`<div class="note-group-header">📅 ${date} (${byDate[date].length})</div>`;
+            byDate[date].forEach(n=>{h+=renderNoteCard(n);});
+        });
+    } else if(notesGroupBy==='tag'){
+        const byTag={},untagged=[];
+        APP.notes.forEach((n,i)=>{n._i=i;if(!n.tags||!n.tags.length){untagged.push(n);return;}n.tags.forEach(t=>{if(!byTag[t])byTag[t]=[];byTag[t].push(n);});});
+        Object.keys(byTag).sort().forEach(tag=>{
+            h+=`<div class="note-group-header">🏷 ${esc(tag)} (${byTag[tag].length})</div>`;
+            byTag[tag].forEach(n=>{h+=renderNoteCard(n);});
+        });
+        if(untagged.length){
+            h+=`<div class="note-group-header">🏷 Untagged (${untagged.length})</div>`;
+            untagged.forEach(n=>{h+=renderNoteCard(n);});
+        }
+    } else if(notesGroupBy==='standalone'){
+        const standalone=APP.notes.filter((n,i)=>{n._i=i;return !n.linked;});
+        if(!standalone.length){h+=`<div class="empty-state"><div class="empty-icon">📌</div><h3>No standalone notes</h3><p>All your notes are linked to entries.</p></div>`;}
+        else standalone.forEach(n=>{h+=renderNoteCard(n);});
+    }
+
+    panel.innerHTML=h;
+}
+
+function renderNoteCard(n){
+    const t=NOTE_TYPES[n.type]||NOTE_TYPES.general;
+    const entry=n.linked?APP.entries.find(e=>e.id===n.linked):null;
+    const linkedHtml=n.linked?`<span class="note-linked" title="Linked to ${n.linked}">${n.linked}</span>`:'';
+    const tagsHtml=(n.tags||[]).map(t=>`<span class="entry-tag">${esc(t)}</span>`).join('');
+    return `<div class="note-card"><div class="note-card-top"><span class="note-type-badge ${n.type}">${t.icon} ${t.label}</span>${linkedHtml}${tagsHtml}<span class="note-date">${n.date||''}</span></div><div class="note-text">${esc(n.text)}</div><div class="note-actions"><button class="vault-btn" onclick="editNote(${n._i})" title="Edit">✏️</button><button class="vault-btn" onclick="deleteNote(${n._i})" title="Delete" style="color:#ef4444">🗑</button></div></div>`;
+}
+
+function populateNoteLinked(){
+    const sel=document.getElementById('nLinked');
+    sel.innerHTML='<option value="">— None (standalone note) —</option>';
+    APP.entries.forEach(e=>{sel.innerHTML+=`<option value="${e.id}">${e.id} — ${esc(e.name)}</option>`;});
+}
+
+function openNoteAdd(){
+    populateNoteLinked();
+    ['nText','nTags'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('nType').value='general';
+    document.getElementById('nLinked').value='';
+    document.getElementById('nEditId').value='';
+    document.getElementById('noteModalTitle').textContent='💭 Add Note';
+    document.getElementById('noteModal').classList.add('visible');
+}
+
+function openNoteAddFor(entryId){
+    populateNoteLinked();
+    ['nText','nTags'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('nType').value='general';
+    document.getElementById('nLinked').value=entryId;
+    document.getElementById('nEditId').value='';
+    document.getElementById('noteModalTitle').textContent='💭 Note on '+entryId;
+    document.getElementById('noteModal').classList.add('visible');
+}
+
+function editNote(i){
+    const n=APP.notes[i];
+    populateNoteLinked();
+    document.getElementById('nType').value=n.type;
+    document.getElementById('nLinked').value=n.linked||'';
+    document.getElementById('nText').value=n.text;
+    document.getElementById('nTags').value=(n.tags||[]).join(', ');
+    document.getElementById('nEditId').value=i;
+    document.getElementById('noteModalTitle').textContent='✏️ Edit Note';
+    document.getElementById('noteModal').classList.add('visible');
+}
+
+function saveNote(){
+    const text=document.getElementById('nText').value.trim();
+    if(!text){toast('Write something!','info');return;}
+    const entry={type:document.getElementById('nType').value,linked:document.getElementById('nLinked').value||'',text,tags:document.getElementById('nTags').value.split(',').map(t=>t.trim()).filter(Boolean),date:new Date().toISOString().split('T')[0]};
+    const editId=document.getElementById('nEditId').value;
+    if(editId!==''){entry.date=APP.notes[parseInt(editId)].date;APP.notes[parseInt(editId)]=entry;}else APP.notes.push(entry);
+    save();renderNotes();renderAll();closeModal('noteModal');toast('💭 Note saved!','success');
+}
+
+function deleteNote(i){if(!confirm('Delete this note?'))return;APP.notes.splice(i,1);save();renderNotes();renderAll();toast('Note removed','info');}
+
+// ═══ FILE TREE ═══
+function renderFileTree(){
+    const panel=document.getElementById('panel-filetree');
+    if(!panel) return;
+    if(!APP.filetree||!APP.filetree.length){
+        panel.innerHTML=`<div class="guide-card" style="margin-bottom:14px"><p>Map your project's file structure here. Each file shows its role, deployment status, and recommended action for non-deployment files. Use the <strong>💬 Prompts tab</strong> to auto-populate this via Claude Code.</p></div><div style="margin-bottom:14px"><button class="btn-add-entry" onclick="openFileTreeAdd()">+ Add File</button></div><div class="empty-state"><div class="empty-icon">🌳</div><h3>No files mapped yet</h3><p>Use the mapping prompt or add files manually.</p></div>`;
+        return;
+    }
+    const depCount={yes:0,no:0,dev:0};
+    APP.filetree.forEach(f=>{depCount[f.deploy||'yes']=(depCount[f.deploy||'yes']||0)+1;});
+    let h=`<div class="ft-legend"><span>🟢 Deploy: ${depCount.yes||0}</span><span>🔴 Not needed: ${depCount.no||0}</span><span>🟡 Dev only: ${depCount.dev||0}</span><span style="margin-left:auto"><button class="btn-add-entry" onclick="openFileTreeAdd()">+ Add File</button></span></div>`;
+    APP.filetree.forEach((f,i)=>{
+        const icon=f.path.endsWith('/')?'📂':f.path.endsWith('.html')?'📄':f.path.endsWith('.js')?'📜':f.path.endsWith('.css')?'🎨':f.path.endsWith('.json')?'📋':f.path.endsWith('.sh')?'⚡':f.path.endsWith('.png')||f.path.endsWith('.jpg')?'🖼':'📦';
+        const depth=(f.path.match(/\//g)||[]).length;
+        h+=`<div class="ft-item">${'<span class="ft-indent"></span>'.repeat(Math.max(0,depth-1))}<span class="ft-icon">${icon}</span><span class="ft-name">${esc(f.path)}</span><span class="ft-role">${esc(f.role||'')}</span><span class="ft-size">${esc(f.size||'')}</span><span class="ft-deploy ${f.deploy||'yes'}">${f.deploy==='no'?'❌ Not deployed':f.deploy==='dev'?'🔧 Dev only':'✅ Deploy'}</span><span class="ft-action">${esc(f.action||'')}</span><span style="display:flex;gap:2px"><button class="vault-btn" onclick="editFileTree(${i})">✏️</button><button class="vault-btn" onclick="APP.filetree.splice(${i},1);save();renderFileTree();toast('Removed','info')" style="color:#ef4444">🗑</button></span></div>`;
+    });
+    panel.innerHTML=h;
+}
+
+function openFileTreeAdd(){
+    const path=prompt('File path (e.g. piano_learning_manager/js/app.js):');
+    if(!path)return;
+    APP.filetree.push({path,role:'',size:'',deploy:'yes',action:''});
+    save();renderFileTree();
+    editFileTree(APP.filetree.length-1);
+}
+function editFileTree(i){
+    const f=APP.filetree[i];
+    const role=prompt('Role/description:',f.role||'');if(role!==null)f.role=role;
+    const size=prompt('Size (e.g. 24K, 1.2MB):',f.size||'');if(size!==null)f.size=size;
+    const deploy=prompt('Deploy status (yes/no/dev):',f.deploy||'yes');if(deploy!==null)f.deploy=deploy;
+    const action=prompt('Action for non-deploy (keep/move/delete):',f.action||'');if(action!==null)f.action=action;
+    save();renderFileTree();
+}
+
+// ═══ FLOWCHART ═══
+function renderFlowchart(){
+    const panel=document.getElementById('panel-flowchart');
+    if(!panel) return;
+    if(!APP.flowchart||!APP.flowchart.length){
+        panel.innerHTML=`<div class="guide-card" style="margin-bottom:14px"><p>Visualize how files depend on each other. Each node is a file, each arrow shows a dependency (imports, loads, calls). Use the <strong>💬 Prompts tab</strong> to auto-generate this from your codebase.</p></div><div style="margin-bottom:14px"><button class="btn-add-entry" onclick="addFlowNode()">+ Add Node</button> <button class="btn-add-entry" onclick="addFlowEdge()">+ Add Edge</button></div><div class="empty-state"><div class="empty-icon">🔀</div><h3>No flowchart data yet</h3></div>`;
+        return;
+    }
+    // Build SVG flowchart
+    const nodes=APP.flowchart.filter(n=>n.type==='node');
+    const edges=APP.flowchart.filter(n=>n.type==='edge');
+    const W=Math.max(900,nodes.length*140);
+    const H=Math.max(400,nodes.length*50);
+    // Auto-layout: group by layer
+    const layers={};
+    nodes.forEach(n=>{const l=n.layer||0;if(!layers[l])layers[l]=[];layers[l].push(n);});
+    const layerKeys=Object.keys(layers).sort((a,b)=>a-b);
+    const nodePos={};
+    layerKeys.forEach((lk,li)=>{
+        const items=layers[lk];
+        items.forEach((n,ni)=>{
+            nodePos[n.id]={x:80+li*180, y:40+ni*60};
+        });
+    });
+    let svg=`<svg width="${W}" height="${H}" class="flow-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    svg+=`<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--pink-soft)"/></marker></defs>`;
+    // Edges
+    edges.forEach(e=>{
+        const from=nodePos[e.from], to=nodePos[e.to];
+        if(from&&to) svg+=`<line x1="${from.x+70}" y1="${from.y+15}" x2="${to.x}" y2="${to.y+15}" stroke="var(--pink-soft)" stroke-width="1.5" marker-end="url(#arrow)" opacity="0.6"/>`;
+    });
+    // Nodes
+    nodes.forEach(n=>{
+        const p=nodePos[n.id];
+        if(!p) return;
+        const colors={html:'var(--pink)',js:'var(--green)',css:'#ec4899',json:'var(--tag-buttons)',other:'var(--text-muted)'};
+        const c=colors[n.filetype||'other']||colors.other;
+        svg+=`<rect x="${p.x}" y="${p.y}" width="140" height="30" rx="6" fill="var(--bg-card)" stroke="${c}" stroke-width="1.5"/>`;
+        svg+=`<text x="${p.x+70}" y="${p.y+19}" text-anchor="middle" font-size="10" fill="var(--text-primary)">${esc(n.label||n.id)}</text>`;
+    });
+    svg+=`</svg>`;
+    let h=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap"><button class="btn-add-entry" onclick="addFlowNode()">+ Add Node</button><button class="btn-add-entry" onclick="addFlowEdge()">+ Add Edge</button><button class="btn-add-entry" style="border-color:var(--green)" onclick="APP.flowchart=[];save();renderFlowchart();toast('Cleared','info')">🗑 Clear</button></div>`;
+    h+=`<div class="flow-container">${svg}</div>`;
+    h+=`<div style="margin-top:12px;font-size:0.78rem;color:var(--text-muted)"><strong>Nodes:</strong> ${nodes.length} files &nbsp; <strong>Edges:</strong> ${edges.length} dependencies &nbsp; <strong>Layers:</strong> ${layerKeys.length}</div>`;
+    panel.innerHTML=h;
+}
+function addFlowNode(){
+    const id=prompt('File name (short ID, e.g. app.js):');if(!id)return;
+    const label=prompt('Label:',id);
+    const layer=prompt('Layer (0=leftmost, 1, 2...):','0');
+    const ft=id.endsWith('.html')?'html':id.endsWith('.js')?'js':id.endsWith('.css')?'css':id.endsWith('.json')?'json':'other';
+    APP.flowchart.push({type:'node',id,label,layer:parseInt(layer)||0,filetype:ft});
+    save();renderFlowchart();
+}
+function addFlowEdge(){
+    const nodes=APP.flowchart.filter(n=>n.type==='node');
+    if(nodes.length<2){toast('Add at least 2 nodes first','info');return;}
+    const from=prompt('From (file ID, e.g. app.js):\n\nAvailable: '+nodes.map(n=>n.id).join(', '));if(!from)return;
+    const to=prompt('To (depends on, e.g. storage.js):');if(!to)return;
+    APP.flowchart.push({type:'edge',from,to});
+    save();renderFlowchart();
+}
+// ═══ PROMPTS ═══
+function renderPrompts(){
+    const panel=document.getElementById('panel-prompts');
+    let h=`<div class="guide-card" style="margin-bottom:16px"><p>Ready-to-use prompts for <strong>Claude Code</strong>. Click a prompt to expand it, then copy and paste into your terminal. These commands tell Dr. Clau exactly how to map, update, audit, or enrich your App Anatomy.</p></div>`;
+    h+=`<div class="prompt-categories">${PROMPT_CATS.map(c=>`<button class="prompt-cat-btn ${c.id===activePromptCat?'active':''}" onclick="filterPrompts('${c.id}')">${c.label}</button>`).join('')}</div>`;
+    const filtered = activePromptCat==='all' ? PROMPTS : PROMPTS.filter(p=>p.cat===activePromptCat);
+    filtered.forEach((p,i)=>{
+        h+=`<div class="prompt-card" id="prompt-${i}"><div class="prompt-header" onclick="this.parentElement.classList.toggle('open')"><div class="prompt-color" style="background:${p.color}"></div><span class="prompt-title">${p.title}</span><span class="prompt-desc">${p.desc}</span></div><div class="prompt-body"><div class="prompt-text"><button class="prompt-copy-btn" onclick="copyPrompt(${i})">📋 Copy</button>${esc(p.text)}</div>${p.note?`<div class="prompt-note">💡 ${esc(p.note)}</div>`:''}</div></div>`;
+    });
+    panel.innerHTML=h;
+}
+function filterPrompts(cat){activePromptCat=cat;renderPrompts();}
+function copyPrompt(i){const p=(activePromptCat==='all'?PROMPTS:PROMPTS.filter(p=>p.cat===activePromptCat))[i];navigator.clipboard.writeText(p.text).then(()=>toast('📋 Copied!','success'));}
+
+// ═══ PORTING ═══
+function renderPorting(){
+    const p=document.getElementById('panel-porting');if(!p)return;
+    p.innerHTML=`<div class="guide-section"><h3>🌸 How to Port a Feature</h3>
+        <div class="guide-card" style="border-left:3px solid var(--pink)"><p><strong>1. Find it</strong> — Search for the feature ID in this anatomy</p></div>
+        <div class="guide-card" style="border-left:3px solid var(--green)"><p><strong>2. Check connections</strong> — 🔗 tab shows dependencies</p></div>
+        <div class="guide-card" style="border-left:3px solid #ec4899"><p><strong>3. Gather 3 layers</strong> — Copy HTML + JS + CSS</p></div>
+        <div class="guide-card" style="border-left:3px solid var(--tag-variables)"><p><strong>4. Get variables</strong> — Bring state vars the function reads</p></div>
+        <div class="guide-card" style="border-left:3px solid var(--tag-buttons)"><p><strong>5. Adapt IDs</strong> — Rename duplicates everywhere</p></div>
+        <div class="guide-card" style="border-left:3px solid var(--tag-connections)"><p><strong>6. Test</strong> — ✅ HTML renders? ✅ JS no errors? ✅ CSS applies?</p></div>
+        <div class="guide-card" style="margin-top:14px"><p>💡 Use the <strong>🟣 Extract Feature</strong> prompt in the 💬 Prompts tab to auto-generate a portable package!</p></div>
+    </div>`;
+}
+
+// ═══ CRUD ═══
+function openAdd(cat){['aName','aOne','aTags','aHow','aChange','aHtml','aJs'].forEach(id=>document.getElementById(id).value='');document.getElementById('aCat').value=cat||'buttons';document.getElementById('aEditId').value='';document.getElementById('addModalTitle').textContent='✨ Add Entry';const rs=document.getElementById('aRoles');[...rs.options].forEach(o=>o.selected=o.value==='all');document.getElementById('addModal').classList.add('visible');}
+function editEntry(id){const e=APP.entries.find(x=>x.id===id);if(!e)return;document.getElementById('aCat').value=e.category;document.getElementById('aName').value=e.name;document.getElementById('aOne').value=e.oneliner;document.getElementById('aTags').value=e.tags.join(', ');document.getElementById('aHow').value=e.howItWorks||'';document.getElementById('aChange').value=e.howToChange||'';document.getElementById('aHtml').value=e.htmlSnippet||'';document.getElementById('aJs').value=e.jsSnippet||'';document.getElementById('aEditId').value=id;const rs=document.getElementById('aRoles');const roles=e.roles||['all'];[...rs.options].forEach(o=>o.selected=roles.includes(o.value));document.getElementById('addModalTitle').textContent='✏️ '+id;document.getElementById('addModal').classList.add('visible');}
+function saveEntry(){const cat=document.getElementById('aCat').value,name=document.getElementById('aName').value.trim();if(!name){toast('Enter a name','info');return;}const editId=document.getElementById('aEditId').value;const roles=[...document.getElementById('aRoles').selectedOptions].map(o=>o.value);const entry={id:editId||nextId(cat),category:cat,name,oneliner:document.getElementById('aOne').value.trim(),tags:document.getElementById('aTags').value.split(',').map(t=>t.trim()).filter(Boolean),roles:roles.length?roles:['all'],properties:PROPS[cat].map(([k,v])=>[k,v]),howItWorks:document.getElementById('aHow').value.trim(),howToChange:document.getElementById('aChange').value.trim(),htmlSnippet:document.getElementById('aHtml').value.trim(),jsSnippet:document.getElementById('aJs').value.trim()};if(editId)APP.entries=APP.entries.filter(e=>e.id!==editId);APP.entries.push(entry);APP.entries.sort((a,b)=>a.id.localeCompare(b.id));save();closeModal('addModal');renderAll();updateCounts();toast(`${editId?'✏️':'✨'} ${entry.id} — ${name}`,'success');}
+function deleteEntry(id){if(!confirm('Delete '+id+'?'))return;APP.entries=APP.entries.filter(e=>e.id!==id);save();renderAll();updateCounts();toast('🗑 '+id,'info');}
+function nextId(cat){const pfx=CAT[cat].prefix;const nums=APP.entries.filter(e=>e.category===cat).map(e=>parseInt(e.id.split('-')[1])||0);return pfx+'-'+String((nums.length?Math.max(...nums):0)+1).padStart(3,'0');}
+
+// ═══ UTILS ═══
+function toggleFilter(btn,tag){btn.classList.toggle('active');const panel=btn.closest('.tab-panel');const active=[...panel.querySelectorAll('.filter-tag.active')].map(b=>b.textContent.trim());panel.querySelectorAll('.entry-card').forEach(c=>{if(!active.length){c.style.display='';return;}c.style.display=active.some(f=>(c.dataset.tags||'').split(',').includes(f))?'':'none';});}
+function toggleExpandAll(){expandAll=!expandAll;document.querySelectorAll('.entry-card').forEach(c=>c.classList.toggle('open',expandAll));toast(expandAll?'📂 Expanded':'📁 Collapsed','info');}
+function openSettings(){document.getElementById('sName').value=APP.name;document.getElementById('sVersion').value=APP.version;document.getElementById('sType').value=APP.type;document.getElementById('sFile').value=APP.mainFile;document.getElementById('sStorage').value=APP.storage;document.getElementById('sTheme').value=APP.theme;document.getElementById('settingsModal').classList.add('visible');}
+function saveSettings(){APP.name=document.getElementById('sName').value.trim();APP.version=document.getElementById('sVersion').value.trim();APP.type=document.getElementById('sType').value;APP.mainFile=document.getElementById('sFile').value.trim();APP.storage=document.getElementById('sStorage').value.trim();APP.theme=document.getElementById('sTheme').value.trim();save();updateName();closeModal('settingsModal');toast('Saved!','success');}
+function updateName(){document.getElementById('appNameDisplay').textContent=APP.name?'📌 '+APP.name+(APP.version?' v'+APP.version:''):'📌 No app mapped yet';}
+function closeModal(id){document.getElementById(id).classList.remove('visible');}
+function updateCounts(){Object.keys(CAT).forEach(c=>{const el=document.querySelector(`.tab-count[data-count="${c}"]`);if(el)el.textContent=APP.entries.filter(e=>e.category===c).length;});}
+function save(){try{localStorage.setItem('app-anatomy',JSON.stringify(APP))}catch(e){}}
+function load(){try{const s=localStorage.getItem('app-anatomy');if(s){const d=JSON.parse(s);Object.assign(APP,d);}}catch(e){}}
+function exportJSON(){const b=new Blob([JSON.stringify(APP,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='app-anatomy-'+(APP.name||'unnamed').toLowerCase().replace(/\s+/g,'-')+'.json';a.click();URL.revokeObjectURL(a.href);toast('💾 Exported!','success');}
+function importJSON(){const inp=document.getElementById('importInput');inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);Object.assign(APP,d);save();renderAll();renderQuickLinks();renderVault();renderInfra();renderLambdas();renderApiRoutes();renderScripts();renderQA();renderNotes();renderFileTree();renderFlowchart();renderPrompts();updateCounts();updateName();toast('📥 Imported!','success');}catch(err){toast('Invalid JSON','info');}};r.readAsText(f);inp.value='';};inp.click();}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function escAttr(s){return(s||'').replace(/'/g,'\\\'').replace(/"/g,'&quot;');}
+function toast(msg,type='info'){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast '+type;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
+
+// ═══ SAMPLE ═══
+function loadSample(){
+    APP.name='My Awesome App';APP.version='1.0';
+    APP.links={localDrive:'',website:'',pwaPath:'',repo:'',s3Bucket:'',cloudfront:'',apiEndpoint:'',adminPanel:'',cicd:''};
+    APP.vault=[];
+    APP.entries=[
+        {id:'TAB-001',category:'tabs',name:'Dashboard',oneliner:'Main overview with summary cards',tags:['main','overview'],properties:[['Container ID','#tab-dashboard'],['Nav Button','#nav-btn-dashboard'],['Default Visible','Yes'],['Key Features','Stats, recent items'],['Dependencies','All modules']],howItWorks:'1. App loads, this tab shows\n2. Calls getStats()\n3. Renders stat cards\n4. Shows 5 recent items',howToChange:'- Default tab → edit showTab() in init\n- Add card → add to .stats-grid',htmlSnippet:'<div id="tab-dashboard" class="tab-panel active">\n  <div class="stats-grid">...</div>\n</div>',jsSnippet:'function loadDashboard() {\n    renderStatCards(getStats());\n    renderRecentItems(5);\n}'},
+        {id:'BTN-001',category:'buttons',name:'Save Button',oneliner:'Saves work to localStorage',tags:['toolbar','critical'],properties:[['Selector','#btn-save'],['Type','Button'],['Location','Editor → Toolbar'],['Triggers','saveCurrentWork()'],['Affected by','Unsaved flag'],['Modifiable','✅']],howItWorks:'1. Click save icon\n2. Fires saveCurrentWork()\n3. Serializes to JSON\n4. Writes localStorage\n5. Shows toast',howToChange:'- Backend → replace localStorage with API\n- Autosave → setInterval(save, 30000)',htmlSnippet:'<button id="btn-save" onclick="saveCurrentWork()">💾</button>',jsSnippet:'function saveCurrentWork() {\n    localStorage.setItem(\'data\', JSON.stringify(state));\n    showToast(\'Saved!\');\n}'},
+        {id:'FN-001',category:'functions',name:'renderList()',oneliner:'Rebuilds task list from state',tags:['render','core'],properties:[['File','app.js'],['Line','~180'],['Called by','addTask(), deleteTask()'],['Calls','createCard(), updateCounts()'],['Reads','state.tasks[]'],['Modifies','DOM: #task-list'],['Returns','void'],['Side Effects','Rebuilds DOM']],howItWorks:'1. Clears #task-list\n2. Reads state.tasks[]\n3. Filters if needed\n4. Creates cards\n5. Updates counts',howToChange:'- Sort → add .sort() before forEach\n- Card look → edit createCard()',htmlSnippet:'<div id="task-list"></div>',jsSnippet:'function renderList() {\n    const el = $(\'#task-list\');\n    el.innerHTML = \'\';\n    state.tasks.forEach(t => el.appendChild(createCard(t)));\n    updateCounts();\n}'},
+        {id:'VAR-001',category:'variables',name:'appState',oneliner:'Central state object',tags:['state','core'],properties:[['Type','Object'],['Declared in','app.js ~5'],['Default','{ tasks: [], filter: null }'],['Set by','loadData(), addTask()'],['Read by','renderList(), saveWork()'],['Persisted?','✅ localStorage'],['Modifiable','✅']],howItWorks:'1. Global object\n2. Filled from localStorage\n3. Actions modify it\n4. Renders read it',howToChange:'- Add field → add to default + loadData()',htmlSnippet:'',jsSnippet:'const appState = {\n    tasks: [],\n    filter: null\n};'},
+        {id:'BUG-001',category:'bugs',name:'Double render on tab switch',oneliner:'List renders twice on fast switch',tags:['performance'],properties:[['Severity','🟡 Medium'],['Where','showTab() → renderList()'],['What','Dual render call'],['Cause','showTab + onVisible both call render'],['Consequence','Flicker'],['Fix','Debounce or remove duplicate']],howItWorks:'1. Click tab fast\n2. showTab() renders\n3. onVisible also renders\n4. Double render',howToChange:'- Remove render from onVisible\n- Or add guard flag',htmlSnippet:'',jsSnippet:'showTab() { renderList(); }\nonVisible: () => { renderList(); } // redundant'}
+    ];
+    save();
+}
+
+init();
+</script>
+</body>
+</html>
