@@ -204,7 +204,7 @@ function toggleMustFit(itemId, checked) {
 }
 
 // ── Fit Tester panel (Buy subtab) ────────────────────────────
-function rFitTest() {
+function legacySmartFitTest() {
   const el = document.getElementById('fit-test-content'); if (!el) return;
   const roomFilter = getPillVal('fit', 'room') || '';
   const items = ldBuy().filter(it => it.roomId && (it.widthCm || it.depthCm));
@@ -216,7 +216,7 @@ function rFitTest() {
     return { k: rId, l: rm.label, e: rm.emoji };
   });
 
-  let h = buildPillFilters('fit', 'room', roomOpts, rFitTest);
+  let h = buildPillFilters('fit', 'room', roomOpts, legacySmartFitTest);
 
   if (!filtered.length) {
     h += '<div style="color:var(--bd3);font-size:.72rem;padding:20px;text-align:center">No items with dimensions assigned to rooms yet.</div>';
@@ -290,7 +290,7 @@ function rFitTest() {
 }
 
 // ── Budget Planner with scenarios (Buy subtab) ───────────────
-function rBudgetPlanner() {
+function legacySmartBudgetPlanner() {
   const el = document.getElementById('budget-planner-content'); if (!el) return;
   const stats = getBuyScenarioStats();
   const budgetMax = ldSettings().maxBudget || 5000;
@@ -599,10 +599,10 @@ function rPlanTools() {
 }
 
 // ── Buy subtab navigation ────────────────────────────────────
-let _buySubtab = 'items';
+let _legacyBuySubtab = 'items';
 
-function switchBuySubtab(tab) {
-  _buySubtab = tab;
+function switchBuySubtabLegacy(tab) {
+  _legacyBuySubtab = tab;
   document.querySelectorAll('.buy-subtab').forEach(el => el.classList.toggle('active', el.dataset.subtab === tab));
   document.querySelectorAll('.buy-subtab-panel').forEach(el => el.classList.toggle('active', el.id === 'buy-sub-' + tab));
   if (tab === 'fit') rFitTest();
