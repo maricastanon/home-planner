@@ -4,8 +4,8 @@
 
 const APP_VERSION = '2.1';
 const APP_NAME    = 'Our New Home';
-const APP_THEME_COLOR = '#9f1239';
-const APP_BACKGROUND_COLOR = '#f8fafc';
+const APP_THEME_COLOR = '#e91e63';
+const APP_BACKGROUND_COLOR = '#f8eef4';
 const APP_RUNTIME = Object.freeze({
   authRequired: true,
   authProvider: 'cognito',
@@ -286,7 +286,7 @@ const BUY_PRIOS = [
 ];
 
 const BUY_SOURCES = [
-  { k:'buy',   l:'Buy New',                  e:'🛒', color:'#fff1f2', colorText:'#9f1239' },
+  { k:'buy',   l:'Buy New',                  e:'🛒', color:'#fce4ec', colorText:'#c2185b' },
   { k:'take',  l:'Take From Old Apartment',  e:'📦', color:'#eff6ff', colorText:'#1d4ed8' },
   { k:'owned', l:'Already Owned',            e:'✨', color:'#f0fdf4', colorText:'#166534' },
 ];
