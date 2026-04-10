@@ -154,6 +154,33 @@ window.HomeAws = (function createHomeAws() {
     scheduleFlush();
   }
 
+  async function loadFromCloud() {
+    const cfg = typeof getAwsBackendConfig === 'function' ? getAwsBackendConfig() : null;
+    if (!cfg?.dataSyncUrl || !navigator.onLine || !isAuthenticated()) return null;
+    try {
+      const res = await fetch(cfg.dataSyncUrl, { method: 'GET', headers: getHeaders(), credentials: 'omit' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data?.ok || !data?.state) return null;
+      // Merge cloud state into localStorage (cloud wins if newer)
+      let restored = 0;
+      for (const [scopedKey, payload] of Object.entries(data.state)) {
+        try {
+          const existing = localStorage.getItem(scopedKey);
+          if (!existing || payload) {
+            localStorage.setItem(scopedKey, JSON.stringify(payload));
+            restored++;
+          }
+        } catch { /* skip */ }
+      }
+      if (restored > 0 && typeof toast === 'function') toast(`Restored ${restored} items from cloud ☁️`, 'green');
+      return { restored, total: Object.keys(data.state).length };
+    } catch (err) {
+      console.warn('Cloud load failed:', err);
+      return null;
+    }
+  }
+
   function init() {
     window.addEventListener('online', () => flushAll());
   }
@@ -161,6 +188,7 @@ window.HomeAws = (function createHomeAws() {
   return {
     init,
     flushAll,
+    loadFromCloud,
     queueActivity,
     queueDataSync,
   };

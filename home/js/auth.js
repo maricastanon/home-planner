@@ -180,6 +180,7 @@ window.HomeAuth = (function() {
       const appShell = document.getElementById('app-shell');
       if (appShell) { appShell.hidden = false; appShell.removeAttribute('aria-hidden'); }
       document.body.classList.remove('auth-shell-open');
+      if (window.HomeAws && typeof window.HomeAws.loadFromCloud === 'function') window.HomeAws.loadFromCloud();
       if (window.HomeApp) window.HomeApp.boot(_user);
       if (window.HomeAws && typeof window.HomeAws.flushAll === 'function') window.HomeAws.flushAll();
     }
