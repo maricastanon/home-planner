@@ -15,6 +15,12 @@ function rBuy() {
     rFitTest();
   } else if (_buySubtab === 'budget') {
     rBudgetPlanner();
+  } else if (_buySubtab === 'roommap') {
+    if (typeof rRoomMap === 'function') rRoomMap();
+  } else if (_buySubtab === '3d') {
+    rRoom3D();
+  } else if (_buySubtab === 'wishlist') {
+    rWishlistPlanner();
   } else {
     rBuyList();
   }
@@ -957,5 +963,522 @@ function rBudgetPlanner() {
       }).join('');
   }
 
+  el.innerHTML = html;
+}
+
+const BUY_ROOM_WISHLIST_PROFILES = {
+  default: {
+    title: 'Move-in essentials',
+    needs: [
+      { key: 'surface', label: 'Surface', hint: 'table, desk, or cabinet top', keywords: ['desk', 'table', 'console', 'dresser', 'cabinet', 'shelf'] },
+      { key: 'storage', label: 'Storage', hint: 'shelves, wardrobe, drawers, or closet support', keywords: ['wardrobe', 'shelf', 'storage', 'drawer', 'cabinet', 'closet', 'rack', 'shelving'] },
+      { key: 'lighting', label: 'Lighting', hint: 'floor lamp, desk lamp, or ceiling support', categories: ['lighting'], keywords: ['lamp', 'light', 'pendant', 'ceiling light'] }
+    ]
+  },
+  living: {
+    title: 'Living room setup',
+    needs: [
+      { key: 'seating', label: 'Main seating', hint: 'sofa, armchair, or sectional', keywords: ['sofa', 'couch', 'sectional', 'loveseat', 'armchair', 'chair'] },
+      { key: 'table', label: 'Coffee / side table', hint: 'coffee table or side table', keywords: ['coffee table', 'side table', 'table'] },
+      { key: 'media', label: 'Media / display zone', hint: 'tv unit, console, or projector furniture', keywords: ['tv', 'media', 'console', 'projector'] },
+      { key: 'storage', label: 'Living storage', hint: 'shelves, sideboard, or bookcase', keywords: ['bookcase', 'shelf', 'sideboard', 'storage', 'cabinet'] },
+      { key: 'lighting', label: 'Ambient lighting', hint: 'floor lamp, wall lamp, or smart light', categories: ['lighting'], keywords: ['lamp', 'light'] }
+    ]
+  },
+  kitchen: {
+    title: 'Kitchen setup',
+    needs: [
+      { key: 'cold', label: 'Cold storage', hint: 'fridge or freezer', keywords: ['fridge', 'freezer', 'refrigerator'] },
+      { key: 'cook', label: 'Cooking', hint: 'oven, stove, or cooktop', keywords: ['oven', 'stove', 'cooktop', 'range'] },
+      { key: 'prep', label: 'Prep surface', hint: 'island, trolley, or extra table', keywords: ['island', 'prep', 'table', 'trolley', 'cart'] },
+      { key: 'dining', label: 'Dining spot', hint: 'table, bar table, or breakfast nook', keywords: ['dining', 'bar table', 'table', 'stool', 'bench'] },
+      { key: 'storage', label: 'Pantry storage', hint: 'pantry rack or kitchen cabinet', keywords: ['pantry', 'cabinet', 'shelf', 'rack', 'drawer'] }
+    ]
+  },
+  bedroom: {
+    title: 'Bedroom setup',
+    needs: [
+      { key: 'sleep', label: 'Sleep zone', hint: 'bed, mattress, or daybed', keywords: ['bed', 'mattress', 'daybed'] },
+      { key: 'wardrobe', label: 'Clothing storage', hint: 'wardrobe, dresser, or chest', keywords: ['wardrobe', 'dresser', 'closet', 'chest', 'drawer'] },
+      { key: 'side', label: 'Bedside support', hint: 'nightstand or side table', keywords: ['nightstand', 'bedside', 'side table'] },
+      { key: 'lighting', label: 'Reading light', hint: 'bedside lamp or floor lamp', categories: ['lighting'], keywords: ['lamp', 'light'] }
+    ]
+  },
+  office: {
+    title: 'Work room setup',
+    needs: [
+      { key: 'desk', label: 'Desk', hint: 'desk or worktable', keywords: ['desk', 'worktable', 'table'] },
+      { key: 'chair', label: 'Chair', hint: 'office chair or task chair', keywords: ['chair', 'task chair', 'office chair'] },
+      { key: 'storage', label: 'Document storage', hint: 'shelf, filing cabinet, or drawer', keywords: ['filing', 'cabinet', 'drawer', 'shelf', 'storage'] },
+      { key: 'lighting', label: 'Task light', hint: 'desk lamp or focused lighting', categories: ['lighting'], keywords: ['lamp', 'light'] }
+    ]
+  },
+  bathroom: {
+    title: 'Bathroom setup',
+    needs: [
+      { key: 'wash', label: 'Wash / laundry', hint: 'washing machine or laundry tower', keywords: ['washing machine', 'washer', 'dryer', 'laundry'] },
+      { key: 'storage', label: 'Bathroom storage', hint: 'tall cabinet, shelf, or vanity storage', keywords: ['cabinet', 'shelf', 'storage', 'vanity'] },
+      { key: 'mirror', label: 'Mirror / vanity', hint: 'mirror cabinet or vanity', keywords: ['mirror', 'vanity'] }
+    ]
+  },
+  hallway: {
+    title: 'Entry setup',
+    needs: [
+      { key: 'shoes', label: 'Shoe storage', hint: 'shoe cabinet, rack, or bench', keywords: ['shoe', 'rack', 'cabinet', 'bench'] },
+      { key: 'coats', label: 'Coat zone', hint: 'coat rack or wardrobe', keywords: ['coat', 'rack', 'wardrobe', 'hanger'] },
+      { key: 'drop', label: 'Drop zone', hint: 'console or side table for keys and bags', keywords: ['console', 'table', 'side table', 'bench'] }
+    ]
+  },
+  balcony: {
+    title: 'Balcony setup',
+    needs: [
+      { key: 'seating', label: 'Outdoor seating', hint: 'chairs, bench, or sofa', keywords: ['chair', 'bench', 'sofa', 'lounger'] },
+      { key: 'table', label: 'Outdoor table', hint: 'table or side table', keywords: ['table'] },
+      { key: 'storage', label: 'Outdoor storage', hint: 'storage box or weather-safe cabinet', keywords: ['storage', 'box', 'cabinet'] },
+      { key: 'lighting', label: 'Outdoor lighting', hint: 'lanterns or warm lighting', categories: ['lighting'], keywords: ['lamp', 'light', 'lantern'] }
+    ]
+  },
+  cellar: {
+    title: 'Cellar / Keller setup',
+    needs: [
+      { key: 'shelves', label: 'Bulk shelving', hint: 'shelving, rack, or storage cabinet', keywords: ['shelf', 'shelving', 'rack', 'cabinet', 'storage'] },
+      { key: 'boxes', label: 'Bins / boxes', hint: 'stackable storage or labeled bins', keywords: ['box', 'bin', 'crate', 'storage'] },
+      { key: 'cold', label: 'Overflow cold storage', hint: 'freezer or fridge if needed', keywords: ['freezer', 'fridge'] }
+    ]
+  }
+};
+
+function getRoomWishlistProfile(room) {
+  const label = String(room?.label || '').toLowerCase();
+  if (/living|wohn/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.living;
+  if (/kitchen|k[üu]che/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.kitchen;
+  if (/bed|sleep|schlaf/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.bedroom;
+  if (/office|work|study|büro|buero/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.office;
+  if (/bath|bad|wc/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.bathroom;
+  if (/hall|entry|flur|corridor/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.hallway;
+  if (/balcony|terrace|patio|balkon/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.balcony;
+  if (/cellar|keller|storage/.test(label)) return BUY_ROOM_WISHLIST_PROFILES.cellar;
+  return BUY_ROOM_WISHLIST_PROFILES.default;
+}
+
+function getRoomScenarioSelection(roomId, mode = 'selected') {
+  const items = ldBuy().filter(item => item.roomId === roomId && (item.roomRole || 'candidate') !== 'ignore');
+  const groups = {};
+  const singles = [];
+  items.forEach(item => {
+    const key = String(item.optionGroup || '').trim();
+    if (!key) singles.push(item);
+    else (groups[key] = groups[key] || []).push(item);
+  });
+  const picks = Object.values(groups)
+    .map(groupItems => typeof chooseScenarioCandidate === 'function' ? chooseScenarioCandidate(groupItems, mode) : groupItems[0])
+    .filter(Boolean);
+  return [...singles, ...picks];
+}
+
+function getWishlistItemScore(item, roomId) {
+  const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(item) : null;
+  const pref = typeof comparePreferenceScore === 'function' ? comparePreferenceScore(item) : 0;
+  let score = pref * 5;
+  if (item.roomId === roomId) score += 4;
+  if (normalizeItemSource(item.source) === 'existing') score += 8;
+  if (item.bought) score += 4;
+  if (item.scenarioPick) score += 3;
+  if (item.roomRole === 'must' || item.mustFitRoom) score += 3;
+  if (fit?.fits) score += 3;
+  score -= getBuyItemFootprintSqm(item) * 2;
+  score -= getPlannedItemCost(item) / 400;
+  return score;
+}
+
+function itemMatchesWishlistNeed(item, need) {
+  if (!item || !need) return false;
+  const haystack = `${item.name || ''} ${item.brand || ''} ${item.model || ''} ${item.type || ''} ${item.category || ''} ${item.optionGroup || ''}`.toLowerCase();
+  const type = String(item.type || '').toLowerCase();
+  const category = String(item.category || '').toLowerCase();
+  const keywords = Array.isArray(need.keywords) ? need.keywords : [];
+  const categories = Array.isArray(need.categories) ? need.categories : [];
+  return keywords.some(keyword => haystack.includes(String(keyword).toLowerCase()))
+    || categories.some(entry => category.includes(String(entry).toLowerCase()) || type.includes(String(entry).toLowerCase()));
+}
+
+function getRoomWishlistState(roomId) {
+  const room = getRoomById(roomId);
+  const profile = getRoomWishlistProfile(room);
+  const items = ldBuy().filter(item => item.roomId === roomId);
+  const activeItems = items.filter(item => (item.roomRole || 'candidate') !== 'ignore');
+  const selectedItems = getRoomScenarioSelection(roomId, 'selected');
+  const cheapestItems = getRoomScenarioSelection(roomId, 'cheapest');
+  const premiumItems = getRoomScenarioSelection(roomId, 'premium');
+  const bestCombo = typeof getRoomOptimizerData === 'function' ? getRoomOptimizerData(roomId)?.combos?.[0] || null : null;
+  const coverage = profile.needs.map(need => {
+    const matches = activeItems
+      .filter(item => itemMatchesWishlistNeed(item, need))
+      .sort((a, b) => getWishlistItemScore(b, roomId) - getWishlistItemScore(a, roomId));
+    return {
+      ...need,
+      matches,
+      chosen: matches[0] || null
+    };
+  });
+  const matchedCount = coverage.filter(entry => entry.chosen).length;
+  const readinessPct = coverage.length ? Math.round((matchedCount / coverage.length) * 100) : 100;
+  const missingNeeds = coverage.filter(entry => !entry.chosen);
+  const mustItems = activeItems.filter(item => item.roomRole === 'must' || item.mustFitRoom);
+  const currentCost = Number(selectedItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2));
+  const cheapestCost = Number(cheapestItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2));
+  const premiumCost = Number(premiumItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2));
+  const roomFit = typeof getRoomOccupancy === 'function' ? getRoomOccupancy(roomId) : null;
+  return {
+    room,
+    profile,
+    items,
+    activeItems,
+    selectedItems,
+    cheapestItems,
+    premiumItems,
+    currentCost,
+    cheapestCost,
+    premiumCost,
+    bestCombo,
+    coverage,
+    matchedCount,
+    missingNeeds,
+    readinessPct,
+    mustItems,
+    roomFit
+  };
+}
+
+function setWishlistMustPlace(itemId, checked) {
+  const item = getBuyItem(itemId);
+  if (!item) return;
+  item.roomRole = checked ? 'must' : (item.roomRole === 'ignore' ? 'candidate' : 'candidate');
+  item.mustFitRoom = checked;
+  updBuyItem(item);
+  if (typeof renderPlanToolsPanel === 'function') renderPlanToolsPanel();
+  if (typeof rSpaceOptimizer === 'function') rSpaceOptimizer();
+  rBuyBudget();
+  rBuy();
+  toast(checked ? 'Pinned as room must-have' : 'Removed from room must-haves', checked ? 'green' : 'info', 1400);
+}
+
+function autoPinWishlistRoom(roomId) {
+  const state = getRoomWishlistState(roomId);
+  let changed = 0;
+  state.coverage.forEach(entry => {
+    if (!entry.chosen) return;
+    const item = getBuyItem(entry.chosen.id);
+    if (!item) return;
+    if (item.roomRole !== 'must' || !item.mustFitRoom) {
+      item.roomRole = 'must';
+      item.mustFitRoom = true;
+      if (item.optionGroup) {
+        ldBuy().forEach(candidate => {
+          if (candidate.roomId !== roomId) return;
+          if (String(candidate.optionGroup || '').trim() !== String(item.optionGroup || '').trim()) return;
+          candidate.scenarioPick = candidate.id === item.id;
+          updBuyItem(candidate);
+        });
+      }
+      updBuyItem(item);
+      changed += 1;
+    }
+  });
+  if (typeof renderPlanToolsPanel === 'function') renderPlanToolsPanel();
+  rBuyBudget();
+  rBuy();
+  toast(changed ? `Pinned ${changed} room essentials` : 'No extra essentials to pin', changed ? 'green' : 'info', 1400);
+}
+
+function renderRoomPreviewPack(room, items) {
+  const dims = typeof getRoomDimsMeters === 'function' ? getRoomDimsMeters(room) : {
+    widthM: Math.max((room?.w || 0) / (ldPlan()?.scale || 45), 1),
+    depthM: Math.max((room?.h || 0) / (ldPlan()?.scale || 45), 1),
+    areaSqm: 0
+  };
+  const packed = [];
+  let cursorX = 0.35;
+  let cursorY = 0.35;
+  let rowDepth = 0;
+  items
+    .filter(item => item.widthCm && item.depthCm)
+    .sort((a, b) => getBuyItemFootprintSqm(b) - getBuyItemFootprintSqm(a))
+    .forEach(item => {
+      const widthM = Number(((item.widthCm || 0) / 100).toFixed(2));
+      const depthM = Number(((item.depthCm || 0) / 100).toFixed(2));
+      const heightM = Number((((item.heightCm || 80) / 100) || 0.8).toFixed(2));
+      if (cursorX + widthM > dims.widthM - 0.15) {
+        cursorX = 0.35;
+        cursorY += rowDepth + 0.28;
+        rowDepth = 0;
+      }
+      packed.push({
+        item,
+        x: cursorX,
+        y: cursorY,
+        widthM: widthM || 0.8,
+        depthM: depthM || 0.6,
+        heightM: heightM || 0.8
+      });
+      cursorX += widthM + 0.22;
+      rowDepth = Math.max(rowDepth, depthM);
+    });
+  return { dims, packed };
+}
+
+function renderRoom3DVariant(room, title, items, accent, metaText, noteText) {
+  const measuredItems = items.filter(item => item.widthCm && item.depthCm);
+  const { dims, packed } = renderRoomPreviewPack(room, measuredItems);
+  const isoScale = Math.max(28, Math.min(50, 300 / Math.max(dims.widthM + dims.depthM, 1)));
+  const originX = 180;
+  const originY = 210;
+  const project = (x, y, z = 0) => ({
+    x: originX + ((x - y) * isoScale * 0.86),
+    y: originY + ((x + y) * isoScale * 0.42) - (z * isoScale * 0.75)
+  });
+  const roomTop = [
+    project(0, 0, 0),
+    project(dims.widthM, 0, 0),
+    project(dims.widthM, dims.depthM, 0),
+    project(0, dims.depthM, 0)
+  ];
+  const floorPath = roomTop.map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ') + ' Z';
+  const wallHeight = Math.max(1.8, Math.min(2.6, Math.max(...packed.map(entry => entry.heightM), 2.2)));
+  const leftWallPath = [
+    project(0, dims.depthM, 0),
+    project(0, dims.depthM, wallHeight),
+    project(0, 0, wallHeight),
+    project(0, 0, 0)
+  ].map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ') + ' Z';
+  const rightWallPath = [
+    project(dims.widthM, 0, 0),
+    project(dims.widthM, 0, wallHeight),
+    project(dims.widthM, dims.depthM, wallHeight),
+    project(dims.widthM, dims.depthM, 0)
+  ].map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ') + ' Z';
+  const blocks = packed.map((entry, index) => {
+    const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(entry.item) : null;
+    const base = fit?.fits === false ? '#ef4444' : accent;
+    const topColor = fit?.fits === false ? '#fecaca' : `${base}55`;
+    const leftColor = fit?.fits === false ? '#fca5a5' : `${base}66`;
+    const rightColor = fit?.fits === false ? '#fb7185' : `${base}88`;
+    const a = project(entry.x, entry.y, 0);
+    const b = project(entry.x + entry.widthM, entry.y, 0);
+    const c = project(entry.x + entry.widthM, entry.y + entry.depthM, 0);
+    const d = project(entry.x, entry.y + entry.depthM, 0);
+    const aTop = project(entry.x, entry.y, entry.heightM);
+    const bTop = project(entry.x + entry.widthM, entry.y, entry.heightM);
+    const cTop = project(entry.x + entry.widthM, entry.y + entry.depthM, entry.heightM);
+    const dTop = project(entry.x, entry.y + entry.depthM, entry.heightM);
+    const topPath = `M ${aTop.x.toFixed(1)} ${aTop.y.toFixed(1)} L ${bTop.x.toFixed(1)} ${bTop.y.toFixed(1)} L ${cTop.x.toFixed(1)} ${cTop.y.toFixed(1)} L ${dTop.x.toFixed(1)} ${dTop.y.toFixed(1)} Z`;
+    const leftPath = `M ${d.x.toFixed(1)} ${d.y.toFixed(1)} L ${dTop.x.toFixed(1)} ${dTop.y.toFixed(1)} L ${aTop.x.toFixed(1)} ${aTop.y.toFixed(1)} L ${a.x.toFixed(1)} ${a.y.toFixed(1)} Z`;
+    const rightPath = `M ${b.x.toFixed(1)} ${b.y.toFixed(1)} L ${bTop.x.toFixed(1)} ${bTop.y.toFixed(1)} L ${cTop.x.toFixed(1)} ${cTop.y.toFixed(1)} L ${c.x.toFixed(1)} ${c.y.toFixed(1)} Z`;
+    const labelPoint = project(entry.x + (entry.widthM / 2), entry.y + (entry.depthM / 2), entry.heightM + 0.05);
+    return `
+      <path d="${leftPath}" fill="${leftColor}" stroke="${base}" stroke-width="1"></path>
+      <path d="${rightPath}" fill="${rightColor}" stroke="${base}" stroke-width="1"></path>
+      <path d="${topPath}" fill="${topColor}" stroke="${base}" stroke-width="1.2"></path>
+      <text x="${labelPoint.x.toFixed(1)}" y="${labelPoint.y.toFixed(1)}" text-anchor="middle" font-size="10" fill="#0f172a">${esc(trunc(entry.item.name, index === 0 ? 14 : 12))}</text>
+    `;
+  }).join('');
+  return `<div class="note-box" style="display:grid;gap:10px;padding:14px;border-color:${accent}33;background:linear-gradient(135deg,#ffffff 0%,${accent}12 100%)">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.8rem;font-weight:700;color:var(--bd)">${esc(title)}</div>
+        <div style="font-size:.62rem;color:var(--bd3)">${esc(metaText)}</div>
+      </div>
+      ${noteText ? `<div style="font-size:.6rem;color:var(--bd2);background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 8px">${esc(noteText)}</div>` : ''}
+    </div>
+    <svg viewBox="0 0 360 260" style="width:100%;height:auto;border-radius:14px;background:radial-gradient(circle at top,#ffffff 0%,#f8fafc 68%,#eef2ff 100%);border:1px solid var(--border)">
+      <defs>
+        <linearGradient id="room-floor-${esc(title).replace(/[^a-z0-9]/gi,'').toLowerCase()}" x1="0" x2="1">
+          <stop offset="0%" stop-color="#ffffff"></stop>
+          <stop offset="100%" stop-color="${accent}26"></stop>
+        </linearGradient>
+      </defs>
+      <path d="${leftWallPath}" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"></path>
+      <path d="${rightWallPath}" fill="#eef2ff" stroke="#cbd5e1" stroke-width="1.2"></path>
+      <path d="${floorPath}" fill="url(#room-floor-${esc(title).replace(/[^a-z0-9]/gi,'').toLowerCase()})" stroke="#94a3b8" stroke-width="1.4"></path>
+      ${blocks || `<text x="180" y="145" text-anchor="middle" font-size="12" fill="#64748b">Add measured items in this room to generate a pseudo-3D layout.</text>`}
+      <text x="48" y="32" font-size="11" fill="#475569">${dims.widthM.toFixed(2)} m wide</text>
+      <text x="244" y="56" font-size="11" fill="#475569">${dims.depthM.toFixed(2)} m deep</text>
+    </svg>
+  </div>`;
+}
+
+function renderRoomReadinessCard(state) {
+  const roomDims = typeof getRoomDimsMeters === 'function' ? getRoomDimsMeters(state.room) : null;
+  const bestComboFree = state.bestCombo ? state.bestCombo.freeAreaM2.toFixed(2) : null;
+  return `<div class="note-box" style="display:grid;gap:10px;padding:14px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--bd)">${esc(state.room.emoji || '📦')} ${esc(state.room.label || state.room.id)}</div>
+        <div style="font-size:.62rem;color:var(--bd3)">${esc(state.profile.title)}${roomDims ? ` · ${roomDims.widthM.toFixed(2)}×${roomDims.depthM.toFixed(2)} m` : ''}</div>
+      </div>
+      <div style="min-width:140px">
+        <div style="display:flex;justify-content:space-between;font-size:.6rem;color:var(--bd3);margin-bottom:3px">
+          <span>${state.matchedCount}/${state.coverage.length} essentials</span>
+          <span>${state.readinessPct}% ready</span>
+        </div>
+        ${progressBar(state.readinessPct, state.readinessPct >= 75 ? 'var(--gn)' : state.readinessPct >= 40 ? '#f59e0b' : 'var(--pk)', '8px')}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+      <div style="background:var(--bg2);border-radius:12px;padding:10px">
+        <div style="font-size:.58rem;color:var(--bd3)">Current room budget</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--pk)">${fmtEur(state.currentCost, 0)}</div>
+        <div style="font-size:.55rem;color:var(--bd3)">Cheapest ${fmtEur(state.cheapestCost, 0)} · Premium ${fmtEur(state.premiumCost, 0)}</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:12px;padding:10px">
+        <div style="font-size:.58rem;color:var(--bd3)">Pinned room must-haves</div>
+        <div style="font-size:1rem;font-weight:700;color:var(--bd)">${state.mustItems.length}</div>
+        <div style="font-size:.55rem;color:var(--bd3)">${bestComboFree ? `${bestComboFree} m² free in best combo` : 'No optimizer combo yet'}</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:12px;padding:10px">
+        <div style="font-size:.58rem;color:var(--bd3)">Floor occupancy</div>
+        <div style="font-size:1rem;font-weight:700;color:${(state.roomFit?.occupancyPct || 0) > 80 ? 'var(--pk)' : 'var(--gn)'}">${state.roomFit?.freeSqm?.toFixed(2) || '0.00'} m² free</div>
+        <div style="font-size:.55rem;color:var(--bd3)">${state.roomFit?.entries?.length || 0} placed / planned elements</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${state.missingNeeds.length
+        ? state.missingNeeds.map(entry => `<span class="mini-chip con">Missing: ${esc(entry.label)}</span>`).join('')
+        : '<span class="mini-chip pro">All core essentials mapped</span>'}
+    </div>
+    <div style="display:grid;gap:8px">
+      ${state.coverage.map(entry => {
+        const suggested = entry.chosen;
+        return `<div style="display:grid;gap:6px;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
+            <div>
+              <div style="font-size:.72rem;font-weight:700;color:var(--bd)">${esc(entry.label)}</div>
+              <div style="font-size:.58rem;color:var(--bd3)">${esc(entry.hint || '')}</div>
+            </div>
+            ${suggested
+              ? `<label style="font-size:.62rem;color:var(--bd2);display:flex;gap:6px;align-items:center">
+                  <input type="checkbox" ${(suggested.roomRole === 'must' || suggested.mustFitRoom) ? 'checked' : ''} onchange="setWishlistMustPlace('${suggested.id}',this.checked)">
+                  Pin as must
+                </label>`
+              : '<span style="font-size:.58rem;color:var(--pk)">No candidate yet</span>'}
+          </div>
+          ${suggested
+            ? `<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;background:var(--bg2);border-radius:10px;padding:8px 10px">
+                <div>
+                  <div style="font-size:.72rem;font-weight:600">${esc(suggested.name)}</div>
+                  <div style="font-size:.58rem;color:var(--bd3)">${dimStr(suggested) || 'No dimensions'} · ${getBuyItemFootprintSqm(suggested).toFixed(2)} m² footprint${suggested.optionGroup ? ` · ${esc(suggested.optionGroup)}` : ''}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:.72rem;font-weight:700;color:${normalizeItemSource(suggested.source) === 'existing' ? 'var(--gn)' : 'var(--pk)'}">${normalizeItemSource(suggested.source) === 'existing' ? 'Owned' : fmtEur(suggested.price || 0, 0)}</div>
+                  <div style="font-size:.55rem;color:var(--bd3)">${typeof getRoomFitAnalysis === 'function' && getRoomFitAnalysis(suggested)?.fits === false ? 'Needs fit review' : 'Fits current room plan'}</div>
+                </div>
+              </div>`
+            : ''}
+          ${entry.matches.length > 1
+            ? `<div style="display:flex;gap:6px;flex-wrap:wrap">
+                ${entry.matches.slice(0, 3).map(match => `<span class="chip" style="cursor:pointer" onclick="openItemDetail('${match.id}')">${esc(trunc(match.name, 20))}</span>`).join('')}
+              </div>`
+            : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sml pri" onclick="autoPinWishlistRoom('${state.room.id}')">✨ Auto-pin suggested essentials</button>
+      <button class="btn sml" onclick="openRoomInPlanOptimizer('${state.room.id}')">🧠 Open free-space optimizer</button>
+    </div>
+  </div>`;
+}
+
+function rRoom3D() {
+  initPillFilter('room3d', 'room', '');
+  const el = document.getElementById('room-3d-content');
+  if (!el) return;
+  const rooms = getAllRooms().filter(room => ldBuy().some(item => item.roomId === room.id));
+  if (!rooms.length) {
+    el.innerHTML = '<div class="empty"><div class="ei">🧊</div>Add room-assigned furniture with dimensions to generate a pseudo-3D preview.</div>';
+    return;
+  }
+  const roomOptions = rooms.map(room => ({ k: room.id, l: room.label || room.id, e: room.emoji || '📦' }));
+  const activeRoomId = getPillVal('room3d', 'room') || rooms[0].id;
+  const room = getRoomById(activeRoomId);
+  const selectedItems = getRoomScenarioSelection(activeRoomId, 'selected');
+  const optimizerData = typeof getRoomOptimizerData === 'function' ? getRoomOptimizerData(activeRoomId) : null;
+  const bestCombo = optimizerData?.combos?.[0] || null;
+  const currentFootprint = Number(selectedItems.reduce((sum, item) => sum + getBuyItemFootprintSqm(item), 0).toFixed(2));
+  const currentFree = optimizerData ? Math.max(0, optimizerData.roomAreaM2 - currentFootprint).toFixed(2) : '0.00';
+  let html = buildPillFilters('room3d', 'room', roomOptions, rRoom3D);
+  html += `<div class="note-box" style="margin-bottom:10px;background:linear-gradient(135deg,#fff7ed 0%,#ffffff 42%,#eff6ff 100%)">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--bd)">🧊 Pseudo-3D Room Preview</div>
+        <div style="font-size:.62rem;color:var(--bd3)">A quick isometric layout based on your measurements, shortlist picks, and best free-space combo. This complements the exact 2D blueprint planner; it does not replace true 3D modeling.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="mini-stat"><div class="ms-num">${selectedItems.length}</div><div class="ms-lbl">Current picks</div></div>
+        <div class="mini-stat"><div class="ms-num">${currentFootprint.toFixed(2)}</div><div class="ms-lbl">m² used now</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${currentFree}</div><div class="ms-lbl">m² free now</div></div>
+      </div>
+    </div>
+  </div>`;
+  html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
+    ${renderRoom3DVariant(
+      room,
+      'Current shortlist',
+      selectedItems,
+      '#f97316',
+      `${selectedItems.length} selected items · ${currentFootprint.toFixed(2)} m² footprint`,
+      'Editable via your shortlist and scenario picks'
+    )}
+    ${renderRoom3DVariant(
+      room,
+      'Best free-space setup',
+      bestCombo?.selectedItems || selectedItems,
+      '#0f766e',
+      bestCombo
+        ? `${bestCombo.selectedItems.length} items · ${bestCombo.footprintM2.toFixed(2)} m² footprint · ${bestCombo.freeAreaM2.toFixed(2)} m² free`
+        : 'No optimizer combo yet; showing current shortlist instead',
+      bestCombo
+        ? (bestCombo.fits ? 'Best fitting combination' : 'Best combo still needs fit review')
+        : 'Same data as current shortlist'
+    )}
+  </div>`;
+  html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+    <button class="btn sml" onclick="openRoomInPlanOptimizer('${activeRoomId}')">🧠 Open optimizer for ${esc(room.label || activeRoomId)}</button>
+    <button class="btn sml" onclick="switchBuySubtab('wishlist')">✨ Open setup wishlist</button>
+  </div>`;
+  el.innerHTML = html;
+}
+
+function rWishlistPlanner() {
+  const el = document.getElementById('wishlist-planner-content');
+  if (!el) return;
+  const states = getAllRooms()
+    .filter(room => ldBuy().some(item => item.roomId === room.id))
+    .map(room => getRoomWishlistState(room.id))
+    .sort((a, b) => a.readinessPct - b.readinessPct);
+  if (!states.length) {
+    el.innerHTML = '<div class="empty"><div class="ei">✨</div>Assign wishlist items to rooms to unlock room readiness, must-have pinning, and free-space suggestions.</div>';
+    return;
+  }
+  const scenarioStats = typeof getBuyScenarioStats === 'function' ? getBuyScenarioStats() : null;
+  const totalMissing = states.reduce((sum, state) => sum + state.missingNeeds.length, 0);
+  const totalMust = states.reduce((sum, state) => sum + state.mustItems.length, 0);
+  const readyRooms = states.filter(state => state.readinessPct >= 75).length;
+  let html = `<div class="note-box" style="margin-bottom:10px;background:linear-gradient(135deg,#fdf2f8 0%,#ffffff 38%,#ecfeff 100%)">
+    <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.84rem;font-weight:700;color:var(--bd)">✨ Setup Wishlist Intelligence</div>
+        <div style="font-size:.62rem;color:var(--bd3)">This view audits each room against move-in essentials, lets you pin must-have items, and reuses the planner optimizer to surface the combination that keeps the most free space.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="mini-stat"><div class="ms-num">${readyRooms}/${states.length}</div><div class="ms-lbl">Rooms mostly ready</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:var(--pk)">${totalMissing}</div><div class="ms-lbl">Missing essentials</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${totalMust}</div><div class="ms-lbl">Pinned must-haves</div></div>
+        ${scenarioStats ? `<div class="mini-stat"><div class="ms-num">${fmtEur(scenarioStats.selectedTotal,0)}</div><div class="ms-lbl">Current total</div></div>` : ''}
+      </div>
+    </div>
+    ${scenarioStats ? `<div style="margin-top:10px;font-size:.62rem;color:var(--bd3)">Scenario spread: cheapest ${fmtEur(scenarioStats.cheapestTotal,0)} · current ${fmtEur(scenarioStats.selectedTotal,0)} · premium ${fmtEur(scenarioStats.premiumTotal,0)}</div>` : ''}
+  </div>`;
+  html += states.map(state => renderRoomReadinessCard(state)).join('');
   el.innerHTML = html;
 }
