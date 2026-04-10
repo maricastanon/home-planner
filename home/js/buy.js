@@ -5,11 +5,20 @@
 // Active chip state for add/edit modal
 let _buyPros = [], _buyCons = [];
 let _editBuyPros = [], _editBuyCons = [];
+let _buySubtab = 'items';
 
 // ── MAIN RENDER ──────────────────────────────────────────────
 function rBuy() {
   rBuyBudget();
-  rBuyList();
+  syncBuySubtabs();
+  if (_buySubtab === 'fit') {
+    rFitTest();
+  } else if (_buySubtab === 'budget') {
+    rBudgetPlanner();
+  } else {
+    rBuyList();
+  }
+  updateCompareFab();
 }
 
 // ── BUDGET BAR ──────────────────────────────────────────────
@@ -601,7 +610,7 @@ function addToCompare(id) {
     _compareIds.clear();
     _compareSource = 'buy';
   }
-  if(_compareIds.size>=4) { toast('Max 4 items in comparison','warn'); return; }
+  if(_compareIds.size>=5) { toast('Max 5 items in comparison','warn'); return; }
   _compareIds.add(id);
   toast('Added to comparison ⚖️','info');
   updateCompareFab();
@@ -716,4 +725,237 @@ function renderFootprintViz(it) {
       <div style="position:absolute;bottom:2px;right:3px;font-size:.5rem;color:var(--bd3)">${it.widthCm}×${it.depthCm}cm</div>
     </div>
   </div>`;
+}
+
+function syncBuySubtabs() {
+  document.querySelectorAll('.buy-subtab').forEach(el => {
+    el.classList.toggle('active', el.dataset.subtab === _buySubtab);
+  });
+  document.querySelectorAll('.buy-subtab-panel').forEach(el => {
+    el.classList.toggle('active', el.id === 'buy-sub-' + _buySubtab);
+  });
+}
+
+function switchBuySubtab(tab) {
+  _buySubtab = tab || 'items';
+  rBuy();
+}
+
+function getBuyItemFootprintSqm(it) {
+  if (typeof getItemFootprintSqm === 'function') return getItemFootprintSqm(it);
+  return Number(itemFootprint(it) || 0);
+}
+
+function openRoomInPlanOptimizer(roomId) {
+  if (!roomId) return;
+  if (typeof switchTab === 'function') switchTab('plan');
+  if (typeof switchPlanToolsTab === 'function') switchPlanToolsTab('optimizer');
+  if (typeof selectRoom === 'function') selectRoom(roomId);
+}
+
+function renderFitPreview(room, items) {
+  if (!room || !items.length) return '';
+  const scale = Math.max(room.w || 1, room.h || 1);
+  const svgW = 280;
+  const svgH = Math.max(120, Math.round(((room.h || 1) / scale) * 220));
+  let xOff = 8;
+  let yOff = 8;
+  const blocks = items.map(it => {
+    const rectW = Math.max(18, Math.round(((it.widthCm || it.depthCm || 60) / 100) / Math.max((room.w || 1) / (ldPlan()?.scale || 45), 1) * (svgW - 28)));
+    const rectH = Math.max(14, Math.round(((it.depthCm || it.widthCm || 60) / 100) / Math.max((room.h || 1) / (ldPlan()?.scale || 45), 1) * (svgH - 28)));
+    if (xOff + rectW > svgW - 8) {
+      xOff = 8;
+      yOff += rectH + 8;
+    }
+    const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
+    const color = fit?.fits ? '#bbf7d0' : '#fecaca';
+    const stroke = fit?.fits ? '#15803d' : '#dc2626';
+    const block = `<rect x="${xOff}" y="${yOff}" width="${rectW}" height="${rectH}" rx="6" fill="${color}" stroke="${stroke}" stroke-width="1.5"></rect>
+      <text x="${xOff + (rectW / 2)}" y="${yOff + (rectH / 2) + 3}" text-anchor="middle" font-size="9" fill="#1e293b">${esc(trunc(it.name, 10))}</text>`;
+    xOff += rectW + 8;
+    return block;
+  }).join('');
+  return `<div style="text-align:center;margin:8px 0 4px">
+    <svg width="${svgW}" height="${svgH}" style="border:2px solid var(--border);border-radius:12px;background:#fafafa">
+      <rect x="1" y="1" width="${svgW - 2}" height="${svgH - 2}" rx="12" fill="rgba(244,114,182,.05)" stroke="rgba(15,23,42,.08)"></rect>
+      ${blocks}
+    </svg>
+    <div style="font-size:.58rem;color:var(--bd3);margin-top:4px">Footprint preview for quick fit checks before placing items on the floor plan.</div>
+  </div>`;
+}
+
+function rFitTest() {
+  initPillFilter('fit', 'room', '');
+  const el = document.getElementById('fit-test-content');
+  if (!el) return;
+  const items = ldBuy().filter(it => it.roomId && (it.widthCm || it.depthCm));
+  const roomFilter = getPillVal('fit', 'room') || '';
+  const filtered = roomFilter ? items.filter(it => it.roomId === roomFilter) : items;
+  const roomOpts = [...new Set(items.map(it => it.roomId))]
+    .map(roomId => {
+      const room = getRoomById(roomId);
+      return roomId ? { k: roomId, l: room.label || roomId, e: room.emoji } : null;
+    })
+    .filter(Boolean);
+  let html = buildPillFilters('fit', 'room', roomOpts, rFitTest);
+  if (!filtered.length) {
+    el.innerHTML = html + '<div style="color:var(--bd3);font-size:.72rem;padding:20px;text-align:center">Add room assignments and dimensions to your buy items to use Fit Test.</div>';
+    return;
+  }
+  const byRoom = filtered.reduce((map, it) => {
+    (map[it.roomId] = map[it.roomId] || []).push(it);
+    return map;
+  }, {});
+  html += Object.entries(byRoom).map(([roomId, roomItems]) => {
+    const roomMeta = getRoomById(roomId);
+    const roomRecord = typeof getRoomRecord === 'function' ? getRoomRecord(roomId) : { room: null };
+    const room = roomRecord?.room || null;
+    const scale = ldPlan()?.scale || 45;
+    const occupancy = typeof getRoomOccupancy === 'function' ? getRoomOccupancy(roomId) : null;
+    const bestCombo = typeof getRoomOptimizerData === 'function' ? getRoomOptimizerData(roomId)?.combos?.[0] : null;
+    return `<div class="fit-room-card">
+      <div class="fit-room-hdr">
+        <div>
+          <span style="font-weight:700">${esc(roomMeta.emoji || '📦')} ${esc(roomMeta.label || roomId)}</span>
+          ${room ? `<span style="font-size:.65rem;color:var(--bd3);margin-left:6px">${((room.w || 0) / scale).toFixed(2)}×${((room.h || 0) / scale).toFixed(2)}m</span>` : ''}
+        </div>
+        <div style="font-size:.72rem;font-weight:700;color:${(occupancy?.pct || 0) > 80 ? 'var(--pk)' : 'var(--gn)'}">${occupancy?.freeAreaM2?.toFixed(2) || '0.00'} m² free</div>
+      </div>
+      ${renderFitPreview(room, roomItems)}
+      ${bestCombo ? `<div class="note-box" style="margin:0 12px 8px">Best option-group setup leaves <strong>${bestCombo.freeAreaM2.toFixed(2)} m²</strong> free.</div>` : ''}
+      <div style="display:flex;justify-content:flex-end;padding:0 12px 8px">
+        <button class="btn sml" onclick="openRoomInPlanOptimizer('${roomId}')">🧠 Open room optimizer</button>
+      </div>
+      ${roomItems.map(it => {
+        const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
+        const source = getItemSourceMeta(it.source);
+        const photo = it.photos?.[0];
+        return `<div class="fit-item-row">
+          ${photo ? `<img src="${esc(photo)}" class="fit-item-thumb">` : `<div class="fit-item-thumb-placeholder">${esc(source.e || '📦')}</div>`}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.75rem">${esc(it.name)}</div>
+            <div style="font-size:.62rem;color:var(--bd3)">${dimStr(it) || 'Dimensions pending'} · ${getBuyItemFootprintSqm(it).toFixed(2)} m² footprint</div>
+            <div style="font-size:.62rem;color:var(--bd3)">${source.badge || source.l}${it.price && normalizeItemSource(it.source) === 'new' ? ' · ' + fmtEur(it.price, 0) : ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="fit-badge ${fit?.fits ? 'fits' : 'no-fit'}">${fit?.fits ? 'Fits' : 'Check size'}</div>
+            <div style="font-size:.58rem;color:var(--bd3);margin-top:2px">${fit ? `${fit.footprintPct}% of room` : 'Add room + size'}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
+}
+
+function pickScenarioItem(itemId, groupName) {
+  ldBuy().forEach(it => {
+    if (String(it.optionGroup || '').trim() !== groupName) return;
+    it.scenarioPick = it.id === itemId;
+    updBuyItem(it);
+  });
+  rBuyBudget();
+  rBudgetPlanner();
+  if (document.getElementById('compare-modal')?.classList.contains('open')) rCompareModal();
+}
+
+function applyScenario(mode) {
+  const stats = getBuyScenarioStats();
+  const picks = mode === 'premium'
+    ? stats.premiumGroupItems
+    : mode === 'cheapest'
+      ? stats.cheapestGroupItems
+      : stats.selectedGroupItems;
+  const targetIds = new Set((picks || []).map(it => it.id));
+  ldBuy().forEach(it => {
+    if (!String(it.optionGroup || '').trim()) return;
+    it.scenarioPick = targetIds.has(it.id);
+    updBuyItem(it);
+  });
+  rBuyBudget();
+  rBudgetPlanner();
+  if (document.getElementById('compare-modal')?.classList.contains('open')) rCompareModal();
+  toast(`${mode === 'premium' ? 'Premium' : mode === 'cheapest' ? 'Cheapest' : 'Current'} scenario applied`, 'green');
+}
+
+function rBudgetPlanner() {
+  const el = document.getElementById('budget-planner-content');
+  if (!el) return;
+  const stats = getBuyScenarioStats();
+  const budgetMax = ldSettings().maxBudget || 5000;
+  const groupedEntries = Object.entries(stats.grouped || {});
+  const budgetPct = budgetMax ? Math.round((stats.selectedTotal / budgetMax) * 100) : 0;
+  let html = `<div class="scenario-hero">
+    <div style="font-size:.72rem;font-weight:700;color:var(--pk);margin-bottom:10px">Budget Scenarios</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="scenario-card selected-scenario" onclick="applyScenario('selected')">
+        <div style="font-size:.58rem;color:var(--bd3)">Current picks</div>
+        <div style="font-size:1.3rem;font-weight:700;color:${stats.selectedTotal > budgetMax ? 'var(--pk)' : 'var(--gn)'}">${fmtEur(stats.selectedTotal, 0)}</div>
+        <div style="font-size:.55rem;color:var(--bd3)">${stats.selectedTotal > budgetMax ? 'Over budget' : 'Within budget'}</div>
+      </div>
+      <div class="scenario-card cheapest-scenario" onclick="applyScenario('cheapest')">
+        <div style="font-size:.58rem;color:var(--bd3)">Cheapest combo</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--gn)">${fmtEur(stats.cheapestTotal, 0)}</div>
+        <div style="font-size:.55rem;color:var(--bd3)">Save ${fmtEur(Math.max(0, stats.selectedTotal - stats.cheapestTotal), 0)}</div>
+      </div>
+      <div class="scenario-card premium-scenario" onclick="applyScenario('premium')">
+        <div style="font-size:.58rem;color:var(--bd3)">Premium combo</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--pk)">${fmtEur(stats.premiumTotal, 0)}</div>
+        <div style="font-size:.55rem;color:var(--bd3)">+${fmtEur(Math.max(0, stats.premiumTotal - stats.selectedTotal), 0)} vs current</div>
+      </div>
+    </div>
+    <div style="font-size:.62rem;color:var(--bd3);margin-bottom:4px">Budget ${fmtEur(budgetMax, 0)} · ${stats.groupCount} option group${stats.groupCount !== 1 ? 's' : ''} · ${stats.reusedCount} reused item${stats.reusedCount !== 1 ? 's' : ''}</div>
+    ${progressBar(Math.min(100, budgetPct), stats.selectedTotal > budgetMax ? 'var(--pk)' : 'var(--gn)', '8px')}
+  </div>`;
+
+  if (!groupedEntries.length) {
+    html += '<div class="note-box">Add an <strong>option group</strong> like "Fridge shortlist" or "Living room sofa" to compare alternatives side by side and generate scenario totals automatically.</div>';
+  } else {
+    html += '<div style="font-size:.72rem;font-weight:700;color:var(--bd);margin:14px 0 8px">Option Groups</div>';
+    html += groupedEntries.map(([groupName, groupItems]) => `
+      <div class="option-group-card">
+        <div style="font-weight:700;font-size:.75rem;margin-bottom:6px">${esc(groupName)} <span style="font-size:.6rem;color:var(--bd3)">${groupItems.length} options</span></div>
+        <div class="option-cards-row">
+          ${[...groupItems].sort((a, b) => (a.price || 0) - (b.price || 0)).map(it => {
+            const photo = it.photos?.[0];
+            const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
+            const picked = Boolean(it.scenarioPick);
+            return `<div class="option-card ${picked ? 'picked' : ''}">
+              ${picked ? '<div class="picked-badge">Selected</div>' : ''}
+              ${photo ? `<img src="${esc(photo)}" class="option-card-img">` : `<div class="option-card-img-placeholder">${esc((getRoomById(it.roomId)?.emoji) || '📦')}</div>`}
+              <div class="option-card-name">${esc(trunc(it.name, 24))}</div>
+              <div class="option-card-price">${normalizeItemSource(it.source) === 'existing' ? 'Already owned' : fmtEur(it.price || 0, 0)}</div>
+              <div class="option-card-meta">${esc(it.brand || 'No brand set')}</div>
+              <div class="option-card-meta">${dimStr(it) || 'No dimensions yet'}</div>
+              <div class="option-card-meta">${getBuyItemFootprintSqm(it).toFixed(2)} m² footprint${it.roomRole === 'must' ? ' · must place' : ''}</div>
+              ${fit ? `<div class="option-card-fit ${fit.fits ? 'fits' : 'no-fit'}">${fit.fits ? 'Fits in room' : 'Needs review'}</div>` : ''}
+              <div style="margin-top:4px">${(it.pros || []).slice(0, 2).map(p => `<span class="mini-chip pro">${esc(p)}</span>`).join('')}${(it.cons || []).slice(0, 2).map(c => `<span class="mini-chip con">${esc(c)}</span>`).join('')}</div>
+              <button class="btn sml pri" style="margin-top:8px;width:100%" onclick="pickScenarioItem('${it.id}',${jsq(groupName)})">${picked ? 'Selected' : 'Pick this'}</button>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const roomBudget = typeof getBudgetByRoom === 'function' ? Object.entries(getBudgetByRoom()) : [];
+  if (roomBudget.length) {
+    html += '<div style="font-size:.72rem;font-weight:700;color:var(--bd);margin:14px 0 8px">Budget by Room</div>';
+    html += roomBudget
+      .sort((a, b) => (b[1].est || 0) - (a[1].est || 0))
+      .map(([roomId, data]) => {
+        const room = getRoomById(roomId);
+        const optimizer = typeof getRoomOptimizerData === 'function' ? getRoomOptimizerData(roomId)?.combos?.[0] : null;
+        return `<div class="note-box" style="display:grid;gap:4px">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+            <strong>${esc(room.emoji || '📦')} ${esc(room.label || roomId)}</strong>
+            <span>${fmtEur(data.est || 0, 0)}</span>
+          </div>
+          <div style="font-size:.62rem;color:var(--bd3)">${data.count} planned item${data.count !== 1 ? 's' : ''}${optimizer ? ` · best setup leaves ${optimizer.freeAreaM2.toFixed(2)} m² free` : ''}</div>
+          <div><button class="btn sml" onclick="openRoomInPlanOptimizer('${roomId}')">🧠 Check room setup</button></div>
+        </div>`;
+      }).join('');
+  }
+
+  el.innerHTML = html;
 }

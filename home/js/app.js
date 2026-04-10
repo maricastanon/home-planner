@@ -6,16 +6,12 @@ window.HomeApp = (function createHomeApp() {
   let booted = false;
   let planUiWrapped = false;
 
-  function authShell() { return document.getElementById('auth-shell'); }
   function appShell() { return document.getElementById('app-shell'); }
 
   function setShellVisibility(showApp) {
-    const auth = authShell();
+    const login = document.getElementById('loginBg');
     const app = appShell();
-    if (auth) {
-      auth.hidden = showApp;
-      auth.setAttribute('aria-hidden', String(showApp));
-    }
+    if (login) login.classList.toggle('hidden', showApp);
     if (app) {
       app.hidden = !showApp;
       app.setAttribute('aria-hidden', String(!showApp));
@@ -38,7 +34,7 @@ window.HomeApp = (function createHomeApp() {
       userPill.hidden = !user;
       userPill.textContent = user ? `🔒 ${user.email || user.username || 'Authenticated'}` : '';
     }
-    if (logoutBtn) logoutBtn.hidden = !user;
+    if (logoutBtn) { logoutBtn.hidden = !user; logoutBtn.onclick = () => doLogout(); }
     if (adminBtn) {
       adminBtn.hidden = !isAdmin;
       adminBtn.onclick = isAdmin

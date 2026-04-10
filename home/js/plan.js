@@ -10,6 +10,9 @@ let dragging  = null;
 let dragOff   = { x: 0, y: 0 };
 let drawStart = null;
 let drawCurrent = null;
+let measureStart = null;
+let measureCurrent = null;
+let lastMeasurement = null;
 let undoStack = [];
 let redoStack = [];
 let hoveredRoom = null;
@@ -75,6 +78,9 @@ function restorePlanSnapshot(snapshot) {
   dragging = null;
   drawStart = null;
   drawCurrent = null;
+  measureStart = null;
+  measureCurrent = null;
+  lastMeasurement = null;
   hoveredRoom = null;
 }
 function savePlan(options = {}) {
@@ -112,7 +118,7 @@ function getFloor() { return planState.floors[planState.activeFloor] || planStat
 function getFloorBlueprint(floor = getFloor()) {
   if (!floor) return null;
   if (!floor.blueprint) {
-    floor.blueprint = { src:'', widthM:0, heightM:0, x:0, y:0, opacity:0.38 };
+    floor.blueprint = { src:'', widthM:0, heightM:0, x:0, y:0, opacity:0.38, hidden:false, presetId:'', presetLabel:'' };
   }
   return floor.blueprint;
 }
@@ -121,7 +127,7 @@ function hasFloorBlueprint(floor = getFloor()) {
 }
 function getBlueprintBounds(floor = getFloor()) {
   const blueprint = getFloorBlueprint(floor);
-  if (!blueprint?.src || !blueprint.widthM || !blueprint.heightM) return null;
+  if (!blueprint?.src || blueprint.hidden || !blueprint.widthM || !blueprint.heightM) return null;
   return {
     x: blueprint.x || 0,
     y: blueprint.y || 0,
@@ -145,6 +151,35 @@ function getAvailableBlueprintPresets() {
     ? PRELOADED_BLUEPRINTS
     : [];
 }
+function getBlueprintPreset(presetId) {
+  return getAvailableBlueprintPresets().find(entry => entry.id === presetId) || null;
+}
+function ensureBlueprintPresetFloor(preset) {
+  if (!preset?.floorId) return getFloor();
+  const presetFloor = typeof window.getPreloadedFloorPreset === 'function'
+    ? window.getPreloadedFloorPreset(preset.id)
+    : null;
+  let floorIndex = planState.floors.findIndex(entry => entry.id === preset.floorId);
+  if (floorIndex < 0 && presetFloor) {
+    planState.floors.push(presetFloor);
+    floorIndex = planState.floors.length - 1;
+  } else if (floorIndex >= 0 && presetFloor) {
+    const targetFloor = planState.floors[floorIndex];
+    if (!Array.isArray(targetFloor.rooms) || !targetFloor.rooms.length) {
+      targetFloor.rooms = presetFloor.rooms || [];
+      targetFloor.furniture = presetFloor.furniture || [];
+    }
+    if (presetFloor.storageNote && !targetFloor.storageNote) targetFloor.storageNote = presetFloor.storageNote;
+    targetFloor.name = preset.floorName || targetFloor.name;
+  }
+  if (floorIndex >= 0) {
+    planState.activeFloor = floorIndex;
+    selected = null;
+    hoveredRoom = null;
+    renderFloorTabs();
+  }
+  return getFloor();
+}
 function applyBlueprintPresetConfig(config, options = {}) {
   const { notify = true } = options;
   if (!config?.src) return false;
@@ -156,27 +191,32 @@ function applyBlueprintPresetConfig(config, options = {}) {
     x: (Number(config.x) || 0) * planState.scale,
     y: (Number(config.y) || 0) * planState.scale,
     opacity: Math.min(1, Math.max(0.05, Number(config.opacity) || 0.38)),
+    hidden: false,
     presetId: config.id || '',
-    presetLabel: config.label || ''
+    presetLabel: config.label || '',
+    note: config.note || ''
   });
   savePlan();
+  renderFloorTabs();
   renderPlan();
+  rPlanSidebar();
   renderPlanToolsPanel();
-  if (notify) toast(`${config.label || 'Blueprint preset'} loaded with pre-seeded apartment measurements.`, 'green', 3200);
+  if (notify) toast(`${config.label || 'Blueprint preset'} loaded with seeded measurements.`, 'green', 3200);
   return true;
 }
 function loadPreloadedBlueprintPreset(presetId) {
-  const preset = getAvailableBlueprintPresets().find(entry => entry.id === presetId);
+  const preset = getBlueprintPreset(presetId);
   if (!preset) {
     toast('Blueprint preset not found', 'warn');
     return false;
   }
+  ensureBlueprintPresetFloor(preset);
   const ok = applyBlueprintPresetConfig(preset);
   if (ok && typeof syncBlueprintModal === 'function') syncBlueprintModal();
   return ok;
 }
 function uploadPlanBlueprint(file) {
-  importBlueprint(file);
+  importPlanBlueprint(file);
   const input = document.getElementById('plan-blueprint-input');
   if (input) input.value = '';
 }
@@ -417,6 +457,150 @@ function getRoomOptimizerData(roomId) {
     combos: combos.slice(0, 3)
   };
 }
+function getMeasurementDetails(line = lastMeasurement) {
+  if (!line) return null;
+  const dx = (line.x2 || 0) - (line.x1 || 0);
+  const dy = (line.y2 || 0) - (line.y1 || 0);
+  const px = Math.hypot(dx, dy);
+  if (!px) return null;
+  const meters = px / Math.max(planState.scale || 45, 1);
+  return {
+    ...line,
+    px,
+    meters,
+    labelMeters: Number(line.actualMeters) > 0 ? Number(line.actualMeters) : meters,
+    angle: Math.atan2(dy, dx)
+  };
+}
+function getFloorMeasurements() {
+  const floor = getFloor();
+  if (!floor) return [];
+  if (!Array.isArray(floor.measurements)) floor.measurements = [];
+  return floor.measurements;
+}
+function drawMeasurements(ctx, sc) {
+  getFloorMeasurements().forEach(line => drawMeasurementLine(ctx, line, sc, '#e11d48', false));
+  if (measureStart && measureCurrent) {
+    drawMeasurementLine(ctx, {
+      x1: measureStart.x,
+      y1: measureStart.y,
+      x2: measureCurrent.x,
+      y2: measureCurrent.y,
+      actualMeters: lastMeasurement?.actualMeters || 0
+    }, sc, '#3b82f6', true);
+  }
+}
+function drawMeasurementLine(ctx, line, sc, color, dashed) {
+  const details = getMeasurementDetails(line);
+  if (!details) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  if (dashed) ctx.setLineDash([6, 3]);
+  ctx.beginPath();
+  ctx.moveTo(details.x1, details.y1);
+  ctx.lineTo(details.x2, details.y2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const capSize = 7;
+  const perp = details.angle + Math.PI / 2;
+  [{ x: details.x1, y: details.y1 }, { x: details.x2, y: details.y2 }].forEach(point => {
+    ctx.beginPath();
+    ctx.moveTo(point.x - Math.cos(perp) * capSize, point.y - Math.sin(perp) * capSize);
+    ctx.lineTo(point.x + Math.cos(perp) * capSize, point.y + Math.sin(perp) * capSize);
+    ctx.stroke();
+  });
+
+  const midX = (details.x1 + details.x2) / 2;
+  const midY = (details.y1 + details.y2) / 2;
+  const labelX = midX - Math.sin(details.angle) * 12;
+  const labelY = midY + Math.cos(details.angle) * 12;
+  const label = `${details.labelMeters.toFixed(2)} m`;
+  ctx.font = 'bold 10px DM Sans,sans-serif';
+  ctx.textAlign = 'center';
+  const textWidth = ctx.measureText(label).width + 8;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(labelX - textWidth / 2, labelY - 7, textWidth, 14);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(labelX - textWidth / 2, labelY - 7, textWidth, 14);
+  ctx.fillStyle = color;
+  ctx.fillText(label, labelX, labelY + 3.5);
+  ctx.restore();
+}
+function onMeasureDown(pos) {
+  measureStart = { x:snap(pos.x), y:snap(pos.y) };
+  measureCurrent = { ...measureStart };
+  renderPlan();
+}
+function onMeasureMove(pos) {
+  if (!measureStart) return;
+  measureCurrent = { x:pos.x, y:pos.y };
+  renderPlan();
+}
+function onMeasureUp() {
+  if (!measureStart || !measureCurrent) return;
+  const line = {
+    x1: measureStart.x,
+    y1: measureStart.y,
+    x2: snap(measureCurrent.x),
+    y2: snap(measureCurrent.y),
+    actualMeters: lastMeasurement?.actualMeters || 0
+  };
+  if (getMeasurementDetails(line)?.px >= 8) {
+    lastMeasurement = { ...line };
+    getFloorMeasurements().push({ ...line });
+    savePlan();
+  }
+  measureStart = null;
+  measureCurrent = null;
+  planToolsTab = 'measure';
+  renderPlan();
+  renderPlanToolsPanel();
+}
+function clearMeasurements() {
+  const floor = getFloor();
+  if (!floor) return;
+  floor.measurements = [];
+  if (lastMeasurement) lastMeasurement = null;
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  toast('Measurements cleared', 'warn');
+}
+function clearMeasurement() {
+  measureStart = null;
+  measureCurrent = null;
+  lastMeasurement = null;
+  renderPlan();
+  renderPlanToolsPanel();
+}
+function saveMeasurementReference() {
+  if (!lastMeasurement) return;
+  lastMeasurement.actualMeters = Math.max(0.1, fNum('measure-actual-m'));
+  renderPlan();
+  renderPlanToolsPanel();
+  toast('Measurement reference saved', 'green', 1200);
+}
+function calibrateBlueprintFromMeasurement() {
+  const measurement = getMeasurementDetails();
+  const blueprint = getFloorBlueprint();
+  if (!measurement?.px || !blueprint?.src) {
+    toast('Draw a measurement line on top of a blueprint first', 'warn');
+    return;
+  }
+  const actualMeters = Math.max(0.1, fNum('measure-actual-m'));
+  const factor = (actualMeters * planState.scale) / measurement.px;
+  blueprint.widthM = Number((Number(blueprint.widthM || 0) * factor).toFixed(2));
+  blueprint.heightM = Number((Number(blueprint.heightM || 0) * factor).toFixed(2));
+  lastMeasurement.actualMeters = actualMeters;
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  if (typeof syncBlueprintModal === 'function') syncBlueprintModal();
+  toast('Blueprint calibrated from measurement', 'green');
+}
 
 // ── Canvas listeners ────────────────────────────────────────
 function setupPlanListeners(canvas) {
@@ -641,7 +825,9 @@ function setPlanTool(t) {
     paint:  'Click a room to change its colour',
     measure:'Drag to draw a measurement line · Lines persist on the plan · Use Clear to remove all',
   };
+  if (t === 'measure') planToolsTab = 'measure';
   document.getElementById('plan-status').textContent = '💡 ' + (tips[t]||'');
+  renderPlanToolsPanel();
 }
 function selectFurnType(type) {
   if (!FURNITURE[type]) {
@@ -818,6 +1004,37 @@ function renderPlan() {
     ctx.fillStyle='#e11d48'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
     ctx.fillText(dw+' × '+dh+' m', x1+(x2-x1)/2, y1-6);
   }
+  const activeMeasurement = measureStart && measureCurrent
+    ? { x1:measureStart.x, y1:measureStart.y, x2:measureCurrent.x, y2:measureCurrent.y, actualMeters:lastMeasurement?.actualMeters || 0 }
+    : lastMeasurement;
+  const measurement = getMeasurementDetails(activeMeasurement);
+  if (measurement) {
+    const midX = (measurement.x1 + measurement.x2) / 2;
+    const midY = (measurement.y1 + measurement.y2) / 2;
+    const label = `${measurement.labelMeters.toFixed(2)} m`;
+    ctx.save();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(measurement.x1, measurement.y1);
+    ctx.lineTo(measurement.x2, measurement.y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(measurement.x1, measurement.y1, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(measurement.x2, measurement.y2, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.translate(midX, midY);
+    ctx.rotate(measurement.angle);
+    ctx.font = '700 10px DM Sans,sans-serif';
+    const metrics = ctx.measureText(label);
+    ctx.fillStyle = 'rgba(255,255,255,.96)';
+    ctx.fillRect((-metrics.width / 2) - 8, -18, metrics.width + 16, 16);
+    ctx.fillStyle = '#0f172a';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, 0, -6);
+    ctx.restore();
+  }
 
   // Furniture + buy items placed in plan
   const buyPlaced = ldBuy().filter(it=>it.placedInPlan&&it.planFloor===getFloor().id);
@@ -866,7 +1083,11 @@ function renderPlan() {
     ctx.restore();
   });
 
+  // Measurement annotations (smart.js)
+  if (typeof drawMeasurements === 'function') drawMeasurements(ctx, sc);
+
   updatePlanActionState();
+  if (typeof renderPlanInsightCards === 'function') renderPlanInsightCards();
 }
 
 // ── Sidebar ──────────────────────────────────────────────────
@@ -909,6 +1130,7 @@ function rPlanSidebar() {
     </div>`;
   }
   renderPlanToolsPanel();
+  if (typeof renderPlanInsightCards === 'function') renderPlanInsightCards();
 }
 function selectRoom(id) { selected=id; renderPlan(); rPlanSidebar(); }
 function renameRoom(id) {
@@ -920,7 +1142,8 @@ function switchPlanToolsTab(tab) {
   planToolsTab = tab;
   renderPlanToolsPanel();
 }
-function importBlueprint(file) {
+function importPlanBlueprint(file, options = {}) {
+  const { onComplete = null } = options;
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
@@ -938,12 +1161,15 @@ function importBlueprint(file) {
         x: 20,
         y: 20,
         opacity: 0.38,
+        hidden: false,
         presetId: '',
         presetLabel: ''
       });
       savePlan();
       renderPlan();
       renderPlanToolsPanel();
+      if (typeof syncBlueprintModal === 'function') syncBlueprintModal();
+      if (typeof onComplete === 'function') onComplete();
       toast('Blueprint imported. Tune width, height, and offset to trace the plan.','green',4000);
     };
     img.src = src;
@@ -958,15 +1184,16 @@ function updateBlueprintFromPanel() {
   blueprint.x = fNum('bp-x-m') * planState.scale;
   blueprint.y = fNum('bp-y-m') * planState.scale;
   blueprint.opacity = Math.min(1, Math.max(0.05, Number(fVal('bp-opacity')) || 0.38));
+  blueprint.hidden = false;
   savePlan();
   renderPlan();
   renderPlanToolsPanel();
   if (typeof syncBlueprintModal === 'function') syncBlueprintModal();
 }
-function removeBlueprint() {
+function removePlanBlueprint() {
   const blueprint = getFloorBlueprint();
   if (!blueprint?.src) return;
-  Object.assign(blueprint, { src:'', widthM:0, heightM:0, x:0, y:0, opacity:0.38, presetId:'', presetLabel:'' });
+  Object.assign(blueprint, { src:'', widthM:0, heightM:0, x:0, y:0, opacity:0.38, hidden:false, presetId:'', presetLabel:'', note:'' });
   savePlan();
   renderPlan();
   renderPlanToolsPanel();
@@ -987,6 +1214,37 @@ function getCurrentFloorBoundsMeters() {
     heightM: Number(((maxY - minY) / planState.scale).toFixed(2)),
   };
 }
+function renderPlanInsightCards() {
+  const blueprintEl = document.getElementById('plan-blueprint-summary');
+  const capacityEl = document.getElementById('plan-room-capacity');
+  if (blueprintEl) {
+    const blueprint = getFloorBlueprint();
+    const preset = getBlueprintPreset(blueprint?.presetId || '');
+    if (blueprint?.src) {
+      blueprintEl.innerHTML = `
+        <div style="font-weight:700;color:var(--bd);margin-bottom:4px">${esc(blueprint.presetLabel || preset?.label || 'Custom blueprint')}</div>
+        <div>${Number(blueprint.widthM || 0).toFixed(2)}m × ${Number(blueprint.heightM || 0).toFixed(2)}m · opacity ${Math.round((Number(blueprint.opacity) || 0.38) * 100)}%</div>
+        <div style="margin-top:4px">${esc(blueprint.hidden ? 'Hidden on canvas until you show it again.' : (preset?.note || blueprint.note || 'Tracing overlay ready on this floor.'))}</div>
+      `;
+    } else {
+      blueprintEl.textContent = 'Load an apartment or Keller 2 preset from blueprint_images, or upload your own JPG/PNG overlay.';
+    }
+  }
+  if (capacityEl) {
+    const room = getSelectedRoom();
+    if (!room) {
+      capacityEl.textContent = 'Select a room to see used area, free space, and the best space-saving setup.';
+      return;
+    }
+    const occupancy = getRoomOccupancy(room.id);
+    const bestCombo = getRoomOptimizerData(room.id)?.combos?.[0] || null;
+    capacityEl.innerHTML = `
+      <div style="font-weight:700;color:var(--bd);margin-bottom:4px">${esc(room.label || 'Room')}</div>
+      <div>${occupancy?.freeAreaM2?.toFixed(2) || '0.00'} m² free · ${occupancy?.occupiedAreaM2?.toFixed(2) || '0.00'} m² used</div>
+      <div style="margin-top:4px">${bestCombo ? `Best option-group setup leaves ${bestCombo.freeAreaM2.toFixed(2)} m² free.` : 'Assign option groups to compare setup alternatives.'}</div>
+    `;
+  }
+}
 function syncBlueprintModal() {
   const modal = document.getElementById('blueprint-modal');
   if (!modal) return;
@@ -995,8 +1253,9 @@ function syncBlueprintModal() {
   const visible = document.getElementById('bp-modal-visible');
   const presets = getAvailableBlueprintPresets();
   const blueprint = getFloorBlueprint();
+  const preset = getBlueprintPreset(blueprint?.presetId || '');
   if (presetSelect) {
-    presetSelect.innerHTML = `<option value="">Manual / current overlay</option>${presets.map(preset => `<option value="${preset.id}">${esc(preset.label)}</option>`).join('')}`;
+    presetSelect.innerHTML = `<option value="">Manual / current overlay</option>${presets.map(entry => `<option value="${entry.id}">${esc(entry.label)}</option>`).join('')}`;
     presetSelect.value = blueprint?.presetId || '';
   }
   fSet('bp-modal-width-m', blueprint?.widthM || '');
@@ -1004,10 +1263,10 @@ function syncBlueprintModal() {
   fSet('bp-modal-offset-x', ((blueprint?.x || 0) / planState.scale).toFixed(2));
   fSet('bp-modal-offset-y', ((blueprint?.y || 0) / planState.scale).toFixed(2));
   fSet('bp-modal-opacity', blueprint?.opacity || 0.38);
-  if (visible) visible.checked = Boolean(blueprint?.src);
+  if (visible) visible.checked = Boolean(blueprint?.src) && !blueprint?.hidden;
   if (status) {
     if (blueprint?.src) {
-      status.textContent = `${blueprint.presetLabel || 'Blueprint overlay'} active at ${Number(blueprint.widthM || 0).toFixed(2)} × ${Number(blueprint.heightM || 0).toFixed(2)} m.`;
+      status.textContent = `${blueprint.presetLabel || 'Blueprint overlay'} active at ${Number(blueprint.widthM || 0).toFixed(2)} × ${Number(blueprint.heightM || 0).toFixed(2)} m.${blueprint.hidden ? ' It is currently hidden on the canvas.' : ''} ${preset?.note || blueprint.note || ''}`.trim();
     } else {
       status.textContent = 'Upload a PNG or JPG blueprint, or load a preset that matches the apartment measurements.';
     }
@@ -1016,8 +1275,7 @@ function syncBlueprintModal() {
 function handleBlueprintUpload(files) {
   const file = files && files[0];
   if (!file) return;
-  importBlueprint(file);
-  setTimeout(() => syncBlueprintModal(), 120);
+  importPlanBlueprint(file, { onComplete: () => syncBlueprintModal() });
 }
 function applySelectedBlueprintPreset() {
   const presetId = fVal('bp-modal-preset');
@@ -1053,6 +1311,7 @@ function fitBlueprintToFloor() {
   blueprint.heightM = bounds.heightM;
   blueprint.x = Math.round(bounds.x * planState.scale);
   blueprint.y = Math.round(bounds.y * planState.scale);
+  blueprint.hidden = false;
   savePlan();
   renderPlan();
   renderPlanToolsPanel();
@@ -1060,7 +1319,7 @@ function fitBlueprintToFloor() {
   toast('Blueprint fitted to current floor bounds', 'green');
 }
 function clearBlueprint() {
-  removeBlueprint();
+  removePlanBlueprint();
 }
 function saveBlueprintSettings() {
   const blueprint = getFloorBlueprint();
@@ -1071,16 +1330,12 @@ function saveBlueprintSettings() {
   if (!blueprint?.src && fVal('bp-modal-preset')) {
     if (!loadPreloadedBlueprintPreset(fVal('bp-modal-preset'))) return;
   }
-  const visible = document.getElementById('bp-modal-visible');
-  if (visible && !visible.checked) {
-    removeBlueprint();
-    return;
-  }
   blueprint.widthM = Math.max(0, fNum('bp-modal-width-m'));
   blueprint.heightM = Math.max(0, fNum('bp-modal-height-m'));
   blueprint.x = fNum('bp-modal-offset-x') * planState.scale;
   blueprint.y = fNum('bp-modal-offset-y') * planState.scale;
   blueprint.opacity = Math.min(1, Math.max(0.05, Number(fVal('bp-modal-opacity')) || 0.38));
+  blueprint.hidden = !document.getElementById('bp-modal-visible')?.checked;
   savePlan();
   renderPlan();
   renderPlanToolsPanel();
@@ -1123,24 +1378,26 @@ function renderBlueprintTab() {
   const xM = ((blueprint?.x || 0) / planState.scale).toFixed(2);
   const yM = ((blueprint?.y || 0) / planState.scale).toFixed(2);
   const presets = getAvailableBlueprintPresets();
+  const activePreset = getBlueprintPreset(blueprint?.presetId || '');
   const planBounds = typeof PRELOADED_PLAN_BOUNDS !== 'undefined'
     ? PRELOADED_PLAN_BOUNDS
     : null;
   return `<div style="display:grid;gap:8px">
     <div style="font-size:.68rem;color:var(--bd3)">Use a preloaded apartment blueprint or upload your own JPG/PNG, then fine-tune the real-world size and offset.</div>
     ${planBounds ? `<div style="background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:.66rem;color:var(--bd2)">
-      <strong style="color:var(--pk)">Apartment measurements loaded:</strong> ${planBounds.widthM.toFixed(2)} × ${planBounds.heightM.toFixed(2)} m shell · cellar note: <strong>Keller 2</strong>
+      <strong style="color:var(--pk)">Apartment measurements loaded:</strong> ${planBounds.widthM.toFixed(2)} × ${planBounds.heightM.toFixed(2)} m shell · cellar preset: <strong>Keller 2</strong>
     </div>` : ''}
     ${presets.length ? `<div style="display:grid;gap:6px">
       <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--bd3)">Preloaded blueprint presets</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${presets.map(preset => `<button class="btn sml ${blueprint?.presetId===preset.id ? 'pri' : ''}" onclick="loadPreloadedBlueprintPreset('${preset.id}')">${esc(preset.label)}</button>`).join('')}
       </div>
-      <div style="font-size:.62rem;color:var(--bd3)">Each preset uses the apartment measurements already seeded in the planner. Switch presets to compare scans without redrawing rooms.</div>
+      <div style="font-size:.62rem;color:var(--bd3)">Apartment presets reuse the seeded room measurements, and the Keller 2 preset adds your cellar room as its own floor.</div>
     </div>` : ''}
+    <input id="plan-blueprint-input" type="file" accept="image/*" style="display:none" onchange="uploadPlanBlueprint(this.files?.[0])">
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       <button class="btn sml pri" onclick="document.getElementById('plan-blueprint-input')?.click()">🖼️ Upload blueprint</button>
-      ${hasFloorBlueprint() ? `<button class="btn sml dan" onclick="removeBlueprint()">🗑️ Remove</button>` : ''}
+      ${hasFloorBlueprint() ? `<button class="btn sml dan" onclick="removePlanBlueprint()">🗑️ Remove</button>` : ''}
     </div>
     ${hasFloorBlueprint() ? `
       <div class="form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:4px">
@@ -1151,8 +1408,34 @@ function renderBlueprintTab() {
         <div class="fg" style="grid-column:1 / -1"><label>Opacity</label><input id="bp-opacity" type="range" min="0.05" max="1" step="0.05" value="${blueprint.opacity || 0.38}" oninput="updateBlueprintFromPanel()"></div>
       </div>
       ${blueprint?.presetLabel ? `<div style="font-size:.62rem;color:var(--bd3)">Active preset: <strong>${esc(blueprint.presetLabel)}</strong></div>` : ''}
+      ${activePreset?.note ? `<div style="font-size:.62rem;color:var(--bd3)">${esc(activePreset.note)}</div>` : ''}
       <div style="font-size:.64rem;color:var(--bd3)">Tip: if the overlay looks stretched, fix width and height before drawing the rooms.</div>
     ` : `<div style="font-size:.64rem;color:var(--bd3)">The image stays local in browser storage, so it travels with your plan backup.</div>`}
+  </div>`;
+}
+function renderMeasureTab() {
+  const measurement = getMeasurementDetails();
+  return `<div style="display:grid;gap:8px">
+    <div style="font-size:.68rem;color:var(--bd3)">Use the measure tool on the canvas to check distances on the traced apartment or calibrate a blueprint against a known real-world length.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sml ${planTool==='measure' ? 'pri' : ''}" onclick="setPlanTool('measure')">📏 Start measuring</button>
+      ${measurement ? `<button class="btn sml dan" onclick="clearMeasurement()">🗑️ Clear line</button>` : ''}
+    </div>
+    ${measurement ? `
+      <div style="background:var(--bg2);border-radius:12px;padding:10px 12px">
+        <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--bd3);margin-bottom:4px">Last measurement</div>
+        <div style="font-size:.92rem;font-weight:700;color:var(--pk)">${measurement.labelMeters.toFixed(2)} m</div>
+        <div style="font-size:.64rem;color:var(--bd3);margin-top:2px">${measurement.px.toFixed(0)} px on canvas · current planner scale reads ${measurement.meters.toFixed(2)} m</div>
+      </div>
+      <div class="form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+        <div class="fg"><label>Actual real-world length (m)</label><input id="measure-actual-m" type="number" step="0.01" value="${measurement.labelMeters.toFixed(2)}"></div>
+        <div class="fg" style="align-self:end;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn sml" onclick="saveMeasurementReference()">💾 Save reference</button>
+          <button class="btn sml pri" onclick="calibrateBlueprintFromMeasurement()" ${hasFloorBlueprint() ? '' : 'disabled'}>🧭 Calibrate blueprint</button>
+        </div>
+      </div>
+      ${hasFloorBlueprint() ? `<div style="font-size:.62rem;color:var(--bd3)">Calibration rescales the active blueprint so this line matches the real-world length you enter.</div>` : `<div style="font-size:.62rem;color:var(--bd3)">Load a blueprint preset or upload an image to use this line for calibration.</div>`}
+    ` : `<div style="font-size:.68rem;color:var(--bd3)">No measurement line yet. Drag on the canvas with the measure tool to create one.</div>`}
   </div>`;
 }
 function renderRoomToolsTab() {
@@ -1219,11 +1502,14 @@ function renderPlanToolsPanel() {
   if (!el) return;
   const tabs = [
     { id:'room', label:'📏 Room' },
+    { id:'measure', label:'📐 Measure' },
     { id:'blueprint', label:'🖼️ Blueprint' },
     { id:'optimizer', label:'🧠 Optimizer' },
   ];
   const body = planToolsTab === 'blueprint'
     ? renderBlueprintTab()
+    : planToolsTab === 'measure'
+      ? renderMeasureTab()
     : planToolsTab === 'optimizer'
       ? renderOptimizerTab()
       : renderRoomToolsTab();

@@ -1055,6 +1055,70 @@ canvas { display:block; touch-action:none; outline:none; max-width:100%; height:
 
 .size-diff-summary { font-size:.62rem; color:var(--bd3); background:var(--bg); border-radius:var(--r); padding:6px 10px; margin-top:6px; }
 
+/* ── LOGIN SCREEN ──────────────────────────────────────────── */
+@keyframes loginShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@keyframes loginPulse{0%,100%{box-shadow:0 8px 32px rgba(225,29,72,.18)}50%{box-shadow:0 8px 40px rgba(225,29,72,.28)}}
+.login-bg{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.login-bg.hidden{display:none}
+.login-bg::before{content:'';position:absolute;top:0;left:0;right:0;height:45vh;background:linear-gradient(135deg,var(--pk) 0%,var(--pks) 40%,var(--gn) 100%);border-radius:0 0 40% 40%/0 0 60px 60px}
+.login-bg::after{content:'';position:absolute;top:0;left:0;right:0;height:45vh;background:radial-gradient(ellipse at 70% 20%,rgba(255,255,255,.12) 0%,transparent 60%);border-radius:0 0 40% 40%/0 0 60px 60px}
+.login-card{background:#fff;border-radius:var(--r2);padding:36px 32px 28px;box-shadow:var(--sh3);text-align:center;max-width:380px;width:90%;position:relative;z-index:1;animation:loginPulse 3s ease-in-out infinite}
+.login-brand{margin-bottom:20px}
+.login-brand .login-emoji{font-size:2rem;margin-bottom:8px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.1))}
+.login-brand .login-title{font-family:'DM Serif Display',serif;font-size:1.5rem;font-weight:400;color:var(--bd);letter-spacing:-.3px;line-height:1.15}
+.login-brand .login-title span{background:linear-gradient(135deg,var(--pk),var(--gn));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.login-brand .login-sub{font-family:'DM Sans',sans-serif;font-size:.68rem;color:#999;font-weight:600;margin-top:4px;letter-spacing:.5px;text-transform:uppercase}
+.login-form{display:flex;flex-direction:column;gap:12px}
+.login-field{text-align:left}
+.login-field label{display:block;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.68rem;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.login-field input{width:100%;padding:11px 14px;border:2px solid #eee;border-radius:8px;font-size:.88rem;font-family:'DM Sans',sans-serif;color:var(--bd);font-weight:600;transition:all .2s;background:#fafafa}
+.login-field input:focus{outline:none;border-color:var(--pk);background:#fff;box-shadow:0 0 0 3px rgba(225,29,72,.08)}
+.login-field input::placeholder{color:#ccc;font-weight:500}
+.login-options{display:flex;align-items:center;justify-content:space-between;padding:0 2px}
+.login-show-pwd{display:flex;align-items:center;gap:6px}
+.login-show-pwd input[type="checkbox"]{width:14px;height:14px;accent-color:var(--pk);cursor:pointer}
+.login-show-pwd label{font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;color:#aaa;cursor:pointer;user-select:none}
+.login-err{font-size:.72rem;font-weight:700;font-family:'DM Sans',sans-serif;min-height:1em;color:#ef4444;text-align:center}
+.login-err.shake{animation:loginShake .4s}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--pk) 0%,var(--pks) 40%,var(--gn) 100%);color:#fff;border:none;border-radius:8px;font-size:.92rem;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(225,29,72,.25);letter-spacing:.3px}
+.login-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(225,29,72,.35)}
+.login-btn:active{transform:translateY(0)}
+.login-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.login-footer{margin-top:16px;font-size:.6rem;color:#ccc;font-family:'DM Sans',sans-serif}
+
+/* ── LOADING OVERLAY ───────────────────────────────────────── */
+#loadingOverlay{position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at 30% 20%,#1a0510 0%,#0a0a18 40%,#05100a 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#loadingOverlay.hidden{display:none}
+#loadingOverlay.lo-fadeout{animation:loFadeOut .7s ease forwards}
+@keyframes loFadeOut{to{opacity:0;pointer-events:none}}
+.lo-orb{position:absolute;border-radius:50%;filter:blur(70px);animation:loOrb ease-in-out infinite}
+.lo-orb1{width:500px;height:500px;background:rgba(225,29,72,.14);top:-150px;left:-100px;animation-duration:9s}
+.lo-orb2{width:350px;height:350px;background:rgba(22,163,74,.12);bottom:-80px;right:-60px;animation-duration:12s;animation-delay:-5s}
+.lo-orb3{width:250px;height:250px;background:rgba(225,29,72,.09);top:40%;left:55%;animation-duration:7s;animation-delay:-2s}
+@keyframes loOrb{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.07)}66%{transform:translate(-20px,35px) scale(.94)}}
+.lo-stars{position:absolute;inset:0}
+.lo-star{position:absolute;background:#fff;border-radius:50%;animation:loTwinkle ease-in-out infinite}
+@keyframes loTwinkle{0%,100%{opacity:.08}50%{opacity:.85}}
+.lo-particles{position:absolute;inset:0;overflow:hidden}
+.lo-p{position:absolute;bottom:-20px;border-radius:50%;opacity:0;animation:loRise linear infinite}
+@keyframes loRise{0%{transform:translateY(0) scale(1);opacity:0}8%{opacity:.9}88%{opacity:.15}100%{transform:translateY(-105vh) scale(.3);opacity:0}}
+.lo-content{position:relative;z-index:1;text-align:center;padding:40px 32px}
+.lo-rocket{font-size:5rem;display:inline-block;animation:loRocket 2.2s ease-in-out infinite;filter:drop-shadow(0 0 24px rgba(225,29,72,.7)) drop-shadow(0 0 48px rgba(225,29,72,.3))}
+@keyframes loRocket{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14px) rotate(4deg)}}
+.lo-title{font-family:'DM Serif Display',serif;font-size:2.2rem;font-weight:400;margin-top:18px;background:linear-gradient(135deg,#fb7185 0%,#e11d48 40%,#4ade80 80%,#86efac 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.5px;line-height:1.1}
+.lo-sub{font-family:'DM Sans',sans-serif;font-size:.68rem;color:rgba(255,255,255,.3);font-weight:600;text-transform:uppercase;letter-spacing:2.5px;margin-top:5px}
+.lo-bar-wrap{width:220px;height:2px;background:rgba(255,255,255,.08);border-radius:2px;margin:30px auto 20px;overflow:hidden}
+.lo-bar{height:100%;background:linear-gradient(90deg,transparent,#e11d48,#4ade80,#e11d48,transparent);background-size:300% 100%;border-radius:2px;animation:loBar 2s linear infinite}
+@keyframes loBar{0%{background-position:100%}100%{background-position:-100%}}
+.lo-dots{display:flex;gap:10px;justify-content:center;margin-bottom:14px}
+.lo-dot{width:7px;height:7px;border-radius:50%;animation:loDot 1.5s ease-in-out infinite}
+.lo-dot:nth-child(1){background:#e11d48;animation-delay:0s}
+.lo-dot:nth-child(2){background:#fb7185;animation-delay:.2s}
+.lo-dot:nth-child(3){background:#4ade80;animation-delay:.4s}
+@keyframes loDot{0%,80%,100%{transform:scale(1);opacity:.4}40%{transform:scale(1.6);opacity:1}}
+.lo-msg{font-family:'DM Sans',sans-serif;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.8px;min-height:1.4em;transition:opacity .35s ease}
+.lo-msg.lo-fade{opacity:0}
+
 /* ── PRINT (floor plan) ──────────────────────────────────────── */
 @media print {
   .hdr, .tabs, .status-bar, .plan-toolbar, .furn-bar, .plan-status, .floor-tabs { display:none!important; }

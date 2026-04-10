@@ -18,44 +18,77 @@
 </head>
 <body class="auth-shell-open">
 
-<div id="auth-shell" class="auth-shell" aria-live="polite">
-  <div class="auth-card">
-    <div class="auth-copy">
-      <div class="auth-kicker">Invite-only access</div>
-      <h1>Secure sign-in required</h1>
-      <p class="auth-lede">This planner is available only to authenticated Amazon Cognito users. No guest mode, no local login, no anonymous access.</p>
-      <div class="auth-badges">
-        <span class="auth-badge">☁️ AWS</span>
-        <span class="auth-badge">🔐 Cognito-only</span>
-        <span class="auth-badge">📲 Installable PWA</span>
-      </div>
-      <button class="btn pri full" id="auth-install-btn" hidden>⬇️ Install app</button>
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div class="login-bg" id="loginBg">
+<div class="login-card">
+  <div class="login-brand">
+    <div class="login-emoji">🏠 💕 🏠</div>
+    <div class="login-title"><span>Our New</span><br>Home</div>
+    <div class="login-sub">Apartment Planner & Move Organizer</div>
+  </div>
+  <div class="login-form">
+    <div class="login-field">
+      <label for="auth-email">Username</label>
+      <input type="text" id="auth-email" placeholder="your username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('auth-password').focus()">
     </div>
-
-    <div class="auth-panel">
-      <div class="auth-panel-head">
-        <div class="auth-panel-title">Our New Home</div>
-        <div class="auth-panel-sub" id="auth-status-note">Checking secure session…</div>
-      </div>
-
-      <div class="auth-feedback" id="auth-feedback" hidden></div>
-
-      <form id="auth-login-form" class="auth-form" autocomplete="on">
-        <label class="auth-label" for="auth-email">Email or username</label>
-        <input class="auth-input" id="auth-email" type="text" autocomplete="username" spellcheck="false" required>
-        <label class="auth-label" for="auth-password">Password</label>
-        <input class="auth-input" id="auth-password" type="password" autocomplete="current-password" required>
-        <button class="btn pri full" id="auth-sign-in-btn" type="submit">Sign In</button>
-      </form>
-
-      <form id="auth-password-form" class="auth-form" autocomplete="on" hidden>
-        <label class="auth-label" for="auth-new-password">New password</label>
-        <input class="auth-input" id="auth-new-password" type="password" autocomplete="new-password">
-        <label class="auth-label" for="auth-new-password-confirm">Repeat new password</label>
-        <input class="auth-input" id="auth-new-password-confirm" type="password" autocomplete="new-password">
-        <button class="btn pri full" id="auth-change-password-btn" type="submit">Set password</button>
-      </form>
+    <div class="login-field">
+      <label for="auth-password">Password</label>
+      <input type="password" id="auth-password" placeholder="your password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
+    <div class="login-options">
+      <div class="login-show-pwd">
+        <input type="checkbox" id="loginShowPwd" onchange="document.getElementById('auth-password').type=this.checked?'text':'password'">
+        <label for="loginShowPwd">Show password</label>
+      </div>
+    </div>
+    <div class="login-err" id="auth-feedback"></div>
+    <button class="login-btn" id="auth-sign-in-btn" onclick="doLogin()">Sign In</button>
+    <div id="auth-status-note" style="font-size:.6rem;color:#aaa;text-align:center;margin-top:6px">Checking session...</div>
+  </div>
+  <div class="login-footer">
+    Our New Home v2.1
+    <button class="btn pri full" id="auth-install-btn" hidden style="margin-top:8px">Install App</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ NEW PASSWORD FORM ═══ -->
+<div class="login-bg hidden" id="newPwdBg">
+<div class="login-card">
+  <div class="login-brand">
+    <div class="login-emoji">🔐</div>
+    <div class="login-title"><span>Set New</span><br>Password</div>
+    <div class="login-sub">First login — choose a permanent password</div>
+  </div>
+  <div class="login-form">
+    <div class="login-field">
+      <label for="auth-new-password">New password</label>
+      <input type="password" id="auth-new-password" placeholder="min 8 characters" autocomplete="new-password">
+    </div>
+    <div class="login-field">
+      <label for="auth-new-password-confirm">Repeat password</label>
+      <input type="password" id="auth-new-password-confirm" placeholder="repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doNewPassword()">
+    </div>
+    <div class="login-err" id="newpwd-feedback"></div>
+    <button class="login-btn" onclick="doNewPassword()">Set Password</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══ LOADING OVERLAY ═══ -->
+<div id="loadingOverlay" class="hidden">
+  <div class="lo-orb lo-orb1"></div>
+  <div class="lo-orb lo-orb2"></div>
+  <div class="lo-orb lo-orb3"></div>
+  <div class="lo-stars" id="loStars"></div>
+  <div class="lo-particles" id="loParticles"></div>
+  <div class="lo-content">
+    <div class="lo-rocket">🏠</div>
+    <div class="lo-title">Our New Home</div>
+    <div class="lo-sub">Loading your planner...</div>
+    <div class="lo-bar-wrap"><div class="lo-bar"></div></div>
+    <div class="lo-dots"><div class="lo-dot"></div><div class="lo-dot"></div><div class="lo-dot"></div></div>
+    <div class="lo-msg" id="loMsg">Connecting to cloud...</div>
   </div>
 </div>
 
@@ -268,6 +301,7 @@
     <button class="buy-subtab active" data-subtab="items" onclick="switchBuySubtab('items')">🛒 Items</button>
     <button class="buy-subtab" data-subtab="fit" onclick="switchBuySubtab('fit')">📐 Fit Test</button>
     <button class="buy-subtab" data-subtab="budget" onclick="switchBuySubtab('budget')">💰 Budget Planner</button>
+    <button class="buy-subtab" data-subtab="roommap" onclick="switchBuySubtab('roommap')">🏠 Room Map</button>
   </div>
   <!-- Items subtab -->
   <div class="buy-subtab-panel active" id="buy-sub-items">
@@ -295,6 +329,10 @@
   <!-- Budget Planner subtab -->
   <div class="buy-subtab-panel" id="buy-sub-budget">
     <div id="budget-planner-content"></div>
+  </div>
+  <!-- Room Map subtab -->
+  <div class="buy-subtab-panel" id="buy-sub-roommap">
+    <div id="room-map-content"></div>
   </div>
 </div>
 
@@ -1023,7 +1061,7 @@
 <script src="js/ui.js"></script>
 <script src="js/smart.js"></script>
 <script src="js/app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
+<!-- Cognito SDK removed — using direct API calls -->
 <script src="js/aws-backend.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/pwa.js"></script>

@@ -1,328 +1,268 @@
 // ============================================================
-// auth.js — Our New Home · Cognito auth gate
+// auth.js — Our New Home · Cognito auth (direct API, no SDK)
 // ============================================================
 
-window.HomeAuth = (function createHomeAuth() {
-  const AUTH_STORAGE_PREFIX = 'hnz_auth_session_v1:';
-  const state = {
-    currentUser: null,
-    session: null,
-    user: null,
-    challengeUser: null,
-    expiryTimer: null,
-  };
+window.HomeAuth = (function() {
+  const AUTH_PREFIX = 'hnz_auth_v2:';
+  let _accessToken = null, _idToken = null, _refreshToken = null;
+  let _username = null, _user = null, _tokenExpiry = 0, _challengeSession = null;
 
-  function refs() {
-    return {
-      status: document.getElementById('auth-status-note'),
-      feedback: document.getElementById('auth-feedback'),
-      loginForm: document.getElementById('auth-login-form'),
-      passwordForm: document.getElementById('auth-password-form'),
-      email: document.getElementById('auth-email'),
-      password: document.getElementById('auth-password'),
-      newPassword: document.getElementById('auth-new-password'),
-      newPasswordConfirm: document.getElementById('auth-new-password-confirm'),
-      logout: document.getElementById('logout-btn'),
-    };
-  }
+  function _cfg() { return getCognitoConfig(); }
+  function _endpoint() { return `https://cognito-idp.${_cfg().region}.amazonaws.com/`; }
 
-  function sessionStorageAdapter() {
-    return {
-      setItem(key, value) { sessionStorage.setItem(AUTH_STORAGE_PREFIX + key, value); return value; },
-      getItem(key) { return sessionStorage.getItem(AUTH_STORAGE_PREFIX + key); },
-      removeItem(key) { sessionStorage.removeItem(AUTH_STORAGE_PREFIX + key); },
-      clear() {
-        Object.keys(sessionStorage)
-          .filter(key => key.startsWith(AUTH_STORAGE_PREFIX))
-          .forEach(key => sessionStorage.removeItem(key));
-      }
-    };
-  }
-
-  function clearStoredSession() {
-    sessionStorageAdapter().clear();
-  }
-
-  function setStatus(message) {
-    const { status } = refs();
-    if (status) status.textContent = message;
-  }
-
-  function setFeedback(message = '', tone = 'info') {
-    const { feedback } = refs();
-    if (!feedback) return;
-    feedback.hidden = !message;
-    feedback.className = `auth-feedback ${tone}`.trim();
-    feedback.textContent = message;
-  }
-
-  function showForm(mode) {
-    const { loginForm, passwordForm } = refs();
-    if (loginForm) loginForm.hidden = mode !== 'login';
-    if (passwordForm) passwordForm.hidden = mode !== 'password';
-  }
-
-  function friendlyAuthError(err) {
-    const code = err?.code || err?.name || '';
-    const map = {
-      NotAuthorizedException: 'Wrong username/email or password.',
-      UserNotFoundException: 'This Cognito user does not exist.',
-      PasswordResetRequiredException: 'Password reset is required for this account.',
-      UserNotConfirmedException: 'This account is not confirmed yet.',
-      TooManyFailedAttemptsException: 'Too many failed attempts. Try again shortly.',
-      LimitExceededException: 'Too many requests. Wait a moment and try again.',
-      NetworkError: 'Network error while contacting Cognito.',
-    };
-    return map[code] || err?.message || 'Authentication failed.';
-  }
-
-  function clearExpiryTimer() {
-    if (state.expiryTimer) window.clearTimeout(state.expiryTimer);
-    state.expiryTimer = null;
-  }
-
-  function buildUserContext(cognitoUser, session) {
-    const payload = session.getIdToken().decodePayload() || {};
-    const groupsClaim = payload['cognito:groups'];
-    const groups = Array.isArray(groupsClaim) ? groupsClaim : groupsClaim ? [groupsClaim] : [];
-    return {
-      sub: payload.sub || '',
-      email: payload.email || cognitoUser.getUsername(),
-      username: cognitoUser.getUsername(),
-      groups,
-    };
-  }
-
-  function scheduleExpiry(session) {
-    clearExpiryTimer();
-    const expiresAtMs = session.getAccessToken().getExpiration() * 1000;
-    const delay = expiresAtMs - Date.now();
-    if (delay <= 0) {
-      logout('Session expired. Sign in again.');
-      return;
-    }
-    state.expiryTimer = window.setTimeout(() => logout('Session expired. Sign in again.'), delay);
-  }
-
-  function getSdk() {
-    return window.AmazonCognitoIdentity || null;
-  }
-
-  function getUserPool() {
-    const cfg = getCognitoConfig();
-    const sdk = getSdk();
-    if (!sdk || !cfg.userPoolId || !cfg.clientId) return null;
-    return new sdk.CognitoUserPool({
-      UserPoolId: cfg.userPoolId,
-      ClientId: cfg.clientId,
-      Storage: sessionStorageAdapter(),
+  async function _call(action, payload) {
+    const res = await fetch(_endpoint(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': `AWSCognitoIdentityProviderService.${action}` },
+      body: JSON.stringify(payload)
     });
-  }
-
-  function getSession(currentUser) {
-    return new Promise((resolve, reject) => {
-      currentUser.getSession((err, session) => {
-        if (!err && session && session.isValid()) {
-          resolve(session);
-          return;
-        }
-        const existing = currentUser.getSignInUserSession ? currentUser.getSignInUserSession() : null;
-        const refreshToken = existing && existing.getRefreshToken ? existing.getRefreshToken() : null;
-        if (!refreshToken) {
-          reject(err || new Error('No refresh token available.'));
-          return;
-        }
-        currentUser.refreshSession(refreshToken, (refreshErr, refreshedSession) => {
-          if (refreshErr || !refreshedSession || !refreshedSession.isValid()) {
-            reject(refreshErr || new Error('Session refresh failed.'));
-            return;
-          }
-          resolve(refreshedSession);
-        });
-      });
-    });
-  }
-
-  function setAuthenticated(cognitoUser, session, flashMessage = '') {
-    state.currentUser = cognitoUser;
-    state.session = session;
-    state.user = buildUserContext(cognitoUser, session);
-    state.challengeUser = null;
-    setFeedback('', 'info');
-    setStatus('Secure session active.');
-    scheduleExpiry(session);
-    if (window.HomeAws && typeof window.HomeAws.flushAll === 'function') window.HomeAws.flushAll();
-    if (window.HomeApp) window.HomeApp.boot(state.user);
-    if (flashMessage && typeof toast === 'function') toast(flashMessage, 'green');
-  }
-
-  function showLogin(message = '', tone = 'info') {
-    state.challengeUser = null;
-    setStatus('Sign in with your Cognito invite.');
-    setFeedback(message, tone);
-    showForm('login');
-    if (window.HomeApp) window.HomeApp.showAuthGate();
-  }
-
-  function showPasswordChallenge(email = '') {
-    const { email: emailInput, newPassword, newPasswordConfirm } = refs();
-    if (emailInput && email) emailInput.value = email;
-    if (newPassword) newPassword.value = '';
-    if (newPasswordConfirm) newPasswordConfirm.value = '';
-    setStatus('Set a new password to finish first login.');
-    setFeedback('', 'info');
-    showForm('password');
-    if (window.HomeApp) window.HomeApp.showAuthGate();
-  }
-
-  function showBlocked(message) {
-    showForm('blocked');
-    setStatus('Planner access is blocked.');
-    setFeedback(message, 'error');
-    if (window.HomeApp) window.HomeApp.showAuthGate();
-  }
-
-  function signIn(email, password) {
-    const sdk = getSdk();
-    const pool = getUserPool();
-    if (!sdk || !pool) {
-      showBlocked('Cognito is not configured yet. Add User Pool and App Client values before sign-in.');
-      return;
+    const data = await res.json();
+    if (!res.ok) {
+      const err = new Error(data.message || data.Message || 'Unknown error');
+      err.code = (data.__type || '').split('#').pop();
+      throw err;
     }
-    setStatus('Signing in…');
-    setFeedback('', 'info');
-    const authDetails = new sdk.AuthenticationDetails({
-      Username: email,
-      Password: password,
-    });
-    const cognitoUser = new sdk.CognitoUser({
-      Username: email,
-      Pool: pool,
-      Storage: sessionStorageAdapter(),
-    });
-    cognitoUser.authenticateUser(authDetails, {
-      onSuccess(session) {
-        setAuthenticated(cognitoUser, session, 'Signed in ✅');
-      },
-      onFailure(err) {
-        showLogin(friendlyAuthError(err), 'error');
-      },
-      newPasswordRequired() {
-        state.challengeUser = cognitoUser;
-        showPasswordChallenge(email);
-      }
-    });
+    return data;
   }
 
-  function completeNewPassword(password, confirmPassword) {
-    if (!state.challengeUser) {
-      showLogin('The password challenge is no longer active. Sign in again.', 'warn');
-      return;
-    }
-    if (!password || password.length < 8) {
-      setFeedback('Use a password with at least 8 characters.', 'warn');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setFeedback('The new passwords do not match.', 'warn');
-      return;
-    }
-    setStatus('Saving new password…');
-    setFeedback('', 'info');
-    state.challengeUser.completeNewPasswordChallenge(password, {}, {
-      onSuccess(session) {
-        setAuthenticated(state.challengeUser, session, 'Password updated ✅');
-      },
-      onFailure(err) {
-        setFeedback(friendlyAuthError(err), 'error');
-      }
-    });
-  }
-
-  function logout(message = '') {
-    clearExpiryTimer();
-    if (state.currentUser) state.currentUser.signOut();
-    state.currentUser = null;
-    state.session = null;
-    state.user = null;
-    state.challengeUser = null;
-    clearStoredSession();
-    showLogin(message, message ? 'warn' : 'info');
-  }
-
-  async function restoreSession() {
-    if (!APP_RUNTIME.authRequired) {
-      if (window.HomeApp) window.HomeApp.boot(null);
-      return;
-    }
-    if (!hasCognitoConfig()) {
-      showBlocked('Cognito configuration is missing. Set User Pool and App Client values before deployment.');
-      return;
-    }
-    if (!getSdk()) {
-      showBlocked('The Cognito SDK did not load. Check network access or CSP settings.');
-      return;
-    }
-    const pool = getUserPool();
-    const currentUser = pool && pool.getCurrentUser ? pool.getCurrentUser() : null;
-    if (!currentUser) {
-      showLogin();
-      return;
-    }
-    setStatus('Restoring secure session…');
+  function _storeTokens(result, username) {
+    _accessToken = result.AccessToken;
+    _idToken = result.IdToken;
+    if (result.RefreshToken) _refreshToken = result.RefreshToken;
+    _username = username;
+    _tokenExpiry = Date.now() + (result.ExpiresIn * 1000);
+    // Decode ID token for user context
     try {
-      const session = await getSession(currentUser);
-      setAuthenticated(currentUser, session);
-    } catch (err) {
-      console.warn('Session restore failed:', err);
-      logout('Session expired. Sign in again.');
-    }
+      const payload = JSON.parse(atob(_idToken.split('.')[1]));
+      const groups = payload['cognito:groups'] || [];
+      _user = { sub: payload.sub || '', email: payload.email || username, username, groups: Array.isArray(groups) ? groups : [groups] };
+    } catch { _user = { sub: '', email: username, username, groups: [] }; }
+    // Persist
+    const s = (_cfg().storageMode === 'session') ? sessionStorage : localStorage;
+    s.setItem(AUTH_PREFIX + 'user', username);
+    s.setItem(AUTH_PREFIX + 'access', _accessToken);
+    s.setItem(AUTH_PREFIX + 'id', _idToken);
+    if (result.RefreshToken) s.setItem(AUTH_PREFIX + 'refresh', result.RefreshToken);
+    s.setItem(AUTH_PREFIX + 'expiry', String(_tokenExpiry));
   }
 
-  function bindEvents() {
-    const { loginForm, passwordForm, logout } = refs();
-    if (loginForm && !loginForm.dataset.bound) {
-      loginForm.dataset.bound = '1';
-      loginForm.addEventListener('submit', evt => {
-        evt.preventDefault();
-        signIn(refs().email?.value?.trim() || '', refs().password?.value || '');
-      });
-    }
-    if (passwordForm && !passwordForm.dataset.bound) {
-      passwordForm.dataset.bound = '1';
-      passwordForm.addEventListener('submit', evt => {
-        evt.preventDefault();
-        completeNewPassword(refs().newPassword?.value || '', refs().newPasswordConfirm?.value || '');
-      });
-    }
-    if (logout && !logout.dataset.bound) {
-      logout.dataset.bound = '1';
-      logout.addEventListener('click', () => logoutUser());
-    }
+  function _clearTokens() {
+    _accessToken = _idToken = _refreshToken = _username = _user = null;
+    _tokenExpiry = 0; _challengeSession = null;
+    [sessionStorage, localStorage].forEach(s => {
+      [AUTH_PREFIX+'user', AUTH_PREFIX+'access', AUTH_PREFIX+'id', AUTH_PREFIX+'refresh', AUTH_PREFIX+'expiry']
+        .forEach(k => s.removeItem(k));
+    });
   }
 
-  function logoutUser(message = '') {
-    logout(message);
+  function _restoreTokens() {
+    const s = (_cfg().storageMode === 'session') ? sessionStorage : localStorage;
+    const user = s.getItem(AUTH_PREFIX + 'user');
+    const access = s.getItem(AUTH_PREFIX + 'access');
+    const refresh = s.getItem(AUTH_PREFIX + 'refresh');
+    const expiry = parseInt(s.getItem(AUTH_PREFIX + 'expiry') || '0');
+    if (user && access && refresh) {
+      _username = user; _accessToken = access; _refreshToken = refresh;
+      _idToken = s.getItem(AUTH_PREFIX + 'id'); _tokenExpiry = expiry;
+      try {
+        const payload = JSON.parse(atob(_idToken.split('.')[1]));
+        const groups = payload['cognito:groups'] || [];
+        _user = { sub: payload.sub || '', email: payload.email || user, username: user, groups: Array.isArray(groups) ? groups : [groups] };
+      } catch { _user = { sub: '', email: user, username: user, groups: [] }; }
+      return true;
+    }
+    return false;
   }
 
-  function init() {
-    bindEvents();
-    restoreSession();
+  async function _refresh() {
+    if (!_refreshToken) return false;
+    try {
+      const res = await _call('InitiateAuth', { AuthFlow: 'REFRESH_TOKEN_AUTH', ClientId: _cfg().clientId, AuthParameters: { REFRESH_TOKEN: _refreshToken } });
+      if (res.AuthenticationResult) {
+        _accessToken = res.AuthenticationResult.AccessToken;
+        _idToken = res.AuthenticationResult.IdToken;
+        _tokenExpiry = Date.now() + (res.AuthenticationResult.ExpiresIn * 1000);
+        const s = (_cfg().storageMode === 'session') ? sessionStorage : localStorage;
+        s.setItem(AUTH_PREFIX + 'access', _accessToken);
+        s.setItem(AUTH_PREFIX + 'id', _idToken);
+        s.setItem(AUTH_PREFIX + 'expiry', String(_tokenExpiry));
+        return true;
+      }
+    } catch { /* refresh failed */ }
+    return false;
   }
 
+  function _friendlyError(err) {
+    const map = {
+      NotAuthorizedException: 'Wrong username or password.',
+      UserNotFoundException: 'User not found.',
+      PasswordResetRequiredException: 'Password reset required.',
+      UserNotConfirmedException: 'Account not confirmed.',
+      InvalidPasswordException: 'Password does not meet requirements.',
+    };
+    return map[err.code] || err.message || 'Authentication failed.';
+  }
+
+  // ── Public API ─────────────────────────────────────────────
   return {
-    init,
-    logout: logoutUser,
-    isAuthenticated: () => Boolean(state.user),
-    getStorageScope: () => state.user?.sub || '',
-    getUser: () => state.user,
-    getSessionTokens: () => ({
-      accessToken: state.session?.getAccessToken?.().getJwtToken?.() || '',
-      idToken: state.session?.getIdToken?.().getJwtToken?.() || '',
-    }),
+    async login(username, password) {
+      const cfg = _cfg();
+      const res = await _call('InitiateAuth', {
+        AuthFlow: 'USER_PASSWORD_AUTH', ClientId: cfg.clientId,
+        AuthParameters: { USERNAME: username, PASSWORD: password }
+      });
+      if (res.ChallengeName === 'NEW_PASSWORD_REQUIRED') {
+        _challengeSession = res.Session;
+        return { challenge: 'NEW_PASSWORD_REQUIRED', username };
+      }
+      _storeTokens(res.AuthenticationResult, username);
+      return { success: true };
+    },
+
+    async respondNewPassword(username, newPassword) {
+      if (!_challengeSession) throw new Error('No challenge active');
+      const res = await _call('RespondToAuthChallenge', {
+        ChallengeName: 'NEW_PASSWORD_REQUIRED', ClientId: _cfg().clientId,
+        Session: _challengeSession,
+        ChallengeResponses: { USERNAME: username, NEW_PASSWORD: newPassword }
+      });
+      _challengeSession = null;
+      if (res.AuthenticationResult) { _storeTokens(res.AuthenticationResult, username); return { success: true }; }
+      throw new Error('Challenge failed');
+    },
+
+    async getAccessToken() {
+      if (!_accessToken) return null;
+      if (Date.now() > _tokenExpiry - 300000) { if (!await _refresh()) return null; }
+      return _accessToken;
+    },
+
+    logout(msg) {
+      if (_accessToken) _call('GlobalSignOut', { AccessToken: _accessToken }).catch(() => {});
+      _clearTokens();
+      // Show login
+      document.getElementById('loginBg')?.classList.remove('hidden');
+      const appShell = document.getElementById('app-shell');
+      if (appShell) { appShell.hidden = true; appShell.setAttribute('aria-hidden', 'true'); }
+      document.body.classList.add('auth-shell-open');
+      const note = document.getElementById('auth-status-note');
+      if (note) note.textContent = msg || 'Signed out.';
+    },
+
+    isAuthenticated: () => Boolean(_user),
+    getStorageScope: () => _user?.sub || '',
+    getUser: () => _user,
+    getSessionTokens: () => ({ accessToken: _accessToken || '', idToken: _idToken || '' }),
+    friendlyError: _friendlyError,
+
+    async init() {
+      if (!APP_RUNTIME.authRequired) { if (window.HomeApp) window.HomeApp.boot(null); return; }
+      if (!hasCognitoConfig()) {
+        document.getElementById('auth-status-note').textContent = 'Cognito not configured.';
+        return;
+      }
+      // Try restore session
+      if (_restoreTokens()) {
+        const token = await this.getAccessToken();
+        if (token) {
+          // Success — boot app
+          this._bootApp();
+          return;
+        }
+      }
+      // Show login form
+      document.getElementById('auth-status-note').textContent = 'Sign in with your credentials.';
+    },
+
+    _bootApp() {
+      document.getElementById('loginBg')?.classList.add('hidden');
+      document.getElementById('newPwdBg')?.classList.add('hidden');
+      const appShell = document.getElementById('app-shell');
+      if (appShell) { appShell.hidden = false; appShell.removeAttribute('aria-hidden'); }
+      document.body.classList.remove('auth-shell-open');
+      if (window.HomeApp) window.HomeApp.boot(_user);
+      if (window.HomeAws && typeof window.HomeAws.flushAll === 'function') window.HomeAws.flushAll();
+    }
   };
 })();
 
+// ── Login form handler ───────────────────────────────────────
+let _loginChallengeUser = null;
+
+async function doLogin() {
+  const errEl = document.getElementById('auth-feedback');
+  const user = document.getElementById('auth-email')?.value.trim();
+  const pwd = document.getElementById('auth-password')?.value;
+  if (!user) { errEl.textContent = 'Enter a username'; errEl.classList.add('shake'); setTimeout(() => errEl.classList.remove('shake'), 600); return; }
+  if (!pwd) { errEl.textContent = 'Enter a password'; errEl.classList.add('shake'); setTimeout(() => errEl.classList.remove('shake'), 600); return; }
+  errEl.textContent = '';
+  const btn = document.getElementById('auth-sign-in-btn');
+  if (btn) { btn.textContent = 'Signing in...'; btn.disabled = true; }
+  try {
+    const result = await window.HomeAuth.login(user, pwd);
+    if (result.challenge === 'NEW_PASSWORD_REQUIRED') {
+      _loginChallengeUser = user;
+      document.getElementById('loginBg')?.classList.add('hidden');
+      document.getElementById('newPwdBg')?.classList.remove('hidden');
+      return;
+    }
+    // Show loading overlay briefly
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+    setTimeout(() => {
+      window.HomeAuth._bootApp();
+      if (overlay) { overlay.classList.add('lo-fadeout'); setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('lo-fadeout'); }, 700); }
+      if (typeof toast === 'function') toast('Welcome back! 🏠', 'green');
+    }, 1200);
+  } catch (e) {
+    errEl.textContent = window.HomeAuth.friendlyError(e);
+    errEl.classList.add('shake'); setTimeout(() => errEl.classList.remove('shake'), 600);
+  } finally {
+    if (btn) { btn.textContent = 'Sign In'; btn.disabled = false; }
+  }
+}
+
+async function doNewPassword() {
+  const errEl = document.getElementById('newpwd-feedback');
+  const pwd = document.getElementById('auth-new-password')?.value;
+  const pwd2 = document.getElementById('auth-new-password-confirm')?.value;
+  if (!pwd || pwd.length < 8) { errEl.textContent = 'Min 8 characters'; return; }
+  if (pwd !== pwd2) { errEl.textContent = 'Passwords do not match'; return; }
+  try {
+    await window.HomeAuth.respondNewPassword(_loginChallengeUser, pwd);
+    window.HomeAuth._bootApp();
+    if (typeof toast === 'function') toast('Password set! Welcome 🏠', 'green');
+  } catch (e) {
+    errEl.textContent = window.HomeAuth.friendlyError(e);
+  }
+}
+
+function doLogout() { window.HomeAuth.logout('Signed out successfully.'); }
+
+// ── Loading overlay particles ────────────────────────────────
+(function() {
+  const stars = document.getElementById('loStars');
+  const parts = document.getElementById('loParticles');
+  if (stars) {
+    for (let i = 0; i < 40; i++) {
+      const s = document.createElement('div'); s.className = 'lo-star';
+      const sz = Math.random() * 2 + .8;
+      s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-duration:${Math.random()*3+2}s;animation-delay:${Math.random()*4}s`;
+      stars.appendChild(s);
+    }
+  }
+  if (parts) {
+    const cs = ['#e11d48','#fb7185','#4ade80','#86efac','#f43f5e','#34d399'];
+    for (let i = 0; i < 18; i++) {
+      const p = document.createElement('div'); p.className = 'lo-p';
+      const sz = Math.random() * 5 + 2;
+      p.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;background:${cs[Math.floor(Math.random()*cs.length)]};animation-duration:${Math.random()*5+5}s;animation-delay:${Math.random()*6}s`;
+      parts.appendChild(p);
+    }
+  }
+})();
+
+// ── Init ─────────────────────────────────��───────────────────
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => window.HomeAuth.init(), { once: true });
 } else {

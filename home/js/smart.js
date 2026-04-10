@@ -4,10 +4,10 @@
 // ============================================================
 
 // ── Preloaded blueprints ────────────────────────────────────
-const PRELOADED_BLUEPRINTS = [
-  { id: 'bp-main',    label: 'Apartment Floor Plan (Dachgeschoss)',  src: 'blueprints/apartment-main.jpeg' },
-  { id: 'bp-measure', label: 'Room Measurements (92.29 m²)',         src: 'blueprints/apartment-measurements.jpeg' },
-  { id: 'bp-keller',  label: 'Basement — Keller 2 (Kellergeschoss)', src: 'blueprints/basement.jpeg' },
+const SMART_BLUEPRINT_PRESETS = [
+  { id: 'bp-main',    label: 'Apartment Floor Plan (Dachgeschoss)',  src: 'blueprints/apartment-dg.jpg' },
+  { id: 'bp-measure', label: 'Room Measurements (92.29 m²)',         src: 'blueprints/measurements.jpg' },
+  { id: 'bp-keller',  label: 'Basement — Keller 2 (Kellergeschoss)', src: 'blueprints/basement-kg.jpg' },
 ];
 
 // ── Blueprint background image ─────────────────────────────
@@ -15,7 +15,7 @@ let _blueprintImg = null;
 let _blueprintOpacity = 0.3;
 
 function loadPreloadedBlueprint(bpId) {
-  const bp = PRELOADED_BLUEPRINTS.find(b => b.id === bpId);
+  const bp = SMART_BLUEPRINT_PRESETS.find(b => b.id === bpId);
   if (!bp) return;
   _blueprintImg = new Image();
   _blueprintImg.onload = () => {
@@ -67,7 +67,7 @@ function restoreBlueprintFromPlan() {
   const p = ldPlan();
   if (!p) return;
   if (p.blueprintId) {
-    const bp = PRELOADED_BLUEPRINTS.find(b => b.id === p.blueprintId);
+    const bp = SMART_BLUEPRINT_PRESETS.find(b => b.id === p.blueprintId);
     if (bp) {
       _blueprintImg = new Image();
       _blueprintImg.onload = () => renderPlan();
@@ -494,13 +494,86 @@ function renderComparisonGroup(title, items, source) {
   return h;
 }
 
+// ── Room Shopping Summary (Buy subtab) ──────────────────────
+function rRoomMap() {
+  const el = document.getElementById('room-map-content'); if (!el) return;
+  const items = ldBuy(), rooms = getAllRooms();
+  let tEst=0, tSpent=0, tBought=0, tItems=0;
+  let h = '';
+
+  rooms.forEach(room => {
+    const ri = items.filter(it => it.roomId === room.id);
+    if (!ri.length) return;
+    tItems += ri.length;
+    const est = ri.reduce((s,it) => s+(it.bought?(it.actualPrice||it.price||0):(it.price||0)), 0);
+    const spent = ri.filter(i=>i.bought).reduce((s,it) => s+(it.actualPrice||it.price||0), 0);
+    const bought = ri.filter(i=>i.bought).length;
+    tEst += est; tSpent += spent; tBought += bought;
+    const byType = groupBy(ri, 'type');
+    const pct = ri.length ? Math.round(bought/ri.length*100) : 0;
+
+    h += `<div class="rm-card" style="margin-bottom:8px">
+      <div class="card-h" style="border-left:4px solid ${room.colorDark||room.color}" onclick="togCard('rm-${room.id}')">
+        <div style="flex:1"><div class="card-title">${room.emoji} ${esc(room.label)}</div>
+        <div class="card-sub">${ri.length} items · ${bought} bought</div></div>
+        <div style="text-align:right"><div style="font-weight:700;color:var(--pk);font-size:.88rem">${fmtEur(est,0)}</div>
+        <div style="font-size:.55rem;color:var(--gn)">${fmtEur(spent,0)} spent</div></div>
+        <span class="chev">▼</span>
+      </div>
+      <div id="rm-${room.id}" class="card-body" style="display:block;padding:4px 12px">
+        ${progressBar(pct, room.colorDark||'var(--pk)', '4px')}`;
+
+    Object.entries(byType).forEach(([type, ti]) => {
+      h += `<div style="font-size:.6rem;font-weight:700;color:var(--bd3);margin:6px 0 3px;text-transform:uppercase;letter-spacing:.05em">${esc(type||'General')}</div>`;
+      ti.forEach(it => {
+        const ph = it.photos?.[0];
+        h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg2);cursor:pointer" onclick="openItemDetail('${it.id}')">
+          ${ph?`<img src="${esc(ph)}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;flex-shrink:0">`:`<div style="width:36px;height:36px;background:var(--bg2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">${it.category==='Appliances'?'🏠':'🛋️'}</div>`}
+          <div style="flex:1;min-width:0"><div style="font-size:.72rem;font-weight:600">${esc(it.name)}${it.bought?' ✅':''}</div>
+          ${it.brand?`<div style="font-size:.55rem;color:var(--bd3)">${esc(it.brand)}</div>`:''}
+          ${dimStr(it)?`<div style="font-size:.52rem;color:var(--bd3)">📐 ${esc(dimStr(it))}</div>`:''}</div>
+          <div style="font-weight:700;font-size:.72rem;color:var(--pk)">${it.price?fmtEur(it.price,0):''}</div>
+        </div>`;
+      });
+    });
+    h += '</div></div>';
+  });
+
+  // Unassigned
+  const ua = items.filter(it => !it.roomId);
+  if (ua.length) {
+    h += `<div class="rm-card" style="margin-bottom:8px">
+      <div class="card-h" style="border-left:4px solid #94a3b8" onclick="togCard('rm-unassigned')">
+        <div style="flex:1"><div class="card-title">📦 Unassigned</div>
+        <div class="card-sub">${ua.length} items</div></div><span class="chev">▼</span>
+      </div>
+      <div id="rm-unassigned" class="card-body" style="display:block;padding:4px 12px">
+        ${ua.map(it => `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg2);cursor:pointer" onclick="openItemDetail('${it.id}')">
+          <div style="width:36px;height:36px;background:var(--bg2);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">📦</div>
+          <div style="flex:1;min-width:0"><div style="font-size:.72rem;font-weight:600">${esc(it.name)}</div></div>
+          <div style="font-weight:700;font-size:.72rem;color:var(--pk)">${it.price?fmtEur(it.price,0):''}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  const summary = `<div class="mini-stats" style="margin-bottom:10px">
+    <div class="mini-stat"><div class="ms-num" style="color:var(--pk)">${fmtEur(tEst,0)}</div><div class="ms-lbl">Estimated</div></div>
+    <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${fmtEur(tSpent,0)}</div><div class="ms-lbl">Spent</div></div>
+    <div class="mini-stat"><div class="ms-num">${tBought}/${tItems}</div><div class="ms-lbl">Bought</div></div>
+    <div class="mini-stat"><div class="ms-num">${rooms.filter(r=>items.some(it=>it.roomId===r.id)).length}</div><div class="ms-lbl">Rooms</div></div>
+  </div>`;
+
+  el.innerHTML = summary + (h || '<div class="empty"><div class="ei">🏠</div>Assign items to rooms to see your room-by-room plan</div>');
+}
+
 // ── Plan Tools Panel rendering ───────────────────────────────
 function rPlanTools() {
   const el = document.getElementById('plan-tools-content'); if (!el) return;
   const hasBp = !!_blueprintImg;
 
   let h = '<div style="margin-bottom:6px"><div style="font-size:.62rem;font-weight:600;margin-bottom:4px">Preloaded Blueprints</div>';
-  PRELOADED_BLUEPRINTS.forEach(bp => {
+  SMART_BLUEPRINT_PRESETS.forEach(bp => {
     const isActive = _blueprintImg && ldPlan()?.blueprintId === bp.id;
     h += `<button class="btn sml ${isActive ? 'pri' : ''}" onclick="loadPreloadedBlueprint('${bp.id}')" style="width:100%;margin-bottom:3px;font-size:.6rem;text-align:left">${isActive ? '✓ ' : ''}${esc(bp.label)}</button>`;
   });
@@ -512,6 +585,14 @@ function rPlanTools() {
       <label style="font-size:.55rem;color:var(--bd3);display:flex;align-items:center;gap:4px">
         Opacity: <input type="range" min="0.1" max="0.8" step="0.05" value="${_blueprintOpacity}" oninput="setBlueprintOpacity(this.value)" style="flex:1">
       </label>` : ''}
+  </div>`;
+
+  // Measurement annotations section
+  const measCount = getFloorMeasurements().length;
+  h += `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+    <div style="font-size:.62rem;font-weight:600;margin-bottom:4px">📏 Measurements (${measCount})</div>
+    <div style="font-size:.55rem;color:var(--bd3);margin-bottom:4px">Use the Measure tool in the toolbar to draw ruler lines on the plan.</div>
+    ${measCount ? `<button class="btn sml dan" onclick="clearMeasurements()" style="font-size:.58rem">🗑️ Clear all measurements</button>` : ''}
   </div>`;
 
   el.innerHTML = h;
@@ -526,6 +607,7 @@ function switchBuySubtab(tab) {
   document.querySelectorAll('.buy-subtab-panel').forEach(el => el.classList.toggle('active', el.id === 'buy-sub-' + tab));
   if (tab === 'fit') rFitTest();
   else if (tab === 'budget') rBudgetPlanner();
+  else if (tab === 'roommap') rRoomMap();
 }
 
 // ── Compare subtab navigation ────────────────────────────────
