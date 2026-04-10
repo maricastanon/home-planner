@@ -119,12 +119,18 @@ window.addEventListener('scroll', ()=>{ const b=document.getElementById('scroll-
 // ── Pill filter builders ──────────────────────────────────────
 function rBuyFilters() {
   const items=ldBuy();
-  const roomCounts={}, catCounts={};
-  items.forEach(it=>{ roomCounts[it.roomId]=(roomCounts[it.roomId]||0)+1; catCounts[it.category]=(catCounts[it.category]||0)+1; });
-  const roomOpts=ROOMS.filter(r=>roomCounts[r.id]).map(r=>({k:r.id,l:r.label,e:r.emoji,count:roomCounts[r.id]}));
+  const roomCounts={}, catCounts={}, sourceCounts={};
+  items.forEach(it=>{
+    roomCounts[it.roomId]=(roomCounts[it.roomId]||0)+1;
+    catCounts[it.category]=(catCounts[it.category]||0)+1;
+    const sourceKey = normalizeItemSource(it.source);
+    sourceCounts[sourceKey]=(sourceCounts[sourceKey]||0)+1;
+  });
+  const roomOpts=getAllRooms().filter(r=>roomCounts[r.id]).map(r=>({k:r.id,l:r.label,e:r.emoji,count:roomCounts[r.id]}));
   const catOpts=ITEM_CATEGORIES.filter(c=>catCounts[c.k]).map(c=>({k:c.k,l:c.l,e:c.e,count:catCounts[c.k]}));
   const prioOpts=BUY_PRIOS.map(p=>({k:p.k,l:p.l,e:p.e}));
   const statusOpts=[{k:'pending',l:'To buy',e:'🛒'},{k:'bought',l:'Bought',e:'✅'},{k:'agreed',l:'Both 💕',e:''},{k:'disputed',l:'Disputed',e:'⚡'}];
+  const sourceOpts=ITEM_SOURCES.filter(s=>sourceCounts[s.k]).map(s=>({k:s.k,l:s.l,e:s.e,count:sourceCounts[s.k]}));
   const sortOpts=[{k:'vote',l:'Votes',e:'🗳️'},{k:'prio',l:'Priority',e:'🔴'},{k:'price-lo',l:'Price ↑',e:'💰'},{k:'price-hi',l:'Price ↓',e:'💸'},{k:'name',l:'A–Z',e:'🔤'}];
   const viewOpts=[{k:'room',l:'By Room',e:'🏠'},{k:'type',l:'By Type',e:'📋'},{k:'grid',l:'Grid',e:'⊞'}];
   const el=(id,opts,key,fn,cfg={})=>{ const e=document.getElementById(id); if(e) e.innerHTML=buildPillFilters('buy',key,opts,fn,cfg); };
@@ -132,6 +138,7 @@ function rBuyFilters() {
   el('buy-filter-cat',   catOpts,   'cat',   rBuy, {showCounts:true, allowAll:'All Categories'});
   el('buy-filter-prio',  prioOpts,  'prio',  rBuy);
   el('buy-filter-status',statusOpts,'status',rBuy);
+  el('buy-filter-source',sourceOpts,'source',rBuy);
   el('buy-sort-pills',   sortOpts,  'sort',  rBuy, {allowAll:false});
   el('buy-view-pills',   viewOpts,  'view',  rBuy, {allowAll:false});
 }
@@ -174,7 +181,7 @@ function rCmpFilters() {
   const catCounts={}, roomCounts={};
   items.forEach(it=>{ catCounts[it.category]=(catCounts[it.category]||0)+1; roomCounts[it.roomId]=(roomCounts[it.roomId]||0)+1; });
   const catOpts=Object.entries(catCounts).map(([k,c])=>({k,l:k,count:c}));
-  const roomOpts=ROOMS.filter(r=>roomCounts[r.id]).map(r=>({k:r.id,l:r.label,e:r.emoji}));
+  const roomOpts=getAllRooms().filter(r=>roomCounts[r.id]).map(r=>({k:r.id,l:r.label,e:r.emoji}));
   const el=(id,opts,key,fn,cfg={})=>{ const e=document.getElementById(id); if(e) e.innerHTML=buildPillFilters('cmp',key,opts,fn,cfg); };
   el('cmp-filter-cat', catOpts, 'cat', rCompare, {showCounts:true});
   el('cmp-filter-room',roomOpts,'room',rCompare);

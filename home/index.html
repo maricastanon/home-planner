@@ -103,6 +103,7 @@
         <button class="ptool"        id="tool-furn"   onclick="setPlanTool('furn')">🛋️ Furniture</button>
         <button class="ptool"        id="tool-erase"  onclick="setPlanTool('erase')">🗑️ Erase</button>
         <button class="ptool"        id="tool-paint"  onclick="setPlanTool('paint')">🎨 Colour</button>
+        <button class="ptool"        id="tool-measure" onclick="setPlanTool('measure')">📏 Measure</button>
         <div class="plan-sep"></div>
         <input type="color" id="plan-paint-color" value="#e8f5e9" title="Room colour" style="width:26px;height:22px;padding:0;border:1px solid var(--border);border-radius:6px;cursor:pointer">
         <div class="plan-sep"></div>
@@ -121,6 +122,7 @@
         <button class="ptool" id="plan-rotate-btn" onclick="rotateSelectedFurniture()" title="Select a furniture item to rotate" disabled>⟳ Rotate</button>
         <button class="ptool" onclick="clearFloor()" style="color:var(--pk)">🗑️ Floor</button>
         <button class="ptool" onclick="downloadPlan()">💾 PNG</button>
+        <button class="ptool" onclick="openBlueprintModal()">🧾 Blueprint</button>
       </div>
       <div class="furn-bar" id="furn-bar" style="display:none;flex-wrap:wrap;gap:3px;padding:7px 10px;background:var(--bg);border-bottom:1px solid var(--border)">
         <span class="furn-cat">🛏️ Bedroom</span>
@@ -163,6 +165,18 @@
       <div class="room-sidebar-wrap">
         <div class="room-sidebar-hdr">🏷️ Rooms <button class="btn sml" style="float:right;margin-top:-2px" onclick="addFloor()">+ Floor</button></div>
         <div id="room-sidebar"></div>
+      </div>
+      <div class="room-sidebar-wrap" id="plan-tools-panel">
+        <div class="room-sidebar-hdr">📐 Plan Tools</div>
+        <div id="plan-tools-content" style="font-size:.68rem;color:var(--bd3)">Upload a blueprint, tune measurements, and inspect room capacity here.</div>
+      </div>
+      <div class="room-sidebar-wrap" style="margin-top:8px">
+        <div class="room-sidebar-hdr">📊 Space Analyzer</div>
+        <div id="space-analyzer" style="font-size:.68rem;color:var(--bd3)">Draw rooms and place furniture to see free space per room.</div>
+      </div>
+      <div class="room-sidebar-wrap" style="margin-top:8px">
+        <div class="room-sidebar-hdr">🧠 Space Optimizer</div>
+        <div id="space-optimizer" style="font-size:.68rem;color:var(--bd3)">Check must-have items per room to find the best layout for maximum free space.</div>
       </div>
       <div style="background:var(--white);border-radius:var(--r2);padding:10px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:8px">
         <div style="font-size:.7rem;font-weight:700;color:var(--pk);margin-bottom:6px">🏠 Items in rooms</div>
@@ -249,21 +263,39 @@
     </div>
   </div>
   <div id="buy-budget" style="margin-bottom:10px"></div>
-  <div class="search-bar" style="margin-bottom:4px">
-    <span class="si">🔍</span>
-    <input id="buy-search" placeholder="Search items, brands... (Ctrl+K)" oninput="rBuyList()">
+  <!-- Subtabs -->
+  <div class="buy-subtabs">
+    <button class="buy-subtab active" data-subtab="items" onclick="switchBuySubtab('items')">🛒 Items</button>
+    <button class="buy-subtab" data-subtab="fit" onclick="switchBuySubtab('fit')">📐 Fit Test</button>
+    <button class="buy-subtab" data-subtab="budget" onclick="switchBuySubtab('budget')">💰 Budget Planner</button>
   </div>
-  <div class="filter-section">
-    <div class="filter-label">Room</div><div id="buy-filter-room"></div>
-    <div class="filter-label" style="margin-top:5px">Category</div><div id="buy-filter-cat"></div>
-    <div class="filter-label" style="margin-top:5px">Priority</div><div id="buy-filter-prio"></div>
-    <div class="filter-label" style="margin-top:5px">Status</div><div id="buy-filter-status"></div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:5px;align-items:center">
-      <div><div class="filter-label">Sort</div><div id="buy-sort-pills"></div></div>
-      <div><div class="filter-label">View</div><div id="buy-view-pills"></div></div>
+  <!-- Items subtab -->
+  <div class="buy-subtab-panel active" id="buy-sub-items">
+    <div class="search-bar" style="margin-bottom:4px">
+      <span class="si">🔍</span>
+      <input id="buy-search" placeholder="Search items, brands... (Ctrl+K)" oninput="rBuyList()">
     </div>
+    <div class="filter-section">
+      <div class="filter-label">Room</div><div id="buy-filter-room"></div>
+      <div class="filter-label" style="margin-top:5px">Category</div><div id="buy-filter-cat"></div>
+      <div class="filter-label" style="margin-top:5px">Priority</div><div id="buy-filter-prio"></div>
+      <div class="filter-label" style="margin-top:5px">Status</div><div id="buy-filter-status"></div>
+      <div class="filter-label" style="margin-top:5px">Source</div><div id="buy-filter-source"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:5px;align-items:center">
+        <div><div class="filter-label">Sort</div><div id="buy-sort-pills"></div></div>
+        <div><div class="filter-label">View</div><div id="buy-view-pills"></div></div>
+      </div>
+    </div>
+    <div id="buy-list" style="margin-top:8px"></div>
   </div>
-  <div id="buy-list" style="margin-top:8px"></div>
+  <!-- Fit Test subtab -->
+  <div class="buy-subtab-panel" id="buy-sub-fit">
+    <div id="fit-test-content"></div>
+  </div>
+  <!-- Budget Planner subtab -->
+  <div class="buy-subtab-panel" id="buy-sub-budget">
+    <div id="budget-planner-content"></div>
+  </div>
 </div>
 
 <!-- ═══════════════ COMPARE (standalone) ═══════════════ -->
@@ -272,11 +304,24 @@
     <div style="font-weight:700;font-size:.95rem;color:var(--pk)">⚖️ Product Comparison</div>
     <button class="btn pri" onclick="openModal('cmp-add-modal')">+ Add Product</button>
   </div>
-  <div class="filter-section">
-    <div class="filter-label">Category</div><div id="cmp-filter-cat"></div>
-    <div class="filter-label" style="margin-top:5px">Room</div><div id="cmp-filter-room"></div>
+  <!-- Compare subtabs -->
+  <div class="cmp-subtabs">
+    <button class="cmp-subtab active" data-subtab="table" onclick="switchCmpSubtab('table')">📋 Table View</button>
+    <button class="cmp-subtab" data-subtab="visual" onclick="switchCmpSubtab('visual')">🖼️ Visual Compare</button>
   </div>
-  <div id="compare-out" style="margin-top:8px"></div>
+  <!-- Table subtab (existing) -->
+  <div class="cmp-subtab-panel active" id="cmp-sub-table">
+    <div class="filter-section">
+      <div class="filter-label">Category</div><div id="cmp-filter-cat"></div>
+      <div class="filter-label" style="margin-top:5px">Room</div><div id="cmp-filter-room"></div>
+    </div>
+    <div id="cmp-scenario-panel" style="margin-top:10px"></div>
+    <div id="compare-out" style="margin-top:8px"></div>
+  </div>
+  <!-- Visual Compare subtab -->
+  <div class="cmp-subtab-panel" id="cmp-sub-visual">
+    <div id="visual-compare-content"></div>
+  </div>
 </div>
 
 <!-- ═══════════════════ SCROLL / TOAST ═══════════════════ -->
@@ -552,6 +597,10 @@
       <div class="fg"><label>Name *</label><input id="b-name" placeholder="Samsung fridge..."></div>
       <div class="fg"><label>Brand</label><input id="b-brand" placeholder="Samsung, IKEA..."></div>
       <div class="fg"><label>Model</label><input id="b-model" placeholder="Model number..."></div>
+      <div class="fg"><label>Source</label><select id="b-source">
+        <option value="new">🆕 Buy new</option>
+        <option value="existing">🏚️ Bring from old flat</option>
+      </select></div>
       <div class="fg"><label>Category</label><select id="b-cat" onchange="onBuyCatChange(this)">
         <option value="Appliances">🏠 Appliances</option><option value="Furniture">🛋️ Furniture</option>
         <option value="Electronics">📺 Electronics</option><option value="Lighting">💡 Lighting</option>
@@ -580,6 +629,10 @@
         <option value="want" selected>🟡 Want</option>
         <option value="nice">🟢 Nice-to-have</option>
       </select></div>
+      <div class="fg"><label>Source</label><select id="b-source">
+        <option value="new">🛒 Buy new</option>
+        <option value="existing">📦 Take from old apartment</option>
+      </select></div>
       <div class="fg"><label>Status</label><select id="b-status">
         <option value="wishlist">💭 Wishlist</option><option value="researching">🔍 Researching</option>
         <option value="decided">✅ Decided</option><option value="ordered">📦 Ordered</option>
@@ -588,6 +641,12 @@
       <div class="fg"><label>Original / RRP (€)</label><input id="b-orig-price" type="number" step="0.01"></div>
       <div class="fg"><label>Buy link</label><input id="b-buylink" placeholder="https://..."></div>
       <div class="fg"><label>Alternative link</label><input id="b-altlink" placeholder="https://..."></div>
+      <div class="fg"><label>Option group</label><input id="b-option-group" placeholder="Living room sofa shortlist"></div>
+      <div class="fg"><label>Room optimizer</label><select id="b-room-role">
+        <option value="candidate">➕ Candidate for room</option>
+        <option value="must">✅ Must be in room</option>
+        <option value="ignore">🚫 Ignore in optimizer</option>
+      </select></div>
     </div>
     <!-- Dimensions -->
     <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--bd3);margin-bottom:4px">📐 Dimensions</div>
@@ -648,6 +707,10 @@
       <div class="fg"><label>Name</label><input id="be-name"></div>
       <div class="fg"><label>Brand</label><input id="be-brand"></div>
       <div class="fg"><label>Model</label><input id="be-model"></div>
+      <div class="fg"><label>Source</label><select id="be-source">
+        <option value="new">🆕 Buy new</option>
+        <option value="existing">🏚️ Bring from old flat</option>
+      </select></div>
       <div class="fg"><label>Category</label><select id="be-cat">
         <option value="Appliances">🏠 Appliances</option><option value="Furniture">🛋️ Furniture</option>
         <option value="Electronics">📺 Electronics</option><option value="Lighting">💡 Lighting</option>
@@ -666,6 +729,9 @@
       <div class="fg"><label>Priority</label><select id="be-prio">
         <option value="must">🔴 Must-have</option><option value="want">🟡 Want</option><option value="nice">🟢 Nice</option>
       </select></div>
+      <div class="fg"><label>Source</label><select id="be-source">
+        <option value="new">🛒 Buy new</option><option value="existing">📦 Take from old apartment</option>
+      </select></div>
       <div class="fg"><label>Status</label><select id="be-status">
         <option value="wishlist">💭 Wishlist</option><option value="researching">🔍 Researching</option>
         <option value="decided">✅ Decided</option><option value="ordered">📦 Ordered</option>
@@ -675,6 +741,12 @@
       <div class="fg"><label>Original / RRP (€)</label><input id="be-orig-price" type="number" step="0.01"></div>
       <div class="fg"><label>Buy link</label><input id="be-buylink"></div>
       <div class="fg"><label>Alt link</label><input id="be-altlink"></div>
+      <div class="fg"><label>Option group</label><input id="be-option-group" placeholder="Living room sofa shortlist"></div>
+      <div class="fg"><label>Room optimizer</label><select id="be-room-role">
+        <option value="candidate">➕ Candidate for room</option>
+        <option value="must">✅ Must be in room</option>
+        <option value="ignore">🚫 Ignore in optimizer</option>
+      </select></div>
       <div class="fg"><label>Width (cm)</label><input id="be-width" type="number"></div>
       <div class="fg"><label>Depth (cm)</label><input id="be-depth" type="number"></div>
       <div class="fg"><label>Height (cm)</label><input id="be-height" type="number"></div>
@@ -755,6 +827,54 @@
   </div>
 </div>
 
+<!-- Room Optimizer -->
+<div class="modal full" id="room-optimizer-modal">
+  <div class="modal-box" style="max-width:920px">
+    <div class="modal-hdr">
+      <h3>🧠 Room Optimizer</h3>
+      <span class="modal-close" onclick="closeModal('room-optimizer-modal')">✕</span>
+    </div>
+    <div id="room-optimizer-content"></div>
+  </div>
+</div>
+
+<!-- Blueprint Modal -->
+<div class="modal" id="blueprint-modal">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-hdr"><h3>🧾 Blueprint Overlay</h3><span class="modal-close" onclick="closeModal('blueprint-modal')">✕</span></div>
+    <div class="fg" style="margin-bottom:10px">
+      <label>Preloaded blueprint</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="bp-modal-preset" style="flex:1"></select>
+        <button class="btn" onclick="applySelectedBlueprintPreset()">Load preset</button>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:10px">
+      <label>Blueprint image</label>
+      <input id="bp-modal-file" type="file" accept="image/*" onchange="handleBlueprintUpload(this.files)">
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label>Offset X (m)</label><input id="bp-modal-offset-x" type="number" step="0.1"></div>
+      <div class="fg"><label>Offset Y (m)</label><input id="bp-modal-offset-y" type="number" step="0.1"></div>
+      <div class="fg"><label>Width (m)</label><input id="bp-modal-width-m" type="number" step="0.1"></div>
+      <div class="fg"><label>Height (m)</label><input id="bp-modal-height-m" type="number" step="0.1"></div>
+    </div>
+    <div class="form-grid">
+      <div class="fg"><label>Opacity</label><input id="bp-modal-opacity" type="range" min="0.1" max="0.95" step="0.05"></div>
+      <div class="tick-panel">
+        <label class="tick-row"><input id="bp-modal-visible" type="checkbox"> Show blueprint on canvas</label>
+        <div class="tick-caption">Use the uploaded blueprint as a trace layer under rooms and furniture.</div>
+      </div>
+    </div>
+    <div id="bp-modal-status" class="note-box" style="margin-top:8px">Upload a PNG or JPG blueprint, set its real size, and trace rooms on top.</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="fitBlueprintToFloor()">Fit to current floor</button>
+      <button class="btn dan" onclick="clearBlueprint()">Remove</button>
+      <button class="btn pri" onclick="saveBlueprintSettings()">Save blueprint</button>
+    </div>
+  </div>
+</div>
+
 <!-- Compare Add (standalone tab) -->
 <div class="modal" id="cmp-add-modal">
   <div class="modal-box" style="max-width:560px">
@@ -766,6 +886,7 @@
         <option>Oven / Hob</option><option>Dishwasher</option><option>TV</option>
         <option>Sofa</option><option>Bed</option><option>Desk</option><option>Other</option>
       </select></div>
+      <div class="fg"><label>Option group</label><input id="cmp-group" placeholder="Kitchen fridge shortlist"></div>
       <div class="fg"><label>Room</label><select id="cmp-room">
         <option value="">-- select --</option>
         <option value="r-kueche">🍳 Kitchen</option><option value="r-wohnzim">🛋️ Living Room</option>
@@ -778,6 +899,7 @@
         <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
       </select></div>
       <div class="fg"><label>Warranty</label><input id="cmp-warranty" placeholder="2 years..."></div>
+      <div class="fg"><label>Image URL</label><input id="cmp-image-url" placeholder="https://.../fridge.jpg"></div>
       <div class="fg"><label>Buy link</label><input id="cmp-buylink" placeholder="https://..."></div>
       <div class="fg"><label>Rating (Person 1)</label><select id="cmp-rating-m">
         <option value="">–</option><option value="5">⭐⭐⭐⭐⭐</option>
@@ -817,6 +939,7 @@
         <option>Oven / Hob</option><option>Dishwasher</option><option>TV</option>
         <option>Sofa</option><option>Bed</option><option>Desk</option><option>Other</option>
       </select></div>
+      <div class="fg"><label>Option group</label><input id="cmpe-group" placeholder="Kitchen fridge shortlist"></div>
       <div class="fg"><label>Room</label><select id="cmpe-room">
         <option value="">– none –</option>
         <option value="r-kueche">🍳 Kitchen</option><option value="r-wohnzim">🛋️ Living Room</option>
@@ -829,6 +952,7 @@
         <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
       </select></div>
       <div class="fg"><label>Warranty</label><input id="cmpe-warranty"></div>
+      <div class="fg"><label>Image URL</label><input id="cmpe-image-url" placeholder="https://.../fridge.jpg"></div>
       <div class="fg"><label>Buy link</label><input id="cmpe-buylink"></div>
       <div class="fg"><label>Rating P1</label><select id="cmpe-rating-m">
         <option value="">–</option><option value="5">⭐⭐⭐⭐⭐</option>
@@ -897,6 +1021,7 @@
 <script src="js/modules.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/smart.js"></script>
 <script src="js/app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6/dist/amazon-cognito-identity.min.js"></script>
 <script src="js/aws-backend.js"></script>

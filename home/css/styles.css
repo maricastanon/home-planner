@@ -863,6 +863,198 @@ canvas { display:block; touch-action:none; outline:none; max-width:100%; height:
   .fg input, .fg select, .fg textarea, .auth-input { padding:10px 12px; }
 }
 
+/* ── BLUEPRINT OVERLAY ─────────────────────────────────────── */
+.blueprint-controls { display:flex; align-items:center; gap:8px; padding:6px 10px; background:var(--bg); border-bottom:1px solid var(--border); font-size:.62rem; color:var(--bd3); flex-wrap:wrap; }
+.blueprint-controls label { white-space:nowrap; }
+.blueprint-controls input[type="range"] { width:80px; accent-color:var(--pk); }
+.blueprint-controls .btn { font-size:.58rem; padding:3px 8px; }
+
+/* ── ROOM CAPACITY METER ───────────────────────────────────── */
+.capacity-meter { margin-top:4px; }
+.capacity-bar { height:5px; background:var(--bg2); border-radius:3px; overflow:hidden; }
+.capacity-bar-fill { height:100%; border-radius:3px; transition:width .4s; }
+.capacity-label { font-size:.55rem; color:var(--bd3); margin-top:1px; display:flex; justify-content:space-between; }
+.capacity-green .capacity-bar-fill { background:var(--gn); }
+.capacity-yellow .capacity-bar-fill { background:#d97706; }
+.capacity-red .capacity-bar-fill { background:var(--pk); }
+
+/* ── FIT INDICATOR ─────────────────────────────────────────── */
+.fit-badge { position:absolute; top:4px; right:4px; font-size:.55rem; font-weight:700; padding:2px 6px; border-radius:6px; pointer-events:none; z-index:10; }
+.fit-badge.fits { background:#dcfce7; color:#14532d; }
+.fit-badge.no-fit { background:#fee2e2; color:#991b1b; }
+
+/* ── ROOM OPTIMIZER ────────────────────────────────────────── */
+.optimizer-panel { background:var(--white); border-radius:var(--r2); padding:12px; box-shadow:var(--sh); border:1px solid var(--border); margin-top:8px; }
+.optimizer-panel .opt-hdr { font-size:.72rem; font-weight:700; color:var(--pk); margin-bottom:8px; }
+.opt-item-row { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid var(--bg2); font-size:.68rem; }
+.opt-item-row input[type="checkbox"] { accent-color:var(--pk); width:14px; height:14px; flex-shrink:0; }
+.opt-item-row .opt-name { flex:1; }
+.opt-item-row .opt-dims { color:var(--bd3); font-size:.6rem; white-space:nowrap; }
+.opt-item-row .opt-must { font-size:.55rem; font-weight:700; color:var(--pk); background:var(--pkl); padding:1px 5px; border-radius:4px; }
+.opt-result { margin-top:10px; padding:10px; background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-radius:var(--r); border:1px solid #86efac; }
+.opt-result .opt-result-title { font-size:.72rem; font-weight:700; color:#14532d; margin-bottom:4px; }
+.opt-result .opt-result-space { font-size:1.4rem; font-weight:700; color:var(--gn); }
+.opt-result .opt-result-items { font-size:.62rem; color:var(--bd3); margin-top:4px; }
+.opt-excluded { margin-top:6px; font-size:.6rem; color:var(--bd3); }
+.opt-excluded span { display:inline-block; background:var(--pkl); color:var(--pks); padding:1px 5px; border-radius:4px; margin:1px; }
+
+/* ── VISUAL COMPARISON CARDS ───────────────────────────────── */
+.cmp-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px; }
+.cmp-card { background:var(--white); border-radius:var(--r2); box-shadow:var(--sh); border:2px solid var(--border); overflow:hidden; transition:border-color .2s, box-shadow .2s; position:relative; }
+.cmp-card:hover { box-shadow:var(--sh2); }
+.cmp-card.winner { border-color:#86efac; }
+.cmp-card.chosen { border-color:var(--pk); box-shadow:0 0 0 3px rgba(225,29,72,.15); }
+.cmp-card-photo { width:100%; aspect-ratio:4/3; background:var(--bg2); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative; }
+.cmp-card-photo img { width:100%; height:100%; object-fit:cover; }
+.cmp-card-photo .no-img { font-size:3rem; opacity:.2; }
+.cmp-card-rank { position:absolute; top:8px; left:8px; background:var(--pk); color:#fff; font-size:.6rem; font-weight:700; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.cmp-card-winner-badge { position:absolute; top:8px; right:8px; background:var(--gn); color:#fff; font-size:.55rem; font-weight:700; padding:2px 8px; border-radius:8px; }
+.cmp-card-body { padding:10px; }
+.cmp-card-name { font-weight:700; font-size:.82rem; margin-bottom:2px; }
+.cmp-card-price { font-size:1rem; font-weight:700; color:var(--pk); }
+.cmp-card-price.best { color:var(--gn); }
+.cmp-card-dims { font-size:.62rem; color:var(--bd3); margin-top:4px; font-family:'JetBrains Mono',monospace; }
+.cmp-card-specs { display:flex; flex-wrap:wrap; gap:3px; margin-top:6px; }
+.cmp-card-specs .spec-chip { font-size:.55rem; padding:2px 6px; border-radius:4px; background:var(--bg2); color:var(--bd2); }
+.cmp-card-ratings { display:flex; gap:8px; margin-top:6px; font-size:.62rem; }
+.cmp-card-actions { display:flex; gap:4px; padding:8px 10px; border-top:1px solid var(--border); }
+.cmp-card-actions .btn { flex:1; font-size:.58rem; justify-content:center; }
+
+/* ── SIZE DIFFERENCE OVERLAY ───────────────────────────────── */
+.size-diff { margin-top:8px; padding:8px; background:var(--bg); border-radius:var(--r); border:1px solid var(--border); }
+.size-diff-title { font-size:.62rem; font-weight:700; color:var(--bd3); margin-bottom:6px; }
+.size-bar-row { display:flex; align-items:center; gap:6px; margin:3px 0; font-size:.6rem; }
+.size-bar-row .bar-label { width:60px; text-align:right; color:var(--bd3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.size-bar-row .bar-track { flex:1; height:10px; background:var(--bg2); border-radius:5px; overflow:hidden; position:relative; }
+.size-bar-row .bar-fill { height:100%; border-radius:5px; transition:width .3s; }
+.size-bar-row .bar-val { width:50px; font-weight:600; font-size:.58rem; }
+
+/* ── SCENARIO PLANNER ──────────────────────────────────────── */
+.scenario-panel { background:var(--white); border-radius:var(--r2); box-shadow:var(--sh); border:1px solid var(--border); padding:14px; }
+.scenario-panel .sc-hdr { font-size:.82rem; font-weight:700; color:var(--pk); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.sc-group { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--bg2); }
+.sc-group:last-child { border-bottom:none; margin-bottom:0; }
+.sc-group-title { font-size:.72rem; font-weight:700; color:var(--bd); margin-bottom:6px; display:flex; align-items:center; gap:4px; }
+.sc-option { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:var(--r); cursor:pointer; transition:background .15s; font-size:.68rem; }
+.sc-option:hover { background:var(--bg); }
+.sc-option.active { background:var(--pkl); border:1px solid var(--pk2); }
+.sc-option input[type="radio"] { accent-color:var(--pk); flex-shrink:0; }
+.sc-option .sc-name { flex:1; font-weight:500; }
+.sc-option .sc-price { font-weight:700; color:var(--pk); white-space:nowrap; }
+.sc-option .sc-dims { font-size:.58rem; color:var(--bd3); }
+.sc-totals { background:linear-gradient(135deg,var(--pkl),#fff); border-radius:var(--r); padding:12px; margin-top:10px; display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px; }
+.sc-total-card { text-align:center; }
+.sc-total-card .sc-total-num { font-size:1.3rem; font-weight:700; font-family:'DM Serif Display',serif; }
+.sc-total-card .sc-total-lbl { font-size:.6rem; color:var(--bd3); }
+.sc-savings { margin-top:8px; text-align:center; font-size:.72rem; font-weight:700; color:var(--gn); }
+
+/* ── PLAN SUB-TABS ─────────────────────────────────────────── */
+.plan-subtabs { display:flex; gap:2px; padding:6px 10px; background:var(--bg); border-bottom:1px solid var(--border); }
+.plan-subtab { font-size:.62rem; font-weight:600; padding:4px 10px; border-radius:8px; cursor:pointer; color:var(--bd3); transition:all .15s; border:none; background:none; }
+.plan-subtab:hover { background:var(--bg2); color:var(--bd); }
+.plan-subtab.active { background:var(--pk); color:#fff; }
+
+/* ── CMP SUB-TABS ──────────────────────────────────────────── */
+.cmp-subtabs { display:flex; gap:2px; margin-bottom:10px; background:var(--bg); border-radius:var(--r); padding:3px; }
+.cmp-subtab { font-size:.68rem; font-weight:600; padding:6px 14px; border-radius:8px; cursor:pointer; color:var(--bd3); transition:all .15s; border:none; background:none; flex:1; text-align:center; }
+.cmp-subtab:hover { background:var(--bg2); color:var(--bd); }
+.cmp-subtab.active { background:var(--white); color:var(--pk); box-shadow:var(--sh); }
+
+/* ── BUY SUBTABS ────────────────────────────────────────────── */
+.buy-subtabs { display:flex; gap:2px; margin-bottom:12px; background:var(--bg); border-radius:var(--r); padding:3px; }
+.buy-subtab { font-size:.68rem; font-weight:600; padding:6px 14px; border-radius:8px; cursor:pointer; color:var(--bd3); transition:all .15s; border:none; background:none; flex:1; text-align:center; }
+.buy-subtab:hover { background:var(--bg2); color:var(--bd); }
+.buy-subtab.active { background:var(--white); color:var(--pk); box-shadow:var(--sh); }
+.buy-subtab-panel { display:none; }
+.buy-subtab-panel.active { display:block; }
+.cmp-subtab-panel { display:none; }
+.cmp-subtab-panel.active { display:block; }
+
+/* ── SPACE ANALYZER ─────────────────────────────────────────── */
+.space-summary { background:linear-gradient(135deg,#fff1f2,#fce7f3); border-radius:var(--r2); padding:12px; margin-bottom:10px; border:1px solid var(--border); }
+.space-room-card { background:var(--white); border-radius:var(--r); padding:8px 10px; margin-bottom:6px; border:1px solid var(--border); cursor:pointer; transition:all .15s; }
+.space-room-card:hover { border-color:var(--pk2); box-shadow:var(--sh); }
+
+/* ── SPACE OPTIMIZER ────────────────────────────────────────── */
+.opt-room-section { background:var(--white); border-radius:var(--r2); border:1px solid var(--border); margin-bottom:10px; overflow:hidden; }
+.opt-room-hdr { padding:8px 12px; font-weight:700; font-size:.75rem; display:flex; justify-content:space-between; align-items:center; }
+.opt-item-row { display:flex; align-items:center; gap:8px; padding:6px 12px; border-top:1px solid var(--border); }
+.opt-item-row:hover { background:var(--bg); }
+.opt-fit-badge { font-size:.58rem; font-weight:700; padding:2px 8px; border-radius:6px; }
+.opt-fit-badge.fits { background:#dcfce7; color:#166534; }
+.opt-fit-badge.no-fit { background:#fee2e2; color:#991b1b; }
+.opt-result { padding:8px 12px; background:var(--bg); border-top:1px solid var(--border); }
+
+/* ── FIT TESTER ─────────────────────────────────────────────── */
+.fit-room-card { background:var(--white); border-radius:var(--r2); border:1px solid var(--border); margin-bottom:12px; overflow:hidden; }
+.fit-room-hdr { padding:10px 14px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); background:var(--bg); }
+.fit-item-row { display:flex; align-items:center; gap:10px; padding:8px 14px; border-bottom:1px solid var(--border); }
+.fit-item-row:last-child { border-bottom:none; }
+.fit-item-thumb { width:44px; height:44px; object-fit:cover; border-radius:8px; flex-shrink:0; }
+.fit-item-thumb-placeholder { width:44px; height:44px; display:flex; align-items:center; justify-content:center; background:var(--bg2); border-radius:8px; font-size:1.3rem; flex-shrink:0; }
+.fit-badge { font-size:.6rem; font-weight:700; padding:2px 8px; border-radius:6px; display:inline-block; }
+.fit-badge.fits { background:#dcfce7; color:#166534; }
+.fit-badge.no-fit { background:#fee2e2; color:#991b1b; }
+
+/* ── BUDGET PLANNER ─────────────────────────────────────────── */
+.scenario-hero { background:linear-gradient(135deg,#fff1f2,#fce7f3); border-radius:var(--r2); padding:16px; border:1px solid var(--border); }
+.scenario-card { flex:1; min-width:130px; background:var(--white); border-radius:var(--r); padding:12px; border:2px solid var(--border); cursor:pointer; transition:all .2s; text-align:center; }
+.scenario-card:hover { border-color:var(--pk2); box-shadow:var(--sh2); transform:translateY(-2px); }
+.scenario-card.selected-scenario { border-color:var(--pk); }
+.scenario-card.cheapest-scenario:hover { border-color:var(--gn); }
+.scenario-card.premium-scenario:hover { border-color:var(--pur); }
+
+.option-group-card { background:var(--white); border-radius:var(--r2); border:1px solid var(--border); padding:14px; margin-bottom:12px; }
+.option-cards-row { display:flex; gap:8px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling:touch; }
+.option-card { min-width:160px; max-width:180px; flex-shrink:0; background:var(--bg); border-radius:var(--r); padding:10px; border:2px solid var(--border); cursor:pointer; transition:all .2s; position:relative; }
+.option-card:hover { border-color:var(--pk2); box-shadow:var(--sh); }
+.option-card.picked { border-color:var(--pk); background:var(--pkl); }
+.picked-badge { position:absolute; top:4px; right:4px; font-size:.52rem; font-weight:700; color:#fff; background:var(--pk); padding:1px 6px; border-radius:4px; }
+.option-card-img { width:100%; height:80px; object-fit:cover; border-radius:6px; margin-bottom:6px; }
+.option-card-img-placeholder { width:100%; height:80px; display:flex; align-items:center; justify-content:center; background:var(--bg2); border-radius:6px; font-size:2rem; margin-bottom:6px; }
+.option-card-name { font-weight:600; font-size:.72rem; margin-bottom:2px; }
+.option-card-price { font-weight:700; font-size:.85rem; color:var(--pk); }
+.option-card-meta { font-size:.58rem; color:var(--bd3); }
+.option-card-fit { font-size:.55rem; font-weight:600; padding:1px 6px; border-radius:4px; margin-top:3px; display:inline-block; }
+.option-card-fit.fits { background:#dcfce7; color:#166534; }
+.option-card-fit.no-fit { background:#fee2e2; color:#991b1b; }
+
+/* ── MINI CHIPS ─────────────────────────────────────────────── */
+.mini-chip { display:inline-block; font-size:.5rem; padding:1px 5px; border-radius:4px; margin:1px; }
+.mini-chip.pro { background:#dcfce7; color:#166534; }
+.mini-chip.con { background:#fee2e2; color:#991b1b; }
+
+/* ── VISUAL COMPARISON ──────────────────────────────────────── */
+.visual-cmp-group { background:var(--white); border-radius:var(--r2); border:1px solid var(--border); padding:14px; margin-bottom:14px; }
+.visual-cmp-scroll { display:flex; gap:10px; overflow-x:auto; padding:4px 0; -webkit-overflow-scrolling:touch; }
+.visual-cmp-card { min-width:190px; max-width:220px; flex-shrink:0; background:var(--bg); border-radius:var(--r); padding:12px; border:2px solid var(--border); position:relative; transition:all .2s; }
+.visual-cmp-card:hover { border-color:var(--pk2); box-shadow:var(--sh); }
+.visual-cmp-card.best-value { border-color:var(--gn); background:var(--gnl); }
+.best-value-badge { position:absolute; top:4px; right:4px; font-size:.52rem; font-weight:700; color:#fff; background:var(--gn); padding:2px 6px; border-radius:4px; }
+.visual-cmp-rank { font-size:.58rem; font-weight:700; color:var(--bd3); margin-bottom:4px; }
+.visual-cmp-img { width:100%; height:100px; object-fit:cover; border-radius:8px; margin-bottom:6px; }
+.visual-cmp-img-placeholder { width:100%; height:100px; display:flex; align-items:center; justify-content:center; background:var(--bg2); border-radius:8px; font-size:2.5rem; margin-bottom:6px; }
+.visual-cmp-name { font-weight:600; font-size:.76rem; margin-bottom:2px; }
+.visual-cmp-brand { font-size:.6rem; color:var(--bd3); }
+.visual-cmp-price { font-weight:700; font-size:.95rem; color:var(--pk); margin:4px 0; }
+.visual-cmp-fit { font-size:.58rem; font-weight:600; padding:2px 6px; border-radius:4px; margin:4px 0; display:inline-block; }
+.visual-cmp-fit.fits { background:#dcfce7; color:#166534; }
+.visual-cmp-fit.no-fit { background:#fee2e2; color:#991b1b; }
+.visual-cmp-chips { margin-top:4px; }
+
+/* Size comparison bars */
+.size-bars { margin:6px 0; }
+.size-bar-row { display:flex; align-items:center; gap:3px; margin:2px 0; }
+.size-bar-label { font-size:.52rem; font-weight:700; color:var(--bd3); width:10px; text-align:right; }
+.size-bar-track { flex:1; height:6px; background:var(--bg2); border-radius:3px; overflow:hidden; }
+.size-bar-fill { height:100%; border-radius:3px; transition:width .3s; }
+.size-bar-val { font-size:.52rem; color:var(--bd3); width:22px; }
+
+.visual-cmp-price-bar { height:4px; background:var(--bg2); border-radius:2px; margin:4px 0; overflow:hidden; }
+.price-bar-fill { height:100%; background:var(--pk); border-radius:2px; transition:width .3s; }
+
+.size-diff-summary { font-size:.62rem; color:var(--bd3); background:var(--bg); border-radius:var(--r); padding:6px 10px; margin-top:6px; }
+
 /* ── PRINT (floor plan) ──────────────────────────────────────── */
 @media print {
   .hdr, .tabs, .status-bar, .plan-toolbar, .furn-bar, .plan-status, .floor-tabs { display:none!important; }

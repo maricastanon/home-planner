@@ -4,7 +4,26 @@
       "Bash(aws amplify:*)",
       "Bash(curl:*)",
       "Bash(gh auth:*)",
-      "Bash(gh repo:*)"
+      "Bash(gh repo:*)",
+      "Bash(aws cloudfront list-distributions:*)",
+      "Bash(aws s3:*)",
+      "Bash(aws configure get region:*)",
+      "Bash(aws s3api put-public-access-block:*)",
+      "Bash(aws s3api put-bucket-policy:*)",
+      "Bash(gh secret:*)",
+      "Bash(aws sts get-caller-identity:*)",
+      "Bash(wc -l \"W:/_Apps_Ready/home-planner/home/js\"/*.js)",
+      "Bash(aws cognito-idp list-user-pools:*)",
+      "Bash(aws cognito-idp list-users:*)",
+      "Bash(aws cognito-idp list-user-pool-clients:*)",
+      "Bash(aws cognito-idp admin-create-user:*)",
+      "Bash(aws cognito-idp describe-user-pool:*)",
+      "Bash(aws cognito-idp admin-set-user-password:*)",
+      "Bash(aws cognito-idp create-user-pool:*)",
+      "Bash(aws cognito-idp create-user-pool-client:*)",
+      "Bash(node:*)",
+      "Bash(aws cloudformation:*)",
+      "Bash(aws cloudfront create-invalidation:*)"
     ]
   }
 }

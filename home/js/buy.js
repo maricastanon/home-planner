@@ -18,13 +18,16 @@ function rBuyBudget() {
   const items = ldBuy();
   const el  = document.getElementById('buy-budget'); if(!el) return;
   const byPrio = { must:0, want:0, nice:0 };
-  items.forEach(it => { if(it.prio) byPrio[it.prio] = (byPrio[it.prio]||0) + (it.price||0); });
+  const existingCount = items.filter(it => normalizeItemSource(it.source) === 'existing').length;
+  items.forEach(it => {
+    if(it.prio) byPrio[it.prio] = (byPrio[it.prio]||0) + getItemBudgetValue(it);
+  });
   const bcolor = b.pct>=100?'var(--pk)':b.pct>=80?'#d97706':'var(--gn)';
   el.innerHTML = `<div class="budget-hero">
     <div style="display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:8px">
       <div>
         <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:${bcolor};line-height:1">${fmtEur(b.est,0)}</div>
-        <div style="font-size:.65rem;color:var(--bd3)">total estimated</div>
+        <div style="font-size:.65rem;color:var(--bd3)">new purchases in budget</div>
       </div>
       <div>
         <div style="font-size:1.2rem;font-weight:700;color:var(--gn)">${fmtEur(b.spent,0)}</div>
@@ -52,6 +55,7 @@ function rBuyBudget() {
       <div class="mini-stat"><div class="ms-num" style="color:#d97706;font-size:1rem">${fmtEur(byPrio.want,0)}</div><div class="ms-lbl">🟡 Want</div></div>
       <div class="mini-stat"><div class="ms-num" style="color:var(--gn);font-size:1rem">${fmtEur(byPrio.nice,0)}</div><div class="ms-lbl">🟢 Nice-to-have</div></div>
       <div class="mini-stat"><div class="ms-num" style="color:var(--gn);font-size:1rem">${items.filter(i=>i.bought).length}</div><div class="ms-lbl">✅ Bought</div></div>
+      <div class="mini-stat"><div class="ms-num" style="color:var(--bd2);font-size:1rem">${existingCount}</div><div class="ms-lbl">🏚️ Existing items</div></div>
     </div>
   </div>`;
 }
@@ -71,6 +75,7 @@ function rBuyList() {
   const catF    = getPillVal('buy','cat');
   const prioF   = getPillVal('buy','prio');
   const statusF = getPillVal('buy','status');
+  const sourceF = getPillVal('buy','source');
   const sortV   = getPillVal('buy','sort')||'vote';
 
   let list = items.filter(it => {
@@ -78,6 +83,7 @@ function rBuyList() {
     if (roomF && it.roomId !== roomF) return false;
     if (catF  && it.category !== catF) return false;
     if (prioF && it.prio !== prioF) return false;
+    if (sourceF && normalizeItemSource(it.source) !== sourceF) return false;
     if (statusF==='bought'  && !it.bought)  return false;
     if (statusF==='pending' && it.bought)   return false;
     if (statusF==='agreed'  && !(it.voteM==='yes'&&it.voteA==='yes')) return false;
@@ -135,7 +141,7 @@ function renderRoomGroup(roomId, items, names) {
   const rColor = room.color || '#f3f4f6';
   const rDark  = room.colorDark || '#374151';
   const rEmoji = room.emoji || '📦';
-  const total  = items.reduce((s,it)=>s+(it.bought?(it.actualPrice||it.price||0):(it.price||0)),0);
+  const total  = items.reduce((s,it)=>s+getItemBudgetValue(it),0);
   const spent  = items.filter(i=>i.bought).reduce((s,it)=>s+(it.actualPrice||it.price||0),0);
   const bought = items.filter(i=>i.bought).length;
 
@@ -174,6 +180,8 @@ function renderRoomGroup(roomId, items, names) {
 function renderItemCard(it, names) {
   const prioConf = BUY_PRIOS.find(p=>p.k===it.prio)||{color:'#f1f5f9',colorText:'#64748b',e:'',l:''};
   const room     = getRoomById(it.roomId);
+  const sourceMeta = getItemSourceMeta(it.source);
+  const roomRole = it.roomRole || 'candidate';
   const vs       = voteScore(it);
   const bothYes  = it.voteM==='yes'&&it.voteA==='yes';
   const bothNo   = it.voteM==='no'&&it.voteA==='no';
@@ -197,15 +205,19 @@ function renderItemCard(it, names) {
       <div class="item-card-badges">
         <span class="badge" style="background:${prioConf.color};color:${prioConf.colorText}">${prioConf.e} ${esc(prioConf.l)}</span>
         ${it.bought?'<span class="badge green">✅ Bought</span>':''}
+        ${normalizeItemSource(it.source)==='existing'?`<span class="badge blue">${esc(sourceMeta.badge)}</span>`:''}
+        ${roomRole==='must'?'<span class="badge purple">📍 Must place</span>':''}
         ${bothYes?'<span class="badge green">💕 Both!</span>':''}
         ${disputed?'<span class="badge orange">⚡</span>':''}
       </div>
-      ${it.price?`<div class="item-card-price">${fmtEur(it.price,0)}</div>`:''}
+      ${it.price && normalizeItemSource(it.source)!=='existing' ?`<div class="item-card-price">${fmtEur(it.price,0)}</div>`:''}
     </div>
     <div class="item-card-body">
       <div class="item-card-name">${esc(it.name)}</div>
       ${it.brand?`<div class="item-card-brand">${esc(it.brand)}${it.model?' · '+esc(it.model):''}</div>`:''}
       ${it.roomId?`<div class="item-card-brand">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
+      ${normalizeItemSource(it.source)==='existing'?`<div class="item-card-brand">🏚️ Already owned · budget excluded</div>`:''}
+      ${it.optionGroup?`<div class="item-card-brand">🧩 ${esc(it.optionGroup)}</div>`:''}
       ${dimTxt?`<div class="item-card-dims">📐 ${esc(dimTxt)}</div>`:''}
       ${it.energyRating?`<div style="margin-top:2px">${energyBadge(it.energyRating)}</div>`:''}
       <div class="item-card-votes" onclick="event.stopPropagation()">
@@ -230,7 +242,7 @@ function renderItemCard(it, names) {
       <div class="item-card-actions" onclick="event.stopPropagation()">
         ${it.buyLink?`<a href="${esc(it.buyLink)}" target="_blank" class="btn sml" onclick="event.stopPropagation()">🛒 Buy</a>`:''}
         <button class="btn sml" onclick="event.stopPropagation();placeItemInPlan('${it.id}')">🏠 Plan</button>
-        ${!it.bought?`<button class="btn sml suc" onclick="event.stopPropagation();openBuyModal('${it.id}')">✅</button>`:''}
+        ${!it.bought&&normalizeItemSource(it.source)!=='existing'?`<button class="btn sml suc" onclick="event.stopPropagation();openBuyModal('${it.id}')">✅</button>`:''}
         <button class="btn sml" onclick="event.stopPropagation();openEditItem('${it.id}')">✏️</button>
       </div>
     </div>
@@ -243,6 +255,7 @@ function openItemDetail(id) {
   const settings = ldSettings();
   const names    = settings.names||{M:'Mari',A:'Alexander'};
   const room     = getRoomById(it.roomId);
+  const sourceMeta = getItemSourceMeta(it.source);
   const cat      = getCatByKey(it.category);
   const statusConf = ITEM_STATUSES.find(s=>s.k===it.itemStatus)||ITEM_STATUSES[0];
   const photos   = it.photos||[];
@@ -280,9 +293,12 @@ function openItemDetail(id) {
     <div class="info-grid" style="margin:10px 0">
       ${it.brand?`<div class="info-item"><span class="info-lbl">Brand</span><span class="info-val">${esc(it.brand)}</span></div>`:''}
       ${it.model?`<div class="info-item"><span class="info-lbl">Model</span><span class="info-val">${esc(it.model)}</span></div>`:''}
+      <div class="info-item"><span class="info-lbl">Source</span><span class="info-val">${esc(sourceMeta.e)} ${esc(sourceMeta.l)}</span></div>
       ${it.price?`<div class="info-item"><span class="info-lbl">Price</span><span class="info-val" style="color:var(--pk);font-weight:700">${fmtEur(it.price)}</span></div>`:''}
       ${it.originalPrice?`<div class="info-item"><span class="info-lbl">Original</span><span class="info-val"><s>${fmtEur(it.originalPrice)}</s></span></div>`:''}
       ${room?`<div class="info-item"><span class="info-lbl">Room</span><span class="info-val">${room.emoji} ${esc(room.label)}</span></div>`:''}
+      ${it.optionGroup?`<div class="info-item"><span class="info-lbl">Option group</span><span class="info-val">${esc(it.optionGroup)}</span></div>`:''}
+      ${it.roomRole==='must'?`<div class="info-item"><span class="info-lbl">Room role</span><span class="info-val">📍 Must place</span></div>`:''}
       ${it.energyRating?`<div class="info-item"><span class="info-lbl">Energy</span><span class="info-val">${energyBadge(it.energyRating)}</span></div>`:''}
       ${it.color?`<div class="info-item"><span class="info-lbl">Color</span><span class="info-val">${esc(it.color)}</span></div>`:''}
       ${it.material?`<div class="info-item"><span class="info-lbl">Material</span><span class="info-val">${esc(it.material)}</span></div>`:''}
@@ -302,6 +318,8 @@ function openItemDetail(id) {
       </div>
       ${it.widthCm&&it.depthCm&&it.heightCm?renderHeightViz(it):''}
     </div>`:''}
+
+    ${renderRoomFitPanel(it)}
 
     <!-- Specs -->
     ${it.specs&&Object.keys(it.specs).length?`
@@ -344,9 +362,11 @@ function openItemDetail(id) {
 
     <!-- Actions -->
     <div class="card-actions">
-      ${!it.bought
+      ${!it.bought && normalizeItemSource(it.source)!=='existing'
         ?`<button class="btn suc" onclick="openBuyModal('${it.id}')">✅ Mark as Bought</button>`
-        :`<button class="btn ghost" onclick="unmarkBought('${it.id}')">↺ Unmark bought</button>`}
+        : it.bought
+          ?`<button class="btn ghost" onclick="unmarkBought('${it.id}')">↺ Unmark bought</button>`
+          :`<button class="btn ghost" onclick="placeItemInPlan('${it.id}')">🏠 Already owned</button>`}
       <button class="btn" onclick="openEditItem('${it.id}')">✏️ Edit</button>
       <button class="btn dan" onclick="confirmDlg('Delete this item?',()=>{delBuyItem('${it.id}');closeModal('item-detail-modal');rBuy();toast('Deleted','warn')})">🗑️ Delete</button>
     </div>
@@ -369,6 +389,26 @@ function renderHeightViz(it) {
         <div>↕ ${it.heightCm}cm</div>
         <div>↔ ${it.widthCm}cm</div>
       </div>
+    </div>
+  </div>`;
+}
+
+function renderRoomFitPanel(it) {
+  if (typeof getRoomFitAnalysis !== 'function') return '';
+  const fit = getRoomFitAnalysis(it);
+  if (!fit) return '';
+  const tone = fit.fits ? 'var(--gn)' : '#dc2626';
+  const title = fit.fits
+    ? (fit.fitsRotatedOnly ? 'Fits if rotated' : 'Fits in assigned room')
+    : 'Needs a different size or room';
+  return `<div style="background:${fit.fits?'var(--gnl)':'#fef2f2'};border:1px solid ${fit.fits?'#86efac':'#fecaca'};border-radius:12px;padding:10px 12px;margin-bottom:10px">
+    <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${tone};margin-bottom:4px">Room fit</div>
+    <div style="font-size:.82rem;font-weight:700;color:${tone};margin-bottom:3px">${title}</div>
+    <div style="font-size:.7rem;color:var(--bd2)">
+      Uses <strong>${fit.footprintPct}%</strong> of ${esc(fit.roomLabel)} · leaves <strong>${fit.remainingAreaM2.toFixed(2)} m²</strong> free
+    </div>
+    <div style="font-size:.64rem;color:var(--bd3);margin-top:4px">
+      Room: ${fit.roomWidthM.toFixed(2)} × ${fit.roomDepthM.toFixed(2)} m · Item: ${fit.itemWidthM.toFixed(2)} × ${fit.itemDepthM.toFixed(2)} m
     </div>
   </div>`;
 }
@@ -417,8 +457,11 @@ function addBuyItemFromForm() {
     price:    fNum('b-price'),
     originalPrice: fNum('b-orig-price'),
     currency: '€',
+    source:   normalizeItemSource(fVal('b-source')),
     buyLink:  fVal('b-buylink'),
     altLink:  fVal('b-altlink'),
+    optionGroup: fVal('b-option-group'),
+    roomRole: fVal('b-room-role') || 'candidate',
     widthCm:  fNum('b-width'),
     depthCm:  fNum('b-depth'),
     heightCm: fNum('b-height'),
@@ -450,9 +493,11 @@ function openEditItem(id) {
   fSet('be-id',id); fSet('be-name',it.name); fSet('be-brand',it.brand||'');
   fSet('be-model',it.model||''); fSet('be-cat',it.category||'Furniture');
   fSet('be-type',it.type||''); fSet('be-room',it.roomId||'');
+  fSet('be-source',normalizeItemSource(it.source));
   fSet('be-prio',it.prio||'want'); fSet('be-price',it.price||'');
   fSet('be-orig-price',it.originalPrice||''); fSet('be-buylink',it.buyLink||'');
   fSet('be-altlink',it.altLink||''); fSet('be-width',it.widthCm||'');
+  fSet('be-option-group',it.optionGroup||''); fSet('be-room-role',it.roomRole||'candidate');
   fSet('be-depth',it.depthCm||''); fSet('be-height',it.heightCm||'');
   fSet('be-weight',it.weightKg||''); fSet('be-color',it.color||'');
   fSet('be-material',it.material||''); fSet('be-energy',it.energyRating||'');
@@ -476,8 +521,10 @@ function saveBuyEdit() {
   const id=fVal('be-id'); const it=getBuyItem(id); if(!it) return;
   it.name=fVal('be-name')||it.name; it.brand=fVal('be-brand'); it.model=fVal('be-model');
   it.category=fVal('be-cat'); it.type=fVal('be-type'); it.roomId=fVal('be-room');
+  it.source=normalizeItemSource(fVal('be-source'));
   it.prio=fVal('be-prio'); it.price=fNum('be-price'); it.originalPrice=fNum('be-orig-price');
   it.buyLink=fVal('be-buylink'); it.altLink=fVal('be-altlink');
+  it.optionGroup=fVal('be-option-group'); it.roomRole=fVal('be-room-role')||'candidate';
   it.widthCm=fNum('be-width'); it.depthCm=fNum('be-depth'); it.heightCm=fNum('be-height');
   it.weightKg=fNum('be-weight'); it.color=fVal('be-color'); it.material=fVal('be-material');
   it.energyRating=fVal('be-energy'); it.warranty=fVal('be-warranty');
@@ -596,12 +643,15 @@ function rCompareModal() {
         const isCheap=it.price>0&&it.price===minPrice;
         const photo=it.photos?.[0]||'';
         const room=getRoomById(it.roomId);
+        const fit=typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
+        const picked=typeof isCmpScenarioSelected === 'function' ? isCmpScenarioSelected(it) : false;
         return `<div class="cmp-card ${isWinner?'winner':''}">
           ${photo?`<img src="${esc(photo)}" class="cmp-card-img">`:`<div class="cmp-card-img" style="display:flex;align-items:center;justify-content:center;font-size:3rem;background:var(--bg2)">📦</div>`}
           <div class="cmp-card-body">
             <div class="cmp-card-name">${esc(it.name)} ${isWinner?'🏆':''}</div>
             ${it.brand?`<div style="font-size:.65rem;color:var(--bd3)">${esc(it.brand)}</div>`:''}
             ${it.roomId?`<div style="font-size:.62rem;color:var(--bd3);margin-top:2px">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
+            ${picked?`<div style="margin-top:4px"><span class="badge green">✅ Scenario pick</span></div>`:''}
             <div style="display:flex;justify-content:space-between;margin:5px 0;font-size:.8rem">
               <strong style="color:${isCheap?'var(--gn)':'var(--pk)'}">${it.price?fmtEur(it.price):'–'}</strong>
               ${isCheap?'<span class="badge green">💰 Cheapest</span>':''}
@@ -609,6 +659,7 @@ function rCompareModal() {
             <div style="font-size:.65rem;color:var(--bd3);margin-bottom:4px">Score: ${it._score.toFixed(1)}/10</div>
             <div class="cmp-score-bar"><div class="cmp-score-fill" style="width:${it._score*10}%"></div></div>
             ${dimStr(it)?`<div style="font-size:.62rem;color:var(--bd3);margin-top:4px">📐 ${esc(dimStr(it))}</div>`:''}
+            ${fit?`<div style="font-size:.62rem;color:${fit.fits?'var(--gns)':'var(--pk)'};margin-top:4px">${fit.fits ? `✅ ${fit.footprintPct}% of room` : '❌ Too large for room'}</div>`:''}
             ${it.energyRating?`<div style="margin-top:3px">${energyBadge(it.energyRating)}</div>`:''}
             <div style="margin-top:5px">
               <div style="font-size:.6rem;font-weight:700;color:var(--gns);margin-bottom:2px">✅ Pros</div>
@@ -626,6 +677,7 @@ function rCompareModal() {
                 <span>${preferenceInlineLabel(it,'A')}</span>
               </div>
             </div>
+            ${typeof setCmpScenarioSelection === 'function' ? `<button class="btn sml" style="margin-top:8px" onclick="setCmpScenarioSelection(${jsq((typeof getCmpScenarioKey === 'function' ? getCmpScenarioKey(it) : it.category || 'Option'))},'${it.id}')">✅ Use in scenario</button>` : ''}
             ${it.buyLink?`<a href="${esc(it.buyLink)}" target="_blank" class="btn pri full" style="margin-top:8px;font-size:.65rem">🛒 Buy Now</a>`:''}
             <!-- Floor plan footprint -->
             ${it.widthCm&&it.depthCm?renderFootprintViz(it):''}
@@ -640,6 +692,7 @@ function rCompareModal() {
         <tbody>
           <tr><td class="feat-cell">Price</td>${items.map(it=>`<td class="${it.price===minPrice&&it.price>0?'best':''}">${it.price?fmtEur(it.price):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">W × D × H</td>${items.map(it=>`<td>${dimStr(it)||'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Room fit</td>${items.map(it=>`<td>${typeof renderCmpFitText === 'function' ? renderCmpFitText(it) : '–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Energy</td>${items.map(it=>`<td>${it.energyRating?energyBadge(it.energyRating):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Warranty</td>${items.map(it=>`<td>${esc(it.warranty||'–')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Color</td>${items.map(it=>`<td>${esc(it.color||'–')}</td>`).join('')}</tr>

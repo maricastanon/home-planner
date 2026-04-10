@@ -16,6 +16,9 @@ let hoveredRoom = null;
 let roomColorIdx = 0;
 let lastSavedPlanSnapshot = '';
 const PLAN_SCHEMA_VERSION = PRELOADED_PLAN?._planVersion || 1;
+let planToolsTab = 'room';
+const livePlanBuyDrafts = Object.create(null);
+const blueprintImageCache = new Map();
 
 const ROOM_COLORS_CYCLE = [
   '#dbeafe','#dcfce7','#fce7f3','#ffedd5','#ede9fe',
@@ -106,6 +109,314 @@ function redoPlan() {
   renderFloorTabs(); renderPlan(); rPlanSidebar(); toast('Redone ↻','info');
 }
 function getFloor() { return planState.floors[planState.activeFloor] || planState.floors[0]; }
+function getFloorBlueprint(floor = getFloor()) {
+  if (!floor) return null;
+  if (!floor.blueprint) {
+    floor.blueprint = { src:'', widthM:0, heightM:0, x:0, y:0, opacity:0.38 };
+  }
+  return floor.blueprint;
+}
+function hasFloorBlueprint(floor = getFloor()) {
+  return Boolean(getFloorBlueprint(floor)?.src);
+}
+function getBlueprintBounds(floor = getFloor()) {
+  const blueprint = getFloorBlueprint(floor);
+  if (!blueprint?.src || !blueprint.widthM || !blueprint.heightM) return null;
+  return {
+    x: blueprint.x || 0,
+    y: blueprint.y || 0,
+    w: blueprint.widthM * planState.scale,
+    h: blueprint.heightM * planState.scale,
+    opacity: Math.min(1, Math.max(0.05, Number(blueprint.opacity) || 0.38)),
+    src: blueprint.src
+  };
+}
+function getBlueprintImage(src) {
+  if (!src) return null;
+  if (blueprintImageCache.has(src)) return blueprintImageCache.get(src);
+  const img = new Image();
+  img.src = src;
+  img.onload = () => renderPlan();
+  blueprintImageCache.set(src, img);
+  return img;
+}
+function getAvailableBlueprintPresets() {
+  return typeof PRELOADED_BLUEPRINTS !== 'undefined' && Array.isArray(PRELOADED_BLUEPRINTS)
+    ? PRELOADED_BLUEPRINTS
+    : [];
+}
+function applyBlueprintPresetConfig(config, options = {}) {
+  const { notify = true } = options;
+  if (!config?.src) return false;
+  const blueprint = getFloorBlueprint();
+  Object.assign(blueprint, {
+    src: config.src,
+    widthM: Number(config.widthM) || 0,
+    heightM: Number(config.heightM) || 0,
+    x: (Number(config.x) || 0) * planState.scale,
+    y: (Number(config.y) || 0) * planState.scale,
+    opacity: Math.min(1, Math.max(0.05, Number(config.opacity) || 0.38)),
+    presetId: config.id || '',
+    presetLabel: config.label || ''
+  });
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  if (notify) toast(`${config.label || 'Blueprint preset'} loaded with pre-seeded apartment measurements.`, 'green', 3200);
+  return true;
+}
+function loadPreloadedBlueprintPreset(presetId) {
+  const preset = getAvailableBlueprintPresets().find(entry => entry.id === presetId);
+  if (!preset) {
+    toast('Blueprint preset not found', 'warn');
+    return false;
+  }
+  const ok = applyBlueprintPresetConfig(preset);
+  if (ok && typeof syncBlueprintModal === 'function') syncBlueprintModal();
+  return ok;
+}
+function uploadPlanBlueprint(file) {
+  importBlueprint(file);
+  const input = document.getElementById('plan-blueprint-input');
+  if (input) input.value = '';
+}
+function openBlueprintModal() {
+  planToolsTab = 'blueprint';
+  renderPlanToolsPanel();
+  if (typeof syncBlueprintModal === 'function') syncBlueprintModal();
+  openModal('blueprint-modal');
+}
+function getLiveBuyDraft(itemOrId) {
+  const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.id;
+  return id ? livePlanBuyDrafts[id] || null : null;
+}
+function setLiveBuyDraft(itemOrId, patch) {
+  const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.id;
+  if (!id) return;
+  livePlanBuyDrafts[id] = { ...(livePlanBuyDrafts[id] || {}), ...patch };
+}
+function clearLiveBuyDraft(itemOrId) {
+  const id = typeof itemOrId === 'string' ? itemOrId : itemOrId?.id;
+  if (id) delete livePlanBuyDrafts[id];
+}
+function persistLiveBuyDraft(itemId) {
+  const draft = getLiveBuyDraft(itemId);
+  if (!draft) return false;
+  const item = getBuyItem(itemId);
+  if (!item) return false;
+  Object.assign(item, draft);
+  clearLiveBuyDraft(itemId);
+  updBuyItem(item);
+  return true;
+}
+function getPlacedBuyItems(floor = getFloor()) {
+  if (!floor) return [];
+  return ldBuy().filter(it => it.placedInPlan && it.planFloor === floor.id);
+}
+function getPlacedBuyRect(item) {
+  const draft = getLiveBuyDraft(item);
+  const rotated = Boolean(draft?.planRotated ?? item.planRotated);
+  const widthCm = rotated
+    ? (item.depthCm || item.widthCm || 60)
+    : (item.widthCm || item.depthCm || 60);
+  const depthCm = rotated
+    ? (item.widthCm || item.depthCm || 60)
+    : (item.depthCm || item.widthCm || 60);
+  return {
+    x: draft?.planX ?? item.planX ?? 0,
+    y: draft?.planY ?? item.planY ?? 0,
+    w: (widthCm / 100) * planState.scale,
+    h: (depthCm / 100) * planState.scale,
+    rotated,
+    widthCm,
+    depthCm
+  };
+}
+function getSelectedPlacedBuyItem() {
+  return getPlacedBuyItems().find(it => it.id === selected) || null;
+}
+function getSelectedRoom() {
+  return (getFloor()?.rooms || []).find(room => room.id === selected) || null;
+}
+function getSelectedPlanObject() {
+  const room = getSelectedRoom();
+  if (room) return { kind:'room', item:room, x:room.x, y:room.y, w:room.w, h:room.h };
+  const furniture = getSelectedFurniture();
+  if (furniture) return { kind:'furniture', item:furniture, x:furniture.x, y:furniture.y, w:furniture.w, h:furniture.h };
+  const buyItem = getSelectedPlacedBuyItem();
+  if (buyItem) return { kind:'buy', item:buyItem, ...getPlacedBuyRect(buyItem) };
+  return null;
+}
+function buildHitEntry(kind, item, bounds = item) {
+  return {
+    kind,
+    item,
+    id: item.id,
+    label: kind === 'buy' ? (item.name || item.label || item.type || 'Item') : (item.label || item.name || kind),
+    x: bounds.x,
+    y: bounds.y,
+    w: bounds.w,
+    h: bounds.h
+  };
+}
+function getPlacedBuyHitEntries(floor = getFloor()) {
+  return getPlacedBuyItems(floor).map(item => buildHitEntry('buy', item, getPlacedBuyRect(item)));
+}
+function setHitPosition(hit, x, y) {
+  if (!hit) return;
+  if (hit.kind === 'buy') {
+    setLiveBuyDraft(hit.item, { planX:x, planY:y });
+  } else {
+    hit.item.x = x;
+    hit.item.y = y;
+  }
+  hit.x = x;
+  hit.y = y;
+}
+function getRoomForRect(rect, floor = getFloor()) {
+  if (!rect || !floor?.rooms?.length) return null;
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+  return floor.rooms.find(room =>
+    cx >= room.x && cx <= room.x + room.w &&
+    cy >= room.y && cy <= room.y + room.h
+  ) || null;
+}
+function getRoomOccupancy(roomId, floor = getFloor()) {
+  const room = (floor?.rooms || []).find(entry => entry.id === roomId);
+  if (!room) return null;
+  const totalAreaM2 = (room.w / planState.scale) * (room.h / planState.scale);
+  const furnitureEntries = (floor.furniture || []).map(item => ({
+    kind:'furniture',
+    item,
+    x:item.x,
+    y:item.y,
+    w:item.w,
+    h:item.h,
+    areaM2:(item.w / planState.scale) * (item.h / planState.scale)
+  }));
+  const buyEntries = getPlacedBuyItems(floor).map(item => {
+    const rect = getPlacedBuyRect(item);
+    return {
+      kind:'buy',
+      item,
+      ...rect,
+      areaM2:(rect.w / planState.scale) * (rect.h / planState.scale)
+    };
+  });
+  const items = [...furnitureEntries, ...buyEntries].filter(entry => getRoomForRect(entry, floor)?.id === roomId);
+  const occupiedAreaM2 = items.reduce((sum, entry) => sum + entry.areaM2, 0);
+  const pct = totalAreaM2 ? Math.min(100, Math.round((occupiedAreaM2 / totalAreaM2) * 100)) : 0;
+  return {
+    room,
+    items,
+    totalAreaM2,
+    occupiedAreaM2,
+    freeAreaM2: Math.max(0, totalAreaM2 - occupiedAreaM2),
+    pct
+  };
+}
+function getPlanRoomGeometry(roomId) {
+  const plan = ldPlan();
+  const scale = plan?.scale || 45;
+  for (const floor of (plan?.floors || [])) {
+    for (const room of (floor.rooms || [])) {
+      if (room.id === roomId) {
+        return { ...room, scale, floorId: floor.id, floorName: floor.name || 'Floor' };
+      }
+    }
+  }
+  return null;
+}
+function getRoomFitAnalysis(item) {
+  if (!item?.roomId || !item.widthCm || !item.depthCm) return null;
+  const room = getPlanRoomGeometry(item.roomId);
+  if (!room) return null;
+  const roomWidthM = room.w / room.scale;
+  const roomDepthM = room.h / room.scale;
+  const itemWidthM = item.widthCm / 100;
+  const itemDepthM = item.depthCm / 100;
+  const fitsNormal = itemWidthM <= roomWidthM && itemDepthM <= roomDepthM;
+  const fitsRotated = itemDepthM <= roomWidthM && itemWidthM <= roomDepthM;
+  const roomAreaM2 = roomWidthM * roomDepthM;
+  const footprintM2 = itemWidthM * itemDepthM;
+  return {
+    roomId: room.id,
+    roomLabel: room.label || room.id,
+    roomWidthM,
+    roomDepthM,
+    roomAreaM2,
+    itemWidthM,
+    itemDepthM,
+    footprintM2,
+    fits: fitsNormal || fitsRotated,
+    fitsRotatedOnly: !fitsNormal && fitsRotated,
+    footprintPct: roomAreaM2 ? Math.round((footprintM2 / roomAreaM2) * 100) : 0,
+    remainingAreaM2: Math.max(0, roomAreaM2 - footprintM2)
+  };
+}
+function getOptimizerGroupKey(item) {
+  return String(item.optionGroup || '').trim();
+}
+function enumerateOptimizerCombos(groups, groupKeys, index, current, combos, cap = 120) {
+  if (combos.length >= cap) return;
+  if (index >= groupKeys.length) {
+    combos.push([...current]);
+    return;
+  }
+  const groupItems = groups[groupKeys[index]] || [];
+  groupItems.forEach(item => {
+    current.push(item);
+    enumerateOptimizerCombos(groups, groupKeys, index + 1, current, combos, cap);
+    current.pop();
+  });
+}
+function getRoomOptimizerData(roomId) {
+  const floor = getFloor();
+  const room = (floor?.rooms || []).find(entry => entry.id === roomId);
+  if (!room) return null;
+  const items = ldBuy().filter(item => item.roomId === roomId);
+  const included = items.filter(item => (item.roomRole || 'candidate') !== 'ignore');
+  const fixedItems = included.filter(item => !getOptimizerGroupKey(item));
+  const groupedItems = included.filter(item => getOptimizerGroupKey(item));
+  const groups = groupedItems.reduce((map, item) => {
+    const key = getOptimizerGroupKey(item);
+    (map[key] = map[key] || []).push(item);
+    return map;
+  }, {});
+  const groupKeys = Object.keys(groups);
+  const comboPicks = [];
+  if (groupKeys.length) {
+    enumerateOptimizerCombos(groups, groupKeys, 0, [], comboPicks);
+  } else {
+    comboPicks.push([]);
+  }
+  const roomAreaM2 = (room.w / planState.scale) * (room.h / planState.scale);
+  const combos = comboPicks.map(picks => {
+    const selectedItems = [...fixedItems, ...picks];
+    const measuredItems = selectedItems.filter(item => item.widthCm && item.depthCm);
+    const footprintM2 = measuredItems.reduce((sum, item) => sum + ((item.widthCm / 100) * (item.depthCm / 100)), 0);
+    const fits = measuredItems.every(item => getRoomFitAnalysis(item)?.fits !== false) && footprintM2 <= roomAreaM2;
+    return {
+      selectedItems,
+      footprintM2,
+      freeAreaM2: Math.max(0, roomAreaM2 - footprintM2),
+      fits,
+      missingMeasurements: selectedItems.filter(item => !item.widthCm || !item.depthCm).length
+    };
+  }).sort((a, b) => {
+    if (a.fits !== b.fits) return a.fits ? -1 : 1;
+    return b.freeAreaM2 - a.freeAreaM2;
+  });
+  return {
+    room,
+    items,
+    fixedItems,
+    groups,
+    roomAreaM2,
+    combos: combos.slice(0, 3)
+  };
+}
 
 // ── Canvas listeners ────────────────────────────────────────
 function setupPlanListeners(canvas) {
@@ -135,7 +446,11 @@ function getPos(e, canvas) {
 function snap(v) { const s = Math.max(5, Math.round(planState.scale/4)); return Math.round(v/s)*s; }
 function hitAll(pos) {
   const fl = getFloor();
-  const all = [...(fl.rooms||[]),...(fl.furniture||[])];
+  const all = [
+    ...(fl.rooms||[]).map(room => buildHitEntry('room', room)),
+    ...(fl.furniture||[]).map(item => buildHitEntry('furniture', item)),
+    ...getPlacedBuyHitEntries(fl),
+  ];
   for (let i=all.length-1;i>=0;i--) {
     const it=all[i]; if(pos.x>=it.x&&pos.x<=it.x+it.w&&pos.y>=it.y&&pos.y<=it.y+it.h) return it;
   }
@@ -164,9 +479,10 @@ function syncFurnitureButtons() {
 function updatePlanActionState() {
   const rotateBtn = document.getElementById('plan-rotate-btn');
   if (!rotateBtn) return;
-  const canRotate = Boolean(getSelectedFurniture());
+  const selectedObject = getSelectedPlanObject();
+  const canRotate = Boolean(selectedObject && (selectedObject.kind === 'furniture' || selectedObject.kind === 'buy'));
   rotateBtn.disabled = !canRotate;
-  rotateBtn.title = canRotate ? 'Rotate selected furniture 90° (R)' : 'Select a furniture item to rotate';
+  rotateBtn.title = canRotate ? 'Rotate selected item 90° (R)' : 'Select a furniture item or planned purchase to rotate';
 }
 function rotateFurniture(item, options = {}) {
   const { notify = true } = options;
@@ -181,19 +497,35 @@ function rotateFurniture(item, options = {}) {
   return true;
 }
 function rotateSelectedFurniture() {
-  const item = getSelectedFurniture();
-  if (!item) {
-    toast(selected ? 'Only furniture can be rotated' : 'Select furniture to rotate first','warn');
+  const selectedObject = getSelectedPlanObject();
+  if (!selectedObject) {
+    toast('Select furniture or a planned item to rotate first','warn');
     return false;
   }
-  return rotateFurniture(item);
+  if (selectedObject.kind === 'buy') {
+    const nextRotated = !Boolean(getLiveBuyDraft(selectedObject.item)?.planRotated ?? selectedObject.item.planRotated);
+    setLiveBuyDraft(selectedObject.item, { planRotated: nextRotated });
+    persistLiveBuyDraft(selectedObject.item.id);
+    renderPlan();
+    rPlanSidebar();
+    toast('Rotated 90°','info',1000);
+    return true;
+  }
+  if (selectedObject.kind !== 'furniture') {
+    toast('Only furniture and placed room items can rotate','warn');
+    return false;
+  }
+  return rotateFurniture(selectedObject.item);
 }
 
 function onPlanDown(e, canvas) {
   canvas.focus({ preventScroll:true });
   const pos = getPos(e, canvas);
   const fl  = getFloor();
-  if (planTool==='room') {
+  if (planTool==='measure') {
+    if (typeof onMeasureDown === 'function') onMeasureDown(pos);
+    return;
+  } else if (planTool==='room') {
     drawStart   = { x:snap(pos.x), y:snap(pos.y) };
     drawCurrent = { ...drawStart };
   } else if (planTool==='furn') {
@@ -205,14 +537,26 @@ function onPlanDown(e, canvas) {
   } else if (planTool==='select') {
     const hit = hitAll(pos);
     selected = hit ? hit.id : null;
-    if (hit) { dragging=hit; dragOff={x:pos.x-hit.x,y:pos.y-hit.y}; }
-    renderPlan(); rPlanSidebar();
+    if (hit) {
+      dragging = hit;
+      dragOff = { x:pos.x-hit.x, y:pos.y-hit.y };
+    }
+    renderPlan(); rPlanSidebar(); renderPlanToolsPanel();
   } else if (planTool==='erase') {
     const hit = hitAll(pos);
     if (hit) {
-      fl.rooms     = (fl.rooms||[]).filter(r=>r.id!==hit.id);
-      fl.furniture = (fl.furniture||[]).filter(f=>f.id!==hit.id);
-      selected=null; savePlan(); renderPlan(); rPlanSidebar();
+      if (hit.kind === 'buy') {
+        const item = getBuyItem(hit.id);
+        if (item) {
+          Object.assign(item, { placedInPlan:false, planX:0, planY:0, planFloor:'', planRotated:false });
+          updBuyItem(item);
+        }
+      } else {
+        fl.rooms     = (fl.rooms||[]).filter(r=>r.id!==hit.id);
+        fl.furniture = (fl.furniture||[]).filter(f=>f.id!==hit.id);
+        savePlan();
+      }
+      selected=null; renderPlan(); rPlanSidebar(); renderPlanToolsPanel();
     }
   } else if (planTool==='paint') {
     const hit = (fl.rooms||[]).slice().reverse().find(r=>pos.x>=r.x&&pos.x<=r.x+r.w&&pos.y>=r.y&&pos.y<=r.y+r.h);
@@ -221,8 +565,12 @@ function onPlanDown(e, canvas) {
 }
 function onPlanMove(e, canvas) {
   const pos = getPos(e, canvas);
+  if (planTool==='measure') { if (typeof onMeasureMove==='function') onMeasureMove(pos); return; }
   if (planTool==='room'&&drawStart) { drawCurrent={x:pos.x,y:pos.y}; renderPlan(); }
-  else if (planTool==='select'&&dragging) { dragging.x=snap(pos.x-dragOff.x); dragging.y=snap(pos.y-dragOff.y); renderPlan(); }
+  else if (planTool==='select'&&dragging) {
+    setHitPosition(dragging, snap(pos.x-dragOff.x), snap(pos.y-dragOff.y));
+    renderPlan();
+  }
   else {
     // hover detection for room tooltip
     const fl = getFloor();
@@ -231,6 +579,7 @@ function onPlanMove(e, canvas) {
   }
 }
 function onPlanUp(e, canvas) {
+  if (planTool==='measure') { if (typeof onMeasureUp==='function') onMeasureUp(); return; }
   if (planTool==='room'&&drawStart&&drawCurrent) {
     const x1=Math.min(drawStart.x,drawCurrent.x), y1=Math.min(drawStart.y,drawCurrent.y);
     const x2=Math.max(drawStart.x,drawCurrent.x), y2=Math.max(drawStart.y,drawCurrent.y);
@@ -241,19 +590,35 @@ function onPlanUp(e, canvas) {
       getFloor().rooms.push(room); selected=room.id; savePlan(); rPlanSidebar();
     }
     drawStart=null; drawCurrent=null; renderPlan();
-  } else if (planTool==='select'&&dragging) { savePlan(); dragging=null; }
+  } else if (planTool==='select'&&dragging) {
+    if (dragging.kind === 'buy') persistLiveBuyDraft(dragging.id);
+    else savePlan();
+    dragging=null;
+    rPlanSidebar();
+    renderPlanToolsPanel();
+  }
 }
 function onPlanDbl(e, canvas) {
   const pos=getPos(e,canvas); const hit=hitAll(pos);
-  if (hit) inlineEdit('Label', hit.label||'', v=>{ hit.label=v; savePlan(); renderPlan(); rPlanSidebar(); });
+  if (!hit) return;
+  if (hit.kind === 'buy') {
+    openItemDetail(hit.id);
+    return;
+  }
+  inlineEdit('Label', hit.label||'', v=>{
+    hit.item.label = v;
+    savePlan();
+    renderPlan();
+    rPlanSidebar();
+    renderPlanToolsPanel();
+  });
 }
 function onPlanRight(e, canvas) {
   const pos=getPos(e,canvas);
-  const fl=getFloor();
-  const hit=(fl.furniture||[]).slice().reverse().find(f=>pos.x>=f.x&&pos.x<=f.x+f.w&&pos.y>=f.y&&pos.y<=f.y+f.h);
+  const hit = hitAll(pos);
   if (hit) {
     selected = hit.id;
-    rotateFurniture(hit);
+    rotateSelectedFurniture();
   }
 }
 
@@ -264,16 +629,17 @@ function setPlanTool(t) {
   document.getElementById('tool-'+t)?.classList.add('active');
   const canvas=document.getElementById('canvas-plan');
   if (canvas) {
-    const curs={select:'default',room:'crosshair',furn:'cell',erase:'not-allowed',paint:'cell'};
+    const curs={select:'default',room:'crosshair',furn:'cell',erase:'not-allowed',paint:'cell',measure:'crosshair'};
     canvas.style.cursor=curs[t]||'default';
   }
   document.getElementById('furn-bar').style.display = t==='furn' ? 'flex' : 'none';
   const tips={
-    select: 'Click to select · Drag to move · Dbl-click to rename · Del to delete · Rotate button or R key rotates furniture',
+    select: 'Click to select · Drag to move · Dbl-click rooms/furniture to rename · Dbl-click planned items to inspect · Del removes from plan · Rotate with button or R',
     room:   'Drag to draw a room · Dbl-click to rename',
-    furn:   'Click to place furniture · Select placed furniture, then rotate with button or R',
-    erase:  'Click to delete room or furniture',
+    furn:   'Click to place furniture · Select placed furniture or planned items, then rotate with button or R',
+    erase:  'Click to delete room, furniture, or remove a planned item from the floor plan',
     paint:  'Click a room to change its colour',
+    measure:'Drag to draw a measurement line · Lines persist on the plan · Use Clear to remove all',
   };
   document.getElementById('plan-status').textContent = '💡 ' + (tips[t]||'');
 }
@@ -290,14 +656,35 @@ function selectFurnType(type) {
 function deleteSelected() {
   if (!selected) return;
   const fl=getFloor();
-  fl.rooms     = (fl.rooms||[]).filter(r=>r.id!==selected);
-  fl.furniture = (fl.furniture||[]).filter(f=>f.id!==selected);
-  selected=null; savePlan(); renderPlan(); rPlanSidebar();
+  const plannedItem = getBuyItem(selected);
+  if (plannedItem?.placedInPlan && plannedItem.planFloor === fl.id) {
+    Object.assign(plannedItem, { placedInPlan:false, planX:0, planY:0, planFloor:'', planRotated:false });
+    updBuyItem(plannedItem);
+  } else {
+    fl.rooms     = (fl.rooms||[]).filter(r=>r.id!==selected);
+    fl.furniture = (fl.furniture||[]).filter(f=>f.id!==selected);
+    savePlan();
+  }
+  selected=null;
+  renderPlan();
+  rPlanSidebar();
+  renderPlanToolsPanel();
 }
 function nudge(dx,dy) {
-  const fl=getFloor(); const all=[...(fl.rooms||[]),...(fl.furniture||[])];
-  const it=all.find(x=>x.id===selected);
-  if(it){it.x+=dx;it.y+=dy;savePlan();renderPlan();}
+  const selectedObject = getSelectedPlanObject();
+  if (!selectedObject) return;
+  if (selectedObject.kind === 'buy') {
+    const rect = getPlacedBuyRect(selectedObject.item);
+    setLiveBuyDraft(selectedObject.item, { planX:rect.x + dx, planY:rect.y + dy });
+    persistLiveBuyDraft(selectedObject.item.id);
+  } else {
+    selectedObject.item.x += dx;
+    selectedObject.item.y += dy;
+    savePlan();
+  }
+  renderPlan();
+  rPlanSidebar();
+  renderPlanToolsPanel();
 }
 function setPlanScale() {
   planState.scale=parseInt(document.getElementById('plan-scale').value)||45;
@@ -305,8 +692,13 @@ function setPlanScale() {
 }
 function clearFloor() {
   confirmDlg('Delete all elements on this floor?', ()=>{
-    getFloor().rooms=[]; getFloor().furniture=[]; selected=null;
-    savePlan(); renderPlan(); rPlanSidebar(); toast('Floor cleared','warn');
+    const floor = getFloor();
+    getPlacedBuyItems(floor).forEach(item => {
+      Object.assign(item, { placedInPlan:false, planX:0, planY:0, planFloor:'', planRotated:false });
+      updBuyItem(item);
+    });
+    floor.rooms=[]; floor.furniture=[]; selected=null;
+    savePlan(); renderPlan(); rPlanSidebar(); renderPlanToolsPanel(); toast('Floor cleared','warn');
   });
 }
 function downloadPlan() {
@@ -344,6 +736,17 @@ function renderPlan() {
 
   // Background
   ctx.fillStyle='#fafafa'; ctx.fillRect(0,0,W,H);
+
+  const blueprint = getBlueprintBounds();
+  if (blueprint) {
+    const img = getBlueprintImage(blueprint.src);
+    if (img?.complete) {
+      ctx.save();
+      ctx.globalAlpha = blueprint.opacity;
+      ctx.drawImage(img, blueprint.x, blueprint.y, blueprint.w, blueprint.h);
+      ctx.restore();
+    }
+  }
 
   // Grid
   if (document.getElementById('plan-grid')?.checked!==false) {
@@ -437,17 +840,29 @@ function renderPlan() {
 
   // Buy items placed in plan (shown as colored overlays)
   buyPlaced.forEach(it=>{
-    const wPx=(it.widthCm||50)/100*sc, dPx=(it.depthCm||50)/100*sc;
-    const x=it.planX||0, y=it.planY||0;
+    const rect = getPlacedBuyRect(it);
+    const x=rect.x, y=rect.y, wPx=rect.w, dPx=rect.h;
     const room = getRoomById(it.roomId);
-    const col  = room ? room.color : '#fce4ec';
+    const fit  = getRoomFitAnalysis(it);
+    const col  = normalizeItemSource(it.source)==='existing'
+      ? '#cbd5e1'
+      : (room ? room.color : '#fce4ec');
+    const border = fit?.fits ? '#15803d' : '#e11d48';
     ctx.save();
-    ctx.globalAlpha=.7;
+    ctx.globalAlpha=.72;
     ctx.fillStyle=col; ctx.fillRect(x,y,wPx,dPx);
-    ctx.strokeStyle='#e11d48'; ctx.lineWidth=1.5; ctx.strokeRect(x,y,wPx,dPx);
+    ctx.strokeStyle=it.id===selected ? '#0f172a' : border;
+    ctx.lineWidth=it.id===selected ? 2.5 : 1.5;
+    ctx.strokeRect(x,y,wPx,dPx);
     ctx.globalAlpha=1;
     ctx.fillStyle='#1e293b'; ctx.font='8px sans-serif'; ctx.textAlign='center';
     ctx.fillText(trunc(it.name,10), x+wPx/2, y+dPx/2+4);
+    if (it.id===selected) {
+      ctx.strokeStyle='#0f172a';
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x-2,y-2,wPx+4,dPx+4);
+      ctx.setLineDash([]);
+    }
     ctx.restore();
   });
 
@@ -459,16 +874,21 @@ function rPlanSidebar() {
   const el=document.getElementById('room-sidebar'); if(!el) return;
   const fl=getFloor();
   const sc=planState.scale;
-  if(!fl.rooms?.length) { el.innerHTML='<div style="color:var(--bd3);font-size:.7rem;text-align:center;padding:10px">No rooms yet — draw some!</div>'; return; }
+  if(!fl.rooms?.length) {
+    el.innerHTML='<div style="color:var(--bd3);font-size:.7rem;text-align:center;padding:10px">No rooms yet — draw some!</div>';
+    renderPlanToolsPanel();
+    return;
+  }
   el.innerHTML = fl.rooms.map(r=>{
     const area=((r.w/sc)*(r.h/sc)).toFixed(1);
     const wm=(r.w/sc).toFixed(1), hm=(r.h/sc).toFixed(1);
     const items=ldBuy().filter(it=>it.roomId===r.id);
+    const occupancy = getRoomOccupancy(r.id, fl);
     return `<div class="room-item ${r.id===selected?'active':''}" onclick="selectRoom('${r.id}')">
       <span class="room-swatch" style="background:${r.color||'#fce4ec'}"></span>
       <div class="room-info">
         <div class="room-name">${esc(r.label||'Room')}</div>
-        <div class="room-dim">${wm}×${hm}m · ${area}m²</div>
+        <div class="room-dim">${wm}×${hm}m · ${area}m² · ${occupancy?.pct || 0}% used</div>
       </div>
       ${items.length?`<span class="room-item-count" onclick="event.stopPropagation();showRoomItemsPanel('${r.id}')" title="View items for this room">${items.length}</span>`:''}
       <button class="btn sml icon" onclick="event.stopPropagation();renameRoom('${r.id}')">✏️</button>
@@ -488,11 +908,331 @@ function rPlanSidebar() {
       <button class="btn sml pri" onclick="rotateSelectedFurniture()">⟳ Rotate 90°</button>
     </div>`;
   }
+  renderPlanToolsPanel();
 }
 function selectRoom(id) { selected=id; renderPlan(); rPlanSidebar(); }
 function renameRoom(id) {
   const r=(getFloor().rooms||[]).find(x=>x.id===id); if(!r) return;
   inlineEdit('Room name',r.label,v=>{r.label=v;savePlan();renderPlan();rPlanSidebar();});
+}
+
+function switchPlanToolsTab(tab) {
+  planToolsTab = tab;
+  renderPlanToolsPanel();
+}
+function importBlueprint(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const src = String(reader.result || '');
+    const img = new Image();
+    img.onload = () => {
+      const floor = getFloor();
+      const blueprint = getFloorBlueprint(floor);
+      const defaultWidthM = 12;
+      const defaultHeightM = Number((defaultWidthM * (img.naturalHeight / Math.max(img.naturalWidth, 1))).toFixed(2));
+      Object.assign(blueprint, {
+        src,
+        widthM: defaultWidthM,
+        heightM: Math.max(2, defaultHeightM),
+        x: 20,
+        y: 20,
+        opacity: 0.38,
+        presetId: '',
+        presetLabel: ''
+      });
+      savePlan();
+      renderPlan();
+      renderPlanToolsPanel();
+      toast('Blueprint imported. Tune width, height, and offset to trace the plan.','green',4000);
+    };
+    img.src = src;
+  };
+  reader.readAsDataURL(file);
+}
+function updateBlueprintFromPanel() {
+  const blueprint = getFloorBlueprint();
+  if (!blueprint) return;
+  blueprint.widthM = Math.max(0, fNum('bp-width-m'));
+  blueprint.heightM = Math.max(0, fNum('bp-height-m'));
+  blueprint.x = fNum('bp-x-m') * planState.scale;
+  blueprint.y = fNum('bp-y-m') * planState.scale;
+  blueprint.opacity = Math.min(1, Math.max(0.05, Number(fVal('bp-opacity')) || 0.38));
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  if (typeof syncBlueprintModal === 'function') syncBlueprintModal();
+}
+function removeBlueprint() {
+  const blueprint = getFloorBlueprint();
+  if (!blueprint?.src) return;
+  Object.assign(blueprint, { src:'', widthM:0, heightM:0, x:0, y:0, opacity:0.38, presetId:'', presetLabel:'' });
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  if (typeof syncBlueprintModal === 'function') syncBlueprintModal();
+  toast('Blueprint removed','warn');
+}
+function getCurrentFloorBoundsMeters() {
+  const rooms = getFloor()?.rooms || [];
+  if (!rooms.length) return null;
+  const minX = Math.min(...rooms.map(room => room.x || 0));
+  const minY = Math.min(...rooms.map(room => room.y || 0));
+  const maxX = Math.max(...rooms.map(room => (room.x || 0) + (room.w || 0)));
+  const maxY = Math.max(...rooms.map(room => (room.y || 0) + (room.h || 0)));
+  return {
+    x: Number((minX / planState.scale).toFixed(2)),
+    y: Number((minY / planState.scale).toFixed(2)),
+    widthM: Number(((maxX - minX) / planState.scale).toFixed(2)),
+    heightM: Number(((maxY - minY) / planState.scale).toFixed(2)),
+  };
+}
+function syncBlueprintModal() {
+  const modal = document.getElementById('blueprint-modal');
+  if (!modal) return;
+  const presetSelect = document.getElementById('bp-modal-preset');
+  const status = document.getElementById('bp-modal-status');
+  const visible = document.getElementById('bp-modal-visible');
+  const presets = getAvailableBlueprintPresets();
+  const blueprint = getFloorBlueprint();
+  if (presetSelect) {
+    presetSelect.innerHTML = `<option value="">Manual / current overlay</option>${presets.map(preset => `<option value="${preset.id}">${esc(preset.label)}</option>`).join('')}`;
+    presetSelect.value = blueprint?.presetId || '';
+  }
+  fSet('bp-modal-width-m', blueprint?.widthM || '');
+  fSet('bp-modal-height-m', blueprint?.heightM || '');
+  fSet('bp-modal-offset-x', ((blueprint?.x || 0) / planState.scale).toFixed(2));
+  fSet('bp-modal-offset-y', ((blueprint?.y || 0) / planState.scale).toFixed(2));
+  fSet('bp-modal-opacity', blueprint?.opacity || 0.38);
+  if (visible) visible.checked = Boolean(blueprint?.src);
+  if (status) {
+    if (blueprint?.src) {
+      status.textContent = `${blueprint.presetLabel || 'Blueprint overlay'} active at ${Number(blueprint.widthM || 0).toFixed(2)} × ${Number(blueprint.heightM || 0).toFixed(2)} m.`;
+    } else {
+      status.textContent = 'Upload a PNG or JPG blueprint, or load a preset that matches the apartment measurements.';
+    }
+  }
+}
+function handleBlueprintUpload(files) {
+  const file = files && files[0];
+  if (!file) return;
+  importBlueprint(file);
+  setTimeout(() => syncBlueprintModal(), 120);
+}
+function applySelectedBlueprintPreset() {
+  const presetId = fVal('bp-modal-preset');
+  if (!presetId) {
+    toast('Select a blueprint preset first', 'warn');
+    return;
+  }
+  loadPreloadedBlueprintPreset(presetId);
+}
+function fitBlueprintToFloor() {
+  const blueprint = getFloorBlueprint();
+  if (!blueprint?.src) {
+    const presetId = fVal('bp-modal-preset');
+    if (presetId) {
+      if (!loadPreloadedBlueprintPreset(presetId)) return;
+    } else {
+      toast('Load or upload a blueprint first', 'warn');
+      return;
+    }
+  }
+  const bounds = getCurrentFloorBoundsMeters()
+    || (typeof PRELOADED_PLAN_BOUNDS !== 'undefined' ? {
+      x: PRELOADED_PLAN_BOUNDS.minX,
+      y: PRELOADED_PLAN_BOUNDS.minY,
+      widthM: PRELOADED_PLAN_BOUNDS.widthM,
+      heightM: PRELOADED_PLAN_BOUNDS.heightM,
+    } : null);
+  if (!bounds) {
+    toast('No room measurements available yet to fit the blueprint', 'warn');
+    return;
+  }
+  blueprint.widthM = bounds.widthM;
+  blueprint.heightM = bounds.heightM;
+  blueprint.x = Math.round(bounds.x * planState.scale);
+  blueprint.y = Math.round(bounds.y * planState.scale);
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  syncBlueprintModal();
+  toast('Blueprint fitted to current floor bounds', 'green');
+}
+function clearBlueprint() {
+  removeBlueprint();
+}
+function saveBlueprintSettings() {
+  const blueprint = getFloorBlueprint();
+  if (!blueprint?.src && !fVal('bp-modal-preset')) {
+    toast('Load or upload a blueprint first', 'warn');
+    return;
+  }
+  if (!blueprint?.src && fVal('bp-modal-preset')) {
+    if (!loadPreloadedBlueprintPreset(fVal('bp-modal-preset'))) return;
+  }
+  const visible = document.getElementById('bp-modal-visible');
+  if (visible && !visible.checked) {
+    removeBlueprint();
+    return;
+  }
+  blueprint.widthM = Math.max(0, fNum('bp-modal-width-m'));
+  blueprint.heightM = Math.max(0, fNum('bp-modal-height-m'));
+  blueprint.x = fNum('bp-modal-offset-x') * planState.scale;
+  blueprint.y = fNum('bp-modal-offset-y') * planState.scale;
+  blueprint.opacity = Math.min(1, Math.max(0.05, Number(fVal('bp-modal-opacity')) || 0.38));
+  savePlan();
+  renderPlan();
+  renderPlanToolsPanel();
+  syncBlueprintModal();
+  toast('Blueprint settings saved', 'green');
+}
+function saveRoomMeasurements(roomId) {
+  const room = (getFloor().rooms || []).find(entry => entry.id === roomId);
+  if (!room) return;
+  const label = fVal('room-label-edit') || room.label || 'Room';
+  const widthM = Math.max(0.5, fNum('room-width-edit'));
+  const depthM = Math.max(0.5, fNum('room-depth-edit'));
+  room.label = label;
+  room.w = Math.round(widthM * planState.scale);
+  room.h = Math.round(depthM * planState.scale);
+  room.area = (widthM * depthM).toFixed(1);
+  savePlan();
+  renderPlan();
+  rPlanSidebar();
+  toast('Room measurements updated','green');
+}
+function toggleRoomOptimizerUse(itemId, checked) {
+  const item = getBuyItem(itemId);
+  if (!item) return;
+  item.roomRole = checked ? (item.roomRole === 'must' ? 'must' : 'candidate') : 'ignore';
+  updBuyItem(item);
+  renderPlanToolsPanel();
+  rBuy();
+}
+function toggleRoomOptimizerMust(itemId, checked) {
+  const item = getBuyItem(itemId);
+  if (!item) return;
+  item.roomRole = checked ? 'must' : 'candidate';
+  updBuyItem(item);
+  renderPlanToolsPanel();
+  rBuy();
+}
+function renderBlueprintTab() {
+  const blueprint = getFloorBlueprint();
+  const xM = ((blueprint?.x || 0) / planState.scale).toFixed(2);
+  const yM = ((blueprint?.y || 0) / planState.scale).toFixed(2);
+  const presets = getAvailableBlueprintPresets();
+  const planBounds = typeof PRELOADED_PLAN_BOUNDS !== 'undefined'
+    ? PRELOADED_PLAN_BOUNDS
+    : null;
+  return `<div style="display:grid;gap:8px">
+    <div style="font-size:.68rem;color:var(--bd3)">Use a preloaded apartment blueprint or upload your own JPG/PNG, then fine-tune the real-world size and offset.</div>
+    ${planBounds ? `<div style="background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:.66rem;color:var(--bd2)">
+      <strong style="color:var(--pk)">Apartment measurements loaded:</strong> ${planBounds.widthM.toFixed(2)} × ${planBounds.heightM.toFixed(2)} m shell · cellar note: <strong>Keller 2</strong>
+    </div>` : ''}
+    ${presets.length ? `<div style="display:grid;gap:6px">
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--bd3)">Preloaded blueprint presets</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${presets.map(preset => `<button class="btn sml ${blueprint?.presetId===preset.id ? 'pri' : ''}" onclick="loadPreloadedBlueprintPreset('${preset.id}')">${esc(preset.label)}</button>`).join('')}
+      </div>
+      <div style="font-size:.62rem;color:var(--bd3)">Each preset uses the apartment measurements already seeded in the planner. Switch presets to compare scans without redrawing rooms.</div>
+    </div>` : ''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sml pri" onclick="document.getElementById('plan-blueprint-input')?.click()">🖼️ Upload blueprint</button>
+      ${hasFloorBlueprint() ? `<button class="btn sml dan" onclick="removeBlueprint()">🗑️ Remove</button>` : ''}
+    </div>
+    ${hasFloorBlueprint() ? `
+      <div class="form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:4px">
+        <div class="fg"><label>Width (m)</label><input id="bp-width-m" type="number" step="0.1" value="${blueprint.widthM || ''}" onchange="updateBlueprintFromPanel()"></div>
+        <div class="fg"><label>Height (m)</label><input id="bp-height-m" type="number" step="0.1" value="${blueprint.heightM || ''}" onchange="updateBlueprintFromPanel()"></div>
+        <div class="fg"><label>Offset X (m)</label><input id="bp-x-m" type="number" step="0.1" value="${xM}" onchange="updateBlueprintFromPanel()"></div>
+        <div class="fg"><label>Offset Y (m)</label><input id="bp-y-m" type="number" step="0.1" value="${yM}" onchange="updateBlueprintFromPanel()"></div>
+        <div class="fg" style="grid-column:1 / -1"><label>Opacity</label><input id="bp-opacity" type="range" min="0.05" max="1" step="0.05" value="${blueprint.opacity || 0.38}" oninput="updateBlueprintFromPanel()"></div>
+      </div>
+      ${blueprint?.presetLabel ? `<div style="font-size:.62rem;color:var(--bd3)">Active preset: <strong>${esc(blueprint.presetLabel)}</strong></div>` : ''}
+      <div style="font-size:.64rem;color:var(--bd3)">Tip: if the overlay looks stretched, fix width and height before drawing the rooms.</div>
+    ` : `<div style="font-size:.64rem;color:var(--bd3)">The image stays local in browser storage, so it travels with your plan backup.</div>`}
+  </div>`;
+}
+function renderRoomToolsTab() {
+  const room = getSelectedRoom();
+  if (!room) {
+    return `<div style="font-size:.68rem;color:var(--bd3)">Select a room on the left to edit exact measurements, then use the optimizer to test item combinations.</div>`;
+  }
+  const occupancy = getRoomOccupancy(room.id);
+  return `<div style="display:grid;gap:8px">
+    <div class="form-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:6px">
+      <div class="fg" style="grid-column:1 / -1"><label>Room name</label><input id="room-label-edit" value="${esc(room.label || '')}"></div>
+      <div class="fg"><label>Width (m)</label><input id="room-width-edit" type="number" step="0.1" value="${(room.w / planState.scale).toFixed(2)}"></div>
+      <div class="fg"><label>Depth (m)</label><input id="room-depth-edit" type="number" step="0.1" value="${(room.h / planState.scale).toFixed(2)}"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sml pri" onclick="saveRoomMeasurements('${room.id}')">💾 Save measurements</button>
+      <button class="btn sml" onclick="switchPlanToolsTab('optimizer')">🧠 Open optimizer</button>
+    </div>
+    <div style="background:var(--bg2);border-radius:12px;padding:10px 12px">
+      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--bd3);margin-bottom:4px">Capacity</div>
+      <div style="font-size:.86rem;font-weight:700;color:var(--pk)">${occupancy?.freeAreaM2.toFixed(2) || '0.00'} m² free</div>
+      <div style="font-size:.68rem;color:var(--bd2);margin-top:2px">${occupancy?.occupiedAreaM2.toFixed(2) || '0.00'} m² occupied of ${occupancy?.totalAreaM2.toFixed(2) || '0.00'} m²</div>
+      ${progressBar(occupancy?.pct || 0, occupancy?.pct > 80 ? '#dc2626' : 'var(--gn)', '6px')}
+    </div>
+  </div>`;
+}
+function renderOptimizerTab() {
+  const room = getSelectedRoom();
+  if (!room) {
+    return `<div style="font-size:.68rem;color:var(--bd3)">Select a room first. Then tick which items are candidates or must-haves and the optimizer will rank the best space-saving setups.</div>`;
+  }
+  const data = getRoomOptimizerData(room.id);
+  const items = data?.items || [];
+  return `<div style="display:grid;gap:8px">
+    <div style="font-size:.68rem;color:var(--bd3)">Use the same <strong>option group</strong> on alternatives like fridges or sofas. The optimizer tries all group combinations and keeps the setups with the most free space.</div>
+    ${items.length ? items.map(item => {
+      const fit = getRoomFitAnalysis(item);
+      const role = item.roomRole || 'candidate';
+      return `<div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--bg2)">
+        <div>
+          <div style="font-size:.74rem;font-weight:700;color:var(--bd)">${esc(item.name)}</div>
+          <div style="font-size:.62rem;color:var(--bd3)">${item.optionGroup ? `🧩 ${esc(item.optionGroup)} · ` : ''}${dimStr(item) || 'Add measurements'}${fit ? ` · ${fit.footprintPct}% room` : ''}</div>
+        </div>
+        <label style="font-size:.62rem;color:var(--bd2);display:flex;gap:4px;align-items:center"><input type="checkbox" ${role !== 'ignore' ? 'checked' : ''} onchange="toggleRoomOptimizerUse('${item.id}',this.checked)">Use</label>
+        <label style="font-size:.62rem;color:var(--bd2);display:flex;gap:4px;align-items:center"><input type="checkbox" ${role === 'must' ? 'checked' : ''} ${role === 'ignore' ? 'disabled' : ''} onchange="toggleRoomOptimizerMust('${item.id}',this.checked)">Must</label>
+      </div>`;
+    }).join('') : `<div style="font-size:.68rem;color:var(--bd3)">No items assigned to this room yet.</div>`}
+    <div style="display:grid;gap:8px">
+      ${(data?.combos || []).map((combo, idx) => `<div style="border:1px solid ${idx===0 ? '#86efac' : 'var(--border)'};background:${idx===0 ? 'var(--gnl)' : 'var(--white)'};border-radius:12px;padding:10px 12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:.76rem;font-weight:700;color:${combo.fits ? 'var(--gns)' : 'var(--pk)'}">${idx===0 ? 'Best free-space setup' : `Alternative ${idx + 1}`}</div>
+          <div style="font-size:.68rem;color:var(--bd2)">${combo.fits ? '✅ Fits footprint budget' : '⚠️ Check fit manually'}</div>
+        </div>
+        <div style="margin-top:4px;font-size:.9rem;font-weight:700;color:var(--pk)">${combo.freeAreaM2.toFixed(2)} m² free</div>
+        <div style="font-size:.66rem;color:var(--bd3);margin-top:2px">${combo.footprintM2.toFixed(2)} m² used of ${data.roomAreaM2.toFixed(2)} m²</div>
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${combo.selectedItems.map(item => `<span class="chip" style="background:${item.roomRole==='must' ? 'var(--purl)' : 'var(--bg2)'};color:${item.roomRole==='must' ? '#4c1d95' : 'var(--bd2)'}">${esc(item.name)}</span>`).join('') || '<span style="font-size:.64rem;color:var(--bd3)">No candidates selected</span>'}</div>
+        ${combo.missingMeasurements ? `<div style="font-size:.62rem;color:#92400e;margin-top:6px">${combo.missingMeasurements} item(s) missing measurements, so this ranking is approximate.</div>` : ''}
+      </div>`).join('') || `<div style="font-size:.68rem;color:var(--bd3)">Add items with the same option group to see ranked combinations.</div>`}
+    </div>
+  </div>`;
+}
+function renderPlanToolsPanel() {
+  const el = document.getElementById('plan-tools-content');
+  if (!el) return;
+  const tabs = [
+    { id:'room', label:'📏 Room' },
+    { id:'blueprint', label:'🖼️ Blueprint' },
+    { id:'optimizer', label:'🧠 Optimizer' },
+  ];
+  const body = planToolsTab === 'blueprint'
+    ? renderBlueprintTab()
+    : planToolsTab === 'optimizer'
+      ? renderOptimizerTab()
+      : renderRoomToolsTab();
+  el.innerHTML = `<div style="display:grid;gap:8px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${tabs.map(tab => `<button class="btn sml ${planToolsTab===tab.id ? 'pri' : ''}" onclick="switchPlanToolsTab('${tab.id}')">${tab.label}</button>`).join('')}
+    </div>
+    ${body}
+  </div>`;
 }
 
 // ── Plan Item panel: show items for a clicked room ───────────
@@ -536,8 +1276,10 @@ function placeItemInPlan(itemId) {
   it.planX = room.x + (room.w-wPx)/2;
   it.planY = room.y + (room.h-dPx)/2;
   it.planFloor=fl.id;
+  it.planRotated=false;
   updBuyItem(it);
   switchTab('plan');
   toast(it.name+' placed in floor plan 🏠','green');
   renderPlan();
+  rPlanSidebar();
 }

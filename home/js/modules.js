@@ -506,12 +506,81 @@ async function uploadSellPhotos(id,files,input) {
 // compare.js — Product comparison (standalone tab)
 // ============================================================
 
-function rCompare() { rCmpFilters(); rCmpList(); }
-
-function rCmpList() {
+function getFilteredCmpItems() {
   const items=ldCmp();
   const cf=getPillVal('cmp','cat'),rf=getPillVal('cmp','room');
-  let list=items.filter(it=>(!cf||it.category===cf)&&(!rf||it.roomId===rf));
+  return items.filter(it=>(!cf||it.category===cf)&&(!rf||it.roomId===rf));
+}
+function getCmpScenarioKey(it) {
+  return String(it.optionGroup || '').trim() || `${it.category || 'Option'}::${it.roomId || 'general'}`;
+}
+function getCmpScenarioLabel(it) {
+  if (it.optionGroup) return it.optionGroup;
+  const room = it.roomId ? getRoomById(it.roomId) : null;
+  return `${it.category || 'Option'}${room?.label ? ' · ' + room.label : ''}`;
+}
+function getCmpScenarioSelections() {
+  return ldScenario().compareChoices || {};
+}
+function isCmpScenarioSelected(it) {
+  return getCmpScenarioSelections()[getCmpScenarioKey(it)] === it.id;
+}
+function setCmpScenarioSelection(groupKey, itemId) {
+  const data = ldScenario();
+  data.compareChoices = { ...(data.compareChoices || {}), [groupKey]: itemId };
+  svScenario(data);
+  rCompare();
+  if (document.getElementById('compare-modal')?.classList.contains('open')) rCompareModal();
+}
+function rCmpScenario() {
+  const panel=document.getElementById('cmp-scenario-panel'); if(!panel) return;
+  const items = getFilteredCmpItems();
+  if(!items.length) { panel.innerHTML=''; return; }
+  const groups = items.reduce((map, item) => {
+    const key = getCmpScenarioKey(item);
+    if (!map[key]) map[key] = { label:getCmpScenarioLabel(item), items:[] };
+    map[key].items.push(item);
+    return map;
+  }, {});
+  const selections = getCmpScenarioSelections();
+  const selectedItems = Object.entries(groups).map(([key, group]) =>
+    group.items.find(item => item.id === selections[key]) || group.items[0]
+  );
+  const comparePicksTotal = selectedItems.reduce((sum, item) => sum + (item.price || 0), 0);
+  const shoppingBaseline = getBudgetStats();
+  panel.innerHTML = `<div class="cmp-group" style="margin-top:0">
+    <div class="cmp-group-hdr">
+      <span>🧮 Scenario Budget Lab</span>
+      <span style="font-size:.72rem;font-weight:500;opacity:.85">Pick one option per group and compare the total with your shopping budget</span>
+    </div>
+    <div style="padding:12px 16px;display:grid;gap:10px">
+      <div class="mini-stats" style="margin:0">
+        <div class="mini-stat"><div class="ms-num" style="color:var(--pk)">${fmtEur(comparePicksTotal,0)}</div><div class="ms-lbl">Scenario picks</div></div>
+        <div class="mini-stat"><div class="ms-num">${fmtEur(shoppingBaseline.est,0)}</div><div class="ms-lbl">Current buy plan</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:${shoppingBaseline.est + comparePicksTotal > shoppingBaseline.max ? 'var(--pk)' : 'var(--gn)'}">${fmtEur(shoppingBaseline.est + comparePicksTotal,0)}</div><div class="ms-lbl">Combined total</div></div>
+      </div>
+      ${Object.entries(groups).map(([key, group]) => `
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,260px);gap:8px;align-items:center;border-bottom:1px solid var(--bg2);padding-bottom:8px">
+          <div>
+            <div style="font-size:.74rem;font-weight:700;color:var(--bd)">${esc(group.label)}</div>
+            <div style="font-size:.62rem;color:var(--bd3)">${group.items.length} option${group.items.length>1?'s':''}</div>
+          </div>
+          ${group.items.length > 1
+            ? `<select class="btn sml" onchange="setCmpScenarioSelection(${jsq(key)},this.value)">
+                ${group.items.map(item => `<option value="${esc(item.id)}" ${selectedItems.find(sel => sel.id === item.id) ? 'selected' : ''}>${esc(item.name)} · ${item.price ? fmtEur(item.price,0) : '–'}</option>`).join('')}
+              </select>`
+            : `<div style="font-size:.68rem;color:var(--bd2);justify-self:end">${esc(group.items[0].name)}${group.items[0].price ? ' · ' + fmtEur(group.items[0].price,0) : ''}</div>`
+          }
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function rCompare() { rCmpFilters(); rCmpScenario(); rCmpList(); }
+
+function rCmpList() {
+  let list=getFilteredCmpItems();
   const el=document.getElementById('compare-out');if(!el)return;
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">⚖️</div>No products to compare yet.<br><button class="btn pri" style="margin-top:10px" onclick="openModal(\'cmp-add-modal\')">+ Add first product</button></div>';return;}
   const groups={};list.forEach(it=>{(groups[it.category]=groups[it.category]||[]).push(it);});
@@ -539,9 +608,12 @@ function renderCmpGroup(cat,items) {
         </tr></thead>
         <tbody>
           <tr><td class="feat-cell">Price</td>${items.map(it=>`<td class="${it.price>0&&it.price===minP?'best':''}"><strong style="color:${it.price===minP&&it.price>0?'var(--gn)':'var(--pk)'}">${it.price?fmtEur(it.price):'–'}</strong></td>`).join('')}</tr>
+          <tr><td class="feat-cell">Scenario</td>${items.map(it=>`<td>${isCmpScenarioSelected(it)?'<span class="badge green">✅ Picked</span>':'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Room</td>${items.map(it=>`<td>${it.roomId ? esc(getRoomById(it.roomId).label || '–') : '–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">W×D×H (cm)</td>${items.map(it=>`<td style="font-family:monospace">${dimStr(it)||'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Room fit</td>${items.map(it=>`<td>${renderCmpFitText(it)}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Energy</td>${items.map(it=>`<td>${it.energyRating?energyBadge(it.energyRating):'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Option group</td>${items.map(it=>`<td>${esc(it.optionGroup||'–')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Warranty</td>${items.map(it=>`<td>${esc(it.warranty||'–')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">${esc(names.M)}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'M')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">${esc(names.A)}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'A')}</td>`).join('')}</tr>
@@ -550,6 +622,7 @@ function renderCmpGroup(cat,items) {
           <tr style="background:var(--pkl)"><td class="feat-cell" style="font-weight:700">Score</td>${items.map(it=>`<td class="${it._score===maxS&&maxS>0?'best':''}" style="font-weight:700">${it._score.toFixed(1)}/10</td>`).join('')}</tr>
           <tr><td class="feat-cell">Actions</td>${items.map(it=>`<td>
             ${it.buyLink?`<a href="${esc(it.buyLink)}" target="_blank" class="btn sml pri" style="margin-bottom:3px;display:inline-block">🛒 Buy</a><br>`:''}
+            <button class="btn sml" onclick="setCmpScenarioSelection(${jsq(getCmpScenarioKey(it))},'${it.id}')">✅ Pick</button>
             <button class="btn sml" onclick="editCmpItem('${it.id}')">✏️</button>
             <button class="btn sml dan" onclick="confirmDlg('Delete?',()=>{delCmpItem('${it.id}');rCompare();toast('Deleted','warn')})">🗑️</button>
           </td>`).join('')}</tr>
@@ -565,8 +638,16 @@ function calcCmpScore(it) {
   const avgR=((it.ratingM||0)+(it.ratingA||0))/2;
   s+=(avgR/5)*4;
   if(it.energyRating){const e={'A+++':10,'A++':9,'A+':8,'A':7,'B':5,'C':3,'D':1,'E':0};s+=(e[it.energyRating]||0)/10*2;}
+  if (getRoomFitAnalysis(it)?.fits) s += 1;
   s+=Math.max(0,Math.min(2,((it.pros||[]).length-(it.cons||[]).length)*0.5));
   return Math.max(0,Math.min(10,s));
+}
+function renderCmpFitText(it) {
+  const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
+  if (!fit) return '–';
+  if (!fit.fits) return '❌ Too large';
+  if (fit.fitsRotatedOnly) return `↻ Fits rotated · ${fit.footprintPct}%`;
+  return `✅ Fits · ${fit.footprintPct}%`;
 }
 
 function getRecommendationHTML(items) {
@@ -594,32 +675,34 @@ let _cmpPros=[], _cmpCons=[];
 function addCmpItemFromForm() {
   const name=fVal('cmp-name');if(!name){toast('Please enter a name','red');return;}
   const prosRaw=fVal('cmp-pros'),consRaw=fVal('cmp-cons');
+  const imageUrl=fVal('cmp-image-url');
   const it={id:uid(),name,category:fVal('cmp-cat')||'Other',roomId:fVal('cmp-room')||'',
+    optionGroup:fVal('cmp-group'),
     price:fNum('cmp-price'),energyRating:fVal('cmp-energy'),warranty:fVal('cmp-warranty'),
     buyLink:fVal('cmp-buylink'),ratingM:parseInt(fVal('cmp-rating-m'))||0,ratingA:parseInt(fVal('cmp-rating-a'))||0,
     pros:prosRaw?prosRaw.split(',').map(s=>s.trim()).filter(Boolean):[..._cmpPros],
     cons:consRaw?consRaw.split(',').map(s=>s.trim()).filter(Boolean):[..._cmpCons],
     widthCm:fNum('cmp-width'),depthCm:fNum('cmp-depth'),heightCm:fNum('cmp-height'),
-    notes:fVal('cmp-notes'),voteM:'',voteA:'',photos:[],created:Date.now()};
+    notes:fVal('cmp-notes'),voteM:'',voteA:'',photos:imageUrl?[imageUrl]:[],created:Date.now()};
   addCmpItem(it);closeModal('cmp-add-modal');
-  fClear('cmp-name','cmp-price','cmp-warranty','cmp-buylink','cmp-pros','cmp-cons','cmp-notes','cmp-width','cmp-depth','cmp-height');
+  fClear('cmp-name','cmp-group','cmp-price','cmp-warranty','cmp-image-url','cmp-buylink','cmp-pros','cmp-cons','cmp-notes','cmp-width','cmp-depth','cmp-height');
   _cmpPros=[];_cmpCons=[];rCompare();toast(name+' added ⚖️','green');
 }
 function editCmpItem(id) {
   const it=getCmpItem(id);if(!it)return;
   syncRoomSelect('cmpe-room', { blankLabel:'-- optional --', selected:it.roomId||'' });
-  fSet('cmpe-id',id);fSet('cmpe-name',it.name);fSet('cmpe-cat',it.category);fSet('cmpe-room',it.roomId||'');
+  fSet('cmpe-id',id);fSet('cmpe-name',it.name);fSet('cmpe-cat',it.category);fSet('cmpe-group',it.optionGroup||'');fSet('cmpe-room',it.roomId||'');
   fSet('cmpe-price',it.price);fSet('cmpe-energy',it.energyRating||'');fSet('cmpe-warranty',it.warranty||'');
-  fSet('cmpe-buylink',it.buyLink||'');fSet('cmpe-rating-m',it.ratingM||'');fSet('cmpe-rating-a',it.ratingA||'');
+  fSet('cmpe-image-url',it.photos?.[0]||'');fSet('cmpe-buylink',it.buyLink||'');fSet('cmpe-rating-m',it.ratingM||'');fSet('cmpe-rating-a',it.ratingA||'');
   fSet('cmpe-pros',(it.pros||[]).join(', '));fSet('cmpe-cons',(it.cons||[]).join(', '));fSet('cmpe-notes',it.notes||'');
   fSet('cmpe-width',it.widthCm||'');fSet('cmpe-depth',it.depthCm||'');fSet('cmpe-height',it.heightCm||'');
   openModal('cmp-edit-modal');
 }
 function saveCmpEdit() {
   const id=fVal('cmpe-id');const it=getCmpItem(id);if(!it)return;
-  it.name=fVal('cmpe-name')||it.name;it.category=fVal('cmpe-cat');it.roomId=fVal('cmpe-room');
+  it.name=fVal('cmpe-name')||it.name;it.category=fVal('cmpe-cat');it.optionGroup=fVal('cmpe-group');it.roomId=fVal('cmpe-room');
   it.price=fNum('cmpe-price');it.energyRating=fVal('cmpe-energy');it.warranty=fVal('cmpe-warranty');
-  it.buyLink=fVal('cmpe-buylink');it.ratingM=parseInt(fVal('cmpe-rating-m'))||0;it.ratingA=parseInt(fVal('cmpe-rating-a'))||0;
+  it.photos=fVal('cmpe-image-url')?[fVal('cmpe-image-url')]:[];it.buyLink=fVal('cmpe-buylink');it.ratingM=parseInt(fVal('cmpe-rating-m'))||0;it.ratingA=parseInt(fVal('cmpe-rating-a'))||0;
   const p=fVal('cmpe-pros'),c=fVal('cmpe-cons');
   it.pros=p?p.split(',').map(s=>s.trim()).filter(Boolean):it.pros;
   it.cons=c?c.split(',').map(s=>s.trim()).filter(Boolean):it.cons;

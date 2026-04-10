@@ -23,8 +23,8 @@ const COGNITO_CONFIG = Object.freeze({
   userPoolId: '',
   clientId: '',
   xorKey: 'hnz-auth-2026',
-  userPoolIdEnc: 'DRtXTgQbABpMXh0DaQUlHWoHGjUtRw==',
-  clientIdEnc: 'WgwIRQ5ATA1MVlEGAA9aT14IGRAGRwVeBwI=',
+  userPoolIdEnc: 'DRtXTgQbABpMXh0DaVsoERwGJkAQdw==',
+  clientIdEnc: 'Xx1MHxEdR1xMU0VbVFtfGUpSFh1RHFxDVw4=',
   storageMode: 'session',
 });
 const AWS_BACKEND_CONFIG = Object.freeze({
@@ -90,6 +90,7 @@ const K = {
   sell:    'hnz_sell',
   buy:     'hnz_buy',
   compare: 'hnz_cmp',
+  scenario:'hnz_scenario',
   settings:'hnz_settings',
   activity:'hnz_activity',
   movecl:  'hnz_movecl',
@@ -235,6 +236,23 @@ const ITEM_CATEGORIES = [
 ];
 function getCatByKey(k) { return ITEM_CATEGORIES.find(c => c.k === k); }
 
+const ITEM_SOURCES = [
+  { k:'new',      l:'Buy new',              e:'🆕', badge:'🆕 New buy' },
+  { k:'existing', l:'Take from old apartment',  e:'📦', badge:'📦 Existing' },
+];
+function normalizeItemSource(source) {
+  return source === 'existing' ? 'existing' : 'new';
+}
+function getItemSourceMeta(source) {
+  return ITEM_SOURCES.find(entry => entry.k === normalizeItemSource(source)) || ITEM_SOURCES[0];
+}
+function getItemBudgetValue(item) {
+  if (!item) return 0;
+  return normalizeItemSource(item.source) === 'existing'
+    ? 0
+    : (item.bought ? (item.actualPrice || item.price || 0) : (item.price || 0));
+}
+
 // Pre-defined pros/cons suggestions per category
 const PROS_SUGGESTIONS = {
   Appliances:  ['Energy efficient','Very quiet','Large capacity','Easy to clean','Smart/WiFi','Excellent warranty','Fast','Durable','Good reviews','Compact'],
@@ -266,6 +284,15 @@ const BUY_PRIOS = [
   { k:'want', l:'Want',      e:'🟡', color:'#fef9c3', colorText:'#713f12' },
   { k:'nice', l:'Nice-to-have', e:'🟢', color:'#dcfce7', colorText:'#14532d' },
 ];
+
+const BUY_SOURCES = [
+  { k:'buy',   l:'Buy New',                  e:'🛒', color:'#fff1f2', colorText:'#9f1239' },
+  { k:'take',  l:'Take From Old Apartment',  e:'📦', color:'#eff6ff', colorText:'#1d4ed8' },
+  { k:'owned', l:'Already Owned',            e:'✨', color:'#f0fdf4', colorText:'#166534' },
+];
+function getBuySourceMeta(key) {
+  return BUY_SOURCES.find(src => src.k === key) || BUY_SOURCES[0];
+}
 
 // ── Sell platforms ───────────────────────────────────────────
 const SELL_PLATFORMS = [
