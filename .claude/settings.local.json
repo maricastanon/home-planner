@@ -23,7 +23,10 @@
       "Bash(aws cognito-idp create-user-pool-client:*)",
       "Bash(node:*)",
       "Bash(aws cloudformation:*)",
-      "Bash(aws cloudfront create-invalidation:*)"
+      "Bash(aws cloudfront create-invalidation:*)",
+      "Bash(wc:*)",
+      "Bash(aws cognito-idp admin-update-user-attributes:*)",
+      "Bash(aws iam attach-user-policy:*)"
     ]
   }
 }

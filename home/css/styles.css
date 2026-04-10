@@ -1,30 +1,34 @@
 /* ============================================================
    Our New Home v2 · Design System
-   Theme: Refined Modern — warm, editorial, architectural
+   Theme: Cute & Cozy — pink, green, warm, ADHD-friendly 💕🏠
+   Inspired by Piano Learning Manager aesthetic
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&family=DM+Serif+Display&display=swap');
 
 :root {
-  /* Brand */
-  --pk: #e11d48; --pks: #9f1239; --pkl: #fff1f2; --pk2: #fb7185;
-  --gn: #16a34a; --gnl: #f0fdf4; --gns: #14532d;
-  --bl: #2563eb; --bll: #eff6ff;
-  --or: #d97706; --orl: #fffbeb;
-  --pur: #7c3aed; --purl: #f5f3ff;
-  --teal: #0d9488; --teall: #f0fdfa;
-  /* Neutrals */
-  --white: #ffffff; --bg: #f8fafc; --bg2: #f1f5f9;
-  --bd: #0f172a; --bd2: #334155; --bd3: #64748b;
-  --border: #e2e8f0; --border2: #cbd5e1;
-  /* Shadows */
-  --sh: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.05);
-  --sh2: 0 4px 16px rgba(0,0,0,.09);
-  --sh3: 0 8px 32px rgba(0,0,0,.12);
-  /* Radii */
-  --r: 10px; --r2: 16px; --r3: 20px;
+  /* Brand — warm pink & green 💕 */
+  --pk: #e91e63; --pks: #c2185b; --pkl: #fce4ec; --pk2: #f48fb1;
+  --gn: #4caf50; --gnl: #e8f5e9; --gns: #2e7d32;
+  --bl: #e91e63; --bll: #fce4ec;
+  --or: #ff9800; --orl: #fff3e0;
+  --pur: #e91e63; --purl: #fce4ec;
+  --teal: #4caf50; --teall: #e8f5e9;
+  --gold: #fdd835; --gold-bg: rgba(253,216,53,.12);
+  /* Neutrals — warm undertone */
+  --white: #fffbfd; --bg: #f8eef4; --bg2: #fff0f5;
+  --bd: #2c3e50; --bd2: #555; --bd3: #888;
+  --border: rgba(233,30,99,.18); --border2: rgba(233,30,99,.28);
+  /* Shadows — soft pink */
+  --sh: 0 4px 20px rgba(233,30,99,.06);
+  --sh2: 0 8px 30px rgba(233,30,99,.1);
+  --sh3: 0 12px 40px rgba(233,30,99,.14);
+  /* Radii — rounder & cuter */
+  --r: 14px; --r2: 18px; --r3: 24px;
+  /* Lines — thicker like piano app */
+  --line-thin: 2px; --line-base: 3px;
   /* Spacing */
-  --gap: 10px;
+  --gap: 12px;
 }
 
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }

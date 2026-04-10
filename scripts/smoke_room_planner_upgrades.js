@@ -235,6 +235,16 @@ async function run() {
       setCmpScenarioSelection('Kitchen fridge shortlist', 'cmp-fridge-family');
       const scenarioAfter = document.getElementById('cmp-scenario-panel')?.textContent || '';
 
+      switchTab('plan');
+      const kellerLoaded = loadPreloadedBlueprintPreset('keller-2');
+      const kellerFloor = getFloor();
+      const kellerBlueprint = getFloorBlueprint();
+      const kellerRooms = Array.isArray(kellerFloor?.rooms) ? kellerFloor.rooms : [];
+      onMeasureDown({ x: 40, y: 40 });
+      onMeasureMove({ x: 220, y: 40 });
+      onMeasureUp();
+      const storedMeasurements = Array.isArray(kellerFloor?.measurements) ? kellerFloor.measurements.length : 0;
+
       return {
         budgetEst: budget.est,
         optimizerText,
@@ -242,7 +252,16 @@ async function run() {
         scenarioBefore,
         scenarioAfter,
         fitCompact: renderCmpFitText(getCmpItem('cmp-fridge-compact')),
-        fitFamily: renderCmpFitText(getCmpItem('cmp-fridge-family'))
+        fitFamily: renderCmpFitText(getCmpItem('cmp-fridge-family')),
+        kellerLoaded,
+        kellerFloorId: kellerFloor?.id || '',
+        kellerFloorName: kellerFloor?.name || '',
+        kellerStorageNote: kellerFloor?.storageNote || '',
+        kellerBlueprintPreset: kellerBlueprint?.presetId || '',
+        kellerBlueprintSize: `${Number(kellerBlueprint?.widthM || 0).toFixed(2)}x${Number(kellerBlueprint?.heightM || 0).toFixed(2)}`,
+        kellerRoomLabels: kellerRooms.map(room => room.label).join(', '),
+        kellerRoomAreas: kellerRooms.map(room => room.area).join(', '),
+        measurementCount: storedMeasurements
       };
     });
 
@@ -260,6 +279,18 @@ async function run() {
     }
     if (!/Fits/.test(state.fitCompact) || !/Fits/.test(state.fitFamily)) {
       throw new Error(`Room-fit comparison text was not generated: ${JSON.stringify(state)}`);
+    }
+    if (!state.kellerLoaded || state.kellerFloorId !== 'f-keller' || state.kellerBlueprintPreset !== 'keller-2') {
+      throw new Error(`Keller 2 preset did not activate the cellar floor blueprint: ${JSON.stringify(state)}`);
+    }
+    if (!/Keller/i.test(state.kellerFloorName) || !/Keller 2/i.test(state.kellerStorageNote) || !/Keller 2/i.test(state.kellerRoomLabels)) {
+      throw new Error(`Keller 2 floor metadata was not seeded correctly: ${JSON.stringify(state)}`);
+    }
+    if (!/22\.08/.test(state.kellerRoomAreas) || state.kellerBlueprintSize !== '13.46x8.40') {
+      throw new Error(`Keller 2 measurements were not loaded from the preset: ${JSON.stringify(state)}`);
+    }
+    if (state.measurementCount < 1) {
+      throw new Error(`Measurement annotations were not persisted on the loaded floor: ${JSON.stringify(state)}`);
     }
 
     if (pageErrors.length) throw new Error(`Page error(s): ${pageErrors.join(' | ')}`);
