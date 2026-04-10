@@ -9,3 +9,10 @@ Desktop.ini
 
 # Archives
 _archive/
+*.zip
+
+# Credentials / secrets
+accesskeys.txt
+*.pem
+.env
+.env.*

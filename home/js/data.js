@@ -145,16 +145,6 @@ function logActivity(module, action, label) {
 function ldActivity() { return ld(K.activity, []); }
 
 // ── Photo handling ───────────────────────────────────────────
-// AWS_HOOK: Replace these with Amplify Storage calls
-// import { uploadData, getUrl } from 'aws-amplify/storage';
-//
-// async function uploadPhotoToS3(file, itemId) {
-//   const key = `items/${itemId}/${Date.now()}_${file.name}`;
-//   await uploadData({ key, data: file });
-//   const { url } = await getUrl({ key });
-//   return url.toString();
-// }
-
 function readPhotoAsDataURL(file) {
   return new Promise((res, rej) => {
     const reader = new FileReader();
