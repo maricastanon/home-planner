@@ -235,6 +235,17 @@ async function run() {
       setCmpScenarioSelection('Kitchen fridge shortlist', 'cmp-fridge-family');
       const scenarioAfter = document.getElementById('cmp-scenario-panel')?.textContent || '';
 
+      switchTab('buy');
+      switchBuySubtab('roommap');
+      const roomMapText = document.getElementById('room-map-content')?.textContent || '';
+      switchBuySubtab('3d');
+      const room3dText = document.getElementById('room-3d-content')?.textContent || '';
+      const room3dHasSvg = Boolean(document.querySelector('#room-3d-content svg'));
+      switchBuySubtab('wishlist');
+      const wishlistText = document.getElementById('wishlist-planner-content')?.textContent || '';
+      setWishlistMustPlace('buy-desk-small', true);
+      const deskAfterPin = getBuyItem('buy-desk-small');
+
       switchTab('plan');
       const kellerLoaded = loadPreloadedBlueprintPreset('keller-2');
       const kellerFloor = getFloor();
@@ -251,6 +262,12 @@ async function run() {
         blueprintReady,
         scenarioBefore,
         scenarioAfter,
+        roomMapText,
+        room3dText,
+        room3dHasSvg,
+        wishlistText,
+        deskPinnedMust: deskAfterPin?.roomRole || '',
+        deskPinnedFlag: Boolean(deskAfterPin?.mustFitRoom),
         fitCompact: renderCmpFitText(getCmpItem('cmp-fridge-compact')),
         fitFamily: renderCmpFitText(getCmpItem('cmp-fridge-family')),
         kellerLoaded,
@@ -276,6 +293,18 @@ async function run() {
     }
     if (state.scenarioBefore === state.scenarioAfter || !/Family Fridge/.test(state.scenarioAfter)) {
       throw new Error(`Scenario picker did not update the compare budget lab: ${JSON.stringify(state)}`);
+    }
+    if (!/Living Room/.test(state.roomMapText) || !/Family Sofa/.test(state.roomMapText)) {
+      throw new Error(`Room Map subtab did not render room-grouped buy items: ${JSON.stringify(state)}`);
+    }
+    if (!state.room3dHasSvg || !/Pseudo-3D Room Preview/.test(state.room3dText) || !/Best free-space setup/.test(state.room3dText)) {
+      throw new Error(`3D preview subtab did not render the isometric room layout view: ${JSON.stringify(state)}`);
+    }
+    if (!/Setup Wishlist Intelligence/.test(state.wishlistText) || !/Living room setup/.test(state.wishlistText) || !/Main seating/.test(state.wishlistText)) {
+      throw new Error(`Wishlist planner subtab did not render room readiness intelligence: ${JSON.stringify(state)}`);
+    }
+    if (state.deskPinnedMust !== 'must' || !state.deskPinnedFlag) {
+      throw new Error(`Wishlist must-have pinning did not sync item state: ${JSON.stringify(state)}`);
     }
     if (!/Fits/.test(state.fitCompact) || !/Fits/.test(state.fitFamily)) {
       throw new Error(`Room-fit comparison text was not generated: ${JSON.stringify(state)}`);
