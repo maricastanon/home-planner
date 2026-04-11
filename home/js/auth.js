@@ -6,6 +6,7 @@ window.HomeAuth = (function() {
   const AUTH_PREFIX = 'hnz_auth_v2:';
   let _accessToken = null, _idToken = null, _refreshToken = null;
   let _username = null, _user = null, _tokenExpiry = 0, _challengeSession = null;
+  let _workspaceOverride = '';
 
   function _cfg() { return getCognitoConfig(); }
   function _endpoint() { return `https://cognito-idp.${_cfg().region}.amazonaws.com/`; }
@@ -37,6 +38,7 @@ window.HomeAuth = (function() {
       const groups = payload['cognito:groups'] || [];
       _user = { sub: payload.sub || '', email: payload.email || username, username, groups: Array.isArray(groups) ? groups : [groups] };
     } catch { _user = { sub: '', email: username, username, groups: [] }; }
+    _restoreWorkspaceOverride();
     // Persist
     const s = (_cfg().storageMode === 'session') ? sessionStorage : localStorage;
     s.setItem(AUTH_PREFIX + 'user', username);
@@ -48,11 +50,41 @@ window.HomeAuth = (function() {
 
   function _clearTokens() {
     _accessToken = _idToken = _refreshToken = _username = _user = null;
-    _tokenExpiry = 0; _challengeSession = null;
+    _tokenExpiry = 0; _challengeSession = null; _workspaceOverride = '';
     [sessionStorage, localStorage].forEach(s => {
       [AUTH_PREFIX+'user', AUTH_PREFIX+'access', AUTH_PREFIX+'id', AUTH_PREFIX+'refresh', AUTH_PREFIX+'expiry']
         .forEach(k => s.removeItem(k));
     });
+  }
+
+  function _workspaceKeys() {
+    const keys = [];
+    if (_user?.sub) keys.push(`${AUTH_PREFIX}workspace:${_user.sub}`);
+    if (_username) keys.push(`${AUTH_PREFIX}workspace:${_username}`);
+    return [...new Set(keys)];
+  }
+
+  function _restoreWorkspaceOverride() {
+    _workspaceOverride = '';
+    const keys = _workspaceKeys();
+    for (const key of keys) {
+      const value = localStorage.getItem(key);
+      if (!value) continue;
+      _workspaceOverride = normalizeHouseholdId(value);
+      if (_workspaceOverride && keys[0] && keys[0] !== key) localStorage.setItem(keys[0], _workspaceOverride);
+      break;
+    }
+  }
+
+  function _persistWorkspaceOverride() {
+    const keys = _workspaceKeys();
+    if (!keys.length) return false;
+    if (_workspaceOverride) {
+      localStorage.setItem(keys[0], _workspaceOverride);
+    } else {
+      keys.forEach(key => localStorage.removeItem(key));
+    }
+    return true;
   }
 
   function _restoreTokens() {
@@ -69,6 +101,7 @@ window.HomeAuth = (function() {
         const groups = payload['cognito:groups'] || [];
         _user = { sub: payload.sub || '', email: payload.email || user, username: user, groups: Array.isArray(groups) ? groups : [groups] };
       } catch { _user = { sub: '', email: user, username: user, groups: [] }; }
+      _restoreWorkspaceOverride();
       return true;
     }
     return false;
@@ -150,7 +183,14 @@ window.HomeAuth = (function() {
     },
 
     isAuthenticated: () => Boolean(_user),
-    getStorageScope: () => _user?.sub || '',
+    getStorageScope: () => householdScopeFromId(_workspaceOverride) || _user?.sub || '',
+    getDefaultStorageScope: () => _user?.sub || '',
+    getWorkspaceOverride: () => _workspaceOverride || '',
+    setWorkspaceOverride(value) {
+      _workspaceOverride = normalizeHouseholdId(value);
+      _persistWorkspaceOverride();
+      return householdScopeFromId(_workspaceOverride) || _user?.sub || '';
+    },
     getUser: () => _user,
     getSessionTokens: () => ({ accessToken: _accessToken || '', idToken: _idToken || '' }),
     friendlyError: _friendlyError,
@@ -166,7 +206,7 @@ window.HomeAuth = (function() {
         const token = await this.getAccessToken();
         if (token) {
           // Success — boot app
-          this._bootApp();
+          await this._bootApp();
           return;
         }
       }
@@ -174,13 +214,13 @@ window.HomeAuth = (function() {
       document.getElementById('auth-status-note').textContent = 'Sign in with your credentials.';
     },
 
-    _bootApp() {
+    async _bootApp() {
       document.getElementById('loginBg')?.classList.add('hidden');
       document.getElementById('newPwdBg')?.classList.add('hidden');
       const appShell = document.getElementById('app-shell');
       if (appShell) { appShell.hidden = false; appShell.removeAttribute('aria-hidden'); }
       document.body.classList.remove('auth-shell-open');
-      if (window.HomeAws && typeof window.HomeAws.loadFromCloud === 'function') window.HomeAws.loadFromCloud();
+      if (window.HomeAws && typeof window.HomeAws.loadFromCloud === 'function') await window.HomeAws.loadFromCloud();
       if (window.HomeApp) window.HomeApp.boot(_user);
       if (window.HomeAws && typeof window.HomeAws.flushAll === 'function') window.HomeAws.flushAll();
     }
@@ -210,8 +250,8 @@ async function doLogin() {
     // Show loading overlay briefly
     const overlay = document.getElementById('loadingOverlay');
     if (overlay) overlay.classList.remove('hidden');
-    setTimeout(() => {
-      window.HomeAuth._bootApp();
+    setTimeout(async () => {
+      await window.HomeAuth._bootApp();
       if (overlay) { overlay.classList.add('lo-fadeout'); setTimeout(() => { overlay.classList.add('hidden'); overlay.classList.remove('lo-fadeout'); }, 700); }
       if (typeof toast === 'function') toast('Welcome back! 🏠', 'green');
     }, 1200);
@@ -231,7 +271,7 @@ async function doNewPassword() {
   if (pwd !== pwd2) { errEl.textContent = 'Passwords do not match'; return; }
   try {
     await window.HomeAuth.respondNewPassword(_loginChallengeUser, pwd);
-    window.HomeAuth._bootApp();
+    await window.HomeAuth._bootApp();
     if (typeof toast === 'function') toast('Password set! Welcome 🏠', 'green');
   } catch (e) {
     errEl.textContent = window.HomeAuth.friendlyError(e);

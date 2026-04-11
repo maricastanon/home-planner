@@ -11,9 +11,11 @@ function getStorageScope() {
     ? window.HomeAuth.getStorageScope()
     : '';
 }
-function resolveScopedKey(key) {
-  const scope = getStorageScope();
+function resolveScopedKeyForScope(key, scope = '') {
   return scope ? `${key}::${scope}` : key;
+}
+function resolveScopedKey(key) {
+  return resolveScopedKeyForScope(key, getStorageScope());
 }
 function readStoredValue(key, fb) {
   try {
@@ -34,6 +36,27 @@ function migrateLegacyValue(key, scopedKey) {
     return null;
   }
 }
+function getStateMetaStorageKey(scopedKey) {
+  return `${scopedKey}::__meta`;
+}
+function readStateUpdatedAt(scopedKey) {
+  try {
+    const raw = localStorage.getItem(getStateMetaStorageKey(scopedKey));
+    if (!raw) return 0;
+    const meta = JSON.parse(raw);
+    return Number(meta?.updatedAt || 0);
+  } catch {
+    return 0;
+  }
+}
+function writeStateMeta(scopedKey, updatedAt = Date.now()) {
+  try {
+    localStorage.setItem(getStateMetaStorageKey(scopedKey), JSON.stringify({ updatedAt: Number(updatedAt) || Date.now() }));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function ld(key, fb) {
   const scopedKey = resolveScopedKey(key);
@@ -41,18 +64,20 @@ function ld(key, fb) {
   if (migrated != null) return migrated;
   return readStoredValue(scopedKey, fb);
 }
-function sv(key, val) {
-  const scopedKey = resolveScopedKey(key);
+function svForScope(key, val, scope = getStorageScope(), options = {}) {
+  const scopedKey = resolveScopedKeyForScope(key, scope);
+  const updatedAt = Number(options.updatedAt) || Date.now();
   try {
     localStorage.setItem(scopedKey, JSON.stringify(val));
+    writeStateMeta(scopedKey, updatedAt);
     _storageFull = false;
     if (key !== K.activity && window.HomeAws && typeof window.HomeAws.queueDataSync === 'function') {
       window.HomeAws.queueDataSync({
         kind: 'state',
         module: key,
         scopedKey,
-        storageScope: getStorageScope() || 'legacy',
-        updatedAt: Date.now(),
+        storageScope: scope || 'legacy',
+        updatedAt,
       });
     }
     return true;
@@ -65,6 +90,32 @@ function sv(key, val) {
     console.warn('Storage write failed:', e);
     return false;
   }
+}
+function sv(key, val, options = {}) {
+  return svForScope(key, val, getStorageScope(), options);
+}
+function captureStorageScope(scope = getStorageScope()) {
+  const snapshot = {};
+  Object.values(K).forEach(key => {
+    const scopedKey = resolveScopedKeyForScope(key, scope);
+    if (localStorage.getItem(scopedKey) == null) return;
+    snapshot[key] = {
+      value: readStoredValue(scopedKey, null),
+      updatedAt: readStateUpdatedAt(scopedKey),
+    };
+  });
+  return snapshot;
+}
+function storageScopeHasData(scope = getStorageScope()) {
+  return Object.values(K).some(key => localStorage.getItem(resolveScopedKeyForScope(key, scope)) != null);
+}
+function seedStorageScope(scope, snapshot = {}) {
+  let restored = 0;
+  Object.entries(snapshot).forEach(([key, entry]) => {
+    if (!entry) return;
+    if (svForScope(key, entry.value, scope, { updatedAt: entry.updatedAt || Date.now() })) restored += 1;
+  });
+  return restored;
 }
 
 // ── Settings ─────────────────────────────────────────────────
@@ -158,6 +209,20 @@ function readPhotoAsDataURL(file) {
   });
 }
 
+const PHOTO_MAX_SIZE = 2 * 1024 * 1024; // 2 MB per photo
+const PHOTO_ALLOWED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
+
+function validatePhotoFile(file) {
+  if (!file) return 'No file selected.';
+  if (!PHOTO_ALLOWED_TYPES.includes(file.type) && !file.name.match(/\.(jpe?g|png|webp|gif|svg)$/i)) {
+    return `"${file.name}" is not a supported image type. Use JPEG, PNG, WebP, or GIF.`;
+  }
+  if (file.size > PHOTO_MAX_SIZE) {
+    return `"${file.name}" is too large (${(file.size/1024/1024).toFixed(1)} MB). Max is 2 MB.`;
+  }
+  return null;
+}
+
 async function attachPhotos(itemId, files, module = 'buy') {
   if (_storageFull) {
     if (typeof toast === 'function') toast('Storage full — delete photos to free up space 🗑️', 'red', 6000);
@@ -166,11 +231,15 @@ async function attachPhotos(itemId, files, module = 'buy') {
   const loaders = { buy: { ld: ldBuy, sv: svBuy, get: getBuyItem }, sell: { ld: ldSell, sv: svSell, get: getSellItem } };
   const L = loaders[module]; if (!L) return false;
   const item = L.get(itemId); if (!item) return false;
+  let skipped = 0;
   for (const file of files) {
+    const err = validatePhotoFile(file);
+    if (err) { skipped++; if (typeof toast === 'function') toast(err, 'red', 5000); continue; }
     // AWS_HOOK: const url = await uploadPhotoToS3(file, itemId);
     const url = await readPhotoAsDataURL(file);
     item.photos = [...(item.photos || []), url];
   }
+  if (skipped && typeof toast === 'function' && skipped === files.length) return false;
   const d = L.ld(); const idx = d.findIndex(x => x.id === itemId);
   if (idx >= 0) { d[idx] = item; L.sv(d); }
   return !_storageFull;
@@ -383,7 +452,7 @@ function getBuyScenarioStats(items = ldBuy()) {
   };
 }
 
-function getRoomOccupancy(roomId) {
+function getStoredRoomOccupancy(roomId) {
   const { room, floor } = getRoomRecord(roomId);
   if (!room || !floor) {
     return { areaSqm: 0, occupiedSqm: 0, freeSqm: 0, occupancyPct: 0, entries: [] };

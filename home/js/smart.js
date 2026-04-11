@@ -458,9 +458,12 @@ function renderComparisonGroup(title, items, source) {
       ${photo ? `<img src="${esc(photo)}" class="visual-cmp-img">` : `<div class="visual-cmp-img-placeholder">${esc((getCatByKey(it.cat)?.e) || '📦')}</div>`}
       <div class="visual-cmp-name">${esc(trunc(it.name, 24))}</div>
       ${it.brand ? `<div class="visual-cmp-brand">${esc(it.brand)}</div>` : ''}
+      ${it.store ? `<div style="font-size:.58rem;color:var(--bd2);margin-top:2px">${typeof getStoreMeta==='function'?getStoreMeta(it.store).e:'🏪'} ${esc(it.store)}${it.storeUrl ? ` <a href="${esc(it.storeUrl)}" target="_blank" onclick="event.stopPropagation()" style="font-size:.55rem">🔗</a>` : ''}</div>` : ''}
+      ${it.availability ? `<div style="margin-top:2px">${typeof availabilityBadge==='function'?availabilityBadge(it.availability):esc(it.availability)}</div>` : ''}
       <div class="visual-cmp-price">${fmtEur(it.price)}</div>
       ${priceDiff > 0 ? `<div style="font-size:.55rem;color:var(--pk)">+${fmtEur(priceDiff, 0)} vs cheapest</div>` : ''}
       ${decisionMeta ? `<div style="font-size:.58rem;color:${decisionMeta.fg};margin-top:3px">${esc(decisionMeta.e)} ${esc(decisionMeta.l)}</div>` : ''}
+      ${it.deliveryDate ? `<div style="font-size:.55rem;color:var(--bd3);margin-top:2px">📅 ${fmtDate(it.deliveryDate)}</div>` : ''}
       ${it.energyClass ? `<div style="margin:3px 0">${energyBadge(it.energyClass)}</div>` : ''}
       <div class="size-bars">
         <div class="size-bar-row"><span class="size-bar-label">W</span><div class="size-bar-track"><div class="size-bar-fill" style="width:${wPct}%;background:#60a5fa"></div></div><span class="size-bar-val">${it.widthCm || '?'}</span></div>
@@ -601,18 +604,6 @@ function rPlanTools() {
   </div>`;
 
   el.innerHTML = h;
-}
-
-// ── Buy subtab navigation ────────────────────────────────────
-let _legacyBuySubtab = 'items';
-
-function switchBuySubtabLegacy(tab) {
-  _legacyBuySubtab = tab;
-  document.querySelectorAll('.buy-subtab').forEach(el => el.classList.toggle('active', el.dataset.subtab === tab));
-  document.querySelectorAll('.buy-subtab-panel').forEach(el => el.classList.toggle('active', el.id === 'buy-sub-' + tab));
-  if (tab === 'fit') rFitTest();
-  else if (tab === 'budget') rBudgetPlanner();
-  else if (tab === 'roommap') rRoomMap();
 }
 
 // ── Compare subtab navigation ────────────────────────────────

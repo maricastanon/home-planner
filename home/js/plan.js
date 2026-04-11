@@ -350,10 +350,15 @@ function getRoomOccupancy(roomId, floor = getFloor()) {
   return {
     room,
     items,
+    entries: items,
     totalAreaM2,
     occupiedAreaM2,
     freeAreaM2: Math.max(0, totalAreaM2 - occupiedAreaM2),
-    pct
+    pct,
+    areaSqm: Number(totalAreaM2.toFixed(2)),
+    occupiedSqm: Number(occupiedAreaM2.toFixed(2)),
+    freeSqm: Number(Math.max(0, totalAreaM2 - occupiedAreaM2).toFixed(2)),
+    occupancyPct: pct
   };
 }
 function getPlanRoomGeometry(roomId) {
@@ -957,8 +962,16 @@ function renderPlan() {
     const isSel  = r.id===selected;
     // Check if this room has linked buy items
     const items  = ldBuy().filter(it=>it.roomId===r.id);
+    const occ = getRoomOccupancy(r.id, fl);
+    const occPct = occ?.pct || 0;
     ctx.fillStyle = r.color||'#fce4ec';
     ctx.fillRect(r.x,r.y,r.w,r.h);
+    // Occupancy overlay: green (low) → yellow (medium) → red (high)
+    if (occPct > 0) {
+      const occAlpha = Math.min(0.18, occPct * 0.002);
+      ctx.fillStyle = occPct > 80 ? `rgba(220,38,38,${occAlpha})` : occPct > 50 ? `rgba(217,119,6,${occAlpha})` : `rgba(22,163,74,${occAlpha})`;
+      ctx.fillRect(r.x,r.y,r.w,r.h);
+    }
     // Border
     ctx.strokeStyle = isSel?'#e11d48':isHov?'#f43f5e':'#94a3b8';
     ctx.lineWidth = isSel?2.5:isHov?2:1.5;
@@ -975,8 +988,9 @@ function renderPlan() {
     ctx.save(); ctx.translate(r.x+8,r.y+r.h/2); ctx.rotate(-Math.PI/2);
     ctx.fillText(hm,0,0); ctx.restore();
     if(r.w>60&&r.h>60){
-      ctx.fillStyle='rgba(15,23,42,.3)'; ctx.font='7px sans-serif'; ctx.textAlign='center';
-      ctx.fillText(area+' m²', r.x+r.w/2, r.y+r.h/2+fs*.35+fs+3);
+      const occColor = occPct > 80 ? '#dc2626' : occPct > 50 ? '#d97706' : 'rgba(15,23,42,.3)';
+      ctx.fillStyle=occColor; ctx.font='7px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(area+' m²' + (occPct ? ' · ' + occPct + '% used' : ''), r.x+r.w/2, r.y+r.h/2+fs*.35+fs+3);
     }
     // Item count badge
     if (items.length) {

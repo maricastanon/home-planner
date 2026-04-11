@@ -39,6 +39,7 @@ function createServer() {
 async function run() {
   const username = process.env.COGNITO_USERNAME;
   const password = process.env.COGNITO_PASSWORD;
+  const newPassword = process.env.COGNITO_NEW_PASSWORD || process.env.COGNITO_PASSWORD_NEW || '';
   if (!username || !password) throw new Error('Set COGNITO_USERNAME and COGNITO_PASSWORD before running this script.');
 
   const server = createServer();
@@ -71,26 +72,49 @@ async function run() {
 
   try {
     await page.goto('http://127.0.0.1:4175/index.html', { waitUntil: 'networkidle' });
-    await page.waitForFunction(() => /Sign in with your Cognito invite|Set a new password/.test(document.getElementById('auth-status-note')?.textContent || ''), null, { timeout: 15000 });
+    await page.waitForFunction(() => /Sign in with your credentials|Cognito not configured/.test(document.getElementById('auth-status-note')?.textContent || ''), null, { timeout: 15000 });
 
     await page.fill('#auth-email', username);
     await page.fill('#auth-password', password);
-    await page.locator('#auth-login-form').evaluate(form => {
-      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
+    await page.click('#auth-sign-in-btn');
 
     await page.waitForFunction(() => {
-      const authShell = document.getElementById('auth-shell');
+      const loginBg = document.getElementById('loginBg');
+      const newPwdBg = document.getElementById('newPwdBg');
       const feedback = document.getElementById('auth-feedback');
-      return Boolean(authShell?.hidden) || Boolean(feedback && !feedback.hidden && feedback.textContent.trim());
+      return Boolean(loginBg?.classList.contains('hidden'))
+        || Boolean(newPwdBg && !newPwdBg.classList.contains('hidden'))
+        || Boolean(feedback && !feedback.hidden && feedback.textContent.trim());
     }, null, { timeout: 20000 });
 
+    const needsPasswordReset = await page.evaluate(() => {
+      const newPwdBg = document.getElementById('newPwdBg');
+      return Boolean(newPwdBg && !newPwdBg.classList.contains('hidden'));
+    });
+    if (needsPasswordReset) {
+      if (!newPassword) {
+        throw new Error('Cognito requested a new password. Set COGNITO_NEW_PASSWORD (or COGNITO_PASSWORD_NEW) to complete the first-login flow.');
+      }
+      await page.fill('#auth-new-password', newPassword);
+      await page.fill('#auth-new-password-confirm', newPassword);
+      await page.click('#newPwdBg .login-btn');
+      await page.waitForFunction(() => {
+        const loginBg = document.getElementById('loginBg');
+        const appShell = document.getElementById('app-shell');
+        const feedback = document.getElementById('newpwd-feedback');
+        return Boolean(loginBg?.classList.contains('hidden') && appShell && !appShell.hidden)
+          || Boolean(feedback && !feedback.hidden && feedback.textContent.trim());
+      }, null, { timeout: 20000 });
+    }
+
     const result = await page.evaluate(() => ({
-      authed: document.getElementById('auth-shell')?.hidden === true && document.getElementById('app-shell')?.hidden === false,
+      authed: document.getElementById('loginBg')?.classList.contains('hidden') === true && document.getElementById('app-shell')?.hidden === false,
+      passwordResetVisible: document.getElementById('newPwdBg') ? !document.getElementById('newPwdBg').classList.contains('hidden') : false,
       feedback: document.getElementById('auth-feedback')?.textContent?.trim() || '',
+      newPasswordFeedback: document.getElementById('newpwd-feedback')?.textContent?.trim() || '',
       status: document.getElementById('auth-status-note')?.textContent?.trim() || '',
       userPill: document.getElementById('auth-user-pill')?.textContent?.trim() || '',
-      adminVisible: document.getElementById('admin-logs-btn')?.hidden === false,
+      logsVisible: document.getElementById('admin-logs-btn')?.hidden === false,
       logoutVisible: document.getElementById('logout-btn')?.hidden === false
     }));
 

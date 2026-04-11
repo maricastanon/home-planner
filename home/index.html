@@ -407,7 +407,10 @@
       <div class="fg"><label>Max budget (€)</label><input type="number" id="set-budget" placeholder="5000"></div>
       <div class="fg"><label>Person 1 name</label><input id="set-name-m" placeholder="Mari"></div>
       <div class="fg"><label>Person 2 name</label><input id="set-name-a" placeholder="Alexander"></div>
+      <div class="fg"><label>Currency symbol</label><input id="set-currency" placeholder="€" maxlength="3" style="width:60px"></div>
+      <div class="fg"><label>Household workspace code</label><input id="set-workspace" placeholder="alex-mari-home"></div>
     </div>
+    <div class="note-box" style="margin-bottom:10px">Use the same household workspace code on both accounts to share one planner, packing list, and floor plan. Leave it blank to keep a private per-user workspace.</div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal('settings-modal')">Cancel</button>
       <button class="btn pri" onclick="saveSettings()">💾 Save</button>
@@ -722,6 +725,14 @@
         <option value="out-of-stock">Out of Stock</option>
         <option value="discontinued">Discontinued</option>
       </select></div>
+      <div class="fg"><label>Delivery stage</label><select id="b-delivery-status">
+        <option value="">Auto from workflow</option>
+        <option value="pending">⏳ Pending</option>
+        <option value="processing">⚙️ Processing</option>
+        <option value="shipped">🚛 Shipped</option>
+        <option value="pickup">🏪 Self-pickup</option>
+        <option value="delivered">📬 Delivered</option>
+      </select></div>
       <div class="fg"><label>Expected delivery</label><input id="b-delivery-date" type="date"></div>
       <div class="fg"><label>Option group</label><input id="b-option-group" placeholder="Living room sofa shortlist"></div>
       <div class="fg"><label>Room optimizer</label><select id="b-room-role">
@@ -793,14 +804,14 @@
         <option value="new">🆕 Buy new</option>
         <option value="existing">🏚️ Bring from old flat</option>
       </select></div>
-      <div class="fg"><label>Category</label><select id="be-cat">
+      <div class="fg"><label>Category</label><select id="be-cat" onchange="onEditBuyCatChange(this)">
         <option value="Appliances">🏠 Appliances</option><option value="Furniture">🛋️ Furniture</option>
         <option value="Electronics">📺 Electronics</option><option value="Lighting">💡 Lighting</option>
         <option value="Kitchen">🍳 Kitchen</option><option value="Bathroom">🚿 Bathroom</option>
         <option value="Textiles">🛏️ Textiles</option><option value="Decor">🌿 Decor</option>
         <option value="Storage">📦 Storage</option>
       </select></div>
-      <div class="fg"><label>Type</label><input id="be-type"></div>
+      <div class="fg"><label>Type</label><select id="be-type"></select></div>
       <div class="fg"><label>Room</label><select id="be-room">
         <option value="">-- none --</option>
         <option value="r-kueche">🍳 Kitchen</option><option value="r-wohnzim">🛋️ Living Room</option>
@@ -841,6 +852,14 @@
         <option value="out-of-stock">Out of Stock</option>
         <option value="discontinued">Discontinued</option>
       </select></div>
+      <div class="fg"><label>Delivery stage</label><select id="be-delivery-status">
+        <option value="">Auto from workflow</option>
+        <option value="pending">⏳ Pending</option>
+        <option value="processing">⚙️ Processing</option>
+        <option value="shipped">🚛 Shipped</option>
+        <option value="pickup">🏪 Self-pickup</option>
+        <option value="delivered">📬 Delivered</option>
+      </select></div>
       <div class="fg"><label>Expected delivery</label><input id="be-delivery-date" type="date"></div>
       <div class="fg"><label>Option group</label><input id="be-option-group" placeholder="Living room sofa shortlist"></div>
       <div class="fg"><label>Room optimizer</label><select id="be-room-role">
@@ -860,6 +879,7 @@
       </select></div>
       <div class="fg"><label>Warranty</label><input id="be-warranty"></div>
     </div>
+    <div class="form-grid" id="be-specs-grid" style="margin-bottom:8px"></div>
     <!-- Pros/Cons -->
     <div class="split-grid">
       <div>
@@ -925,6 +945,30 @@
       </div>
     </div>
     <div id="compare-modal-content"></div>
+  </div>
+</div>
+
+<!-- Activity Logs -->
+<div class="modal full" id="activity-logs-modal">
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-hdr">
+      <h3>🧾 Activity Logs</h3>
+      <span class="modal-close" onclick="closeModal('activity-logs-modal')">✕</span>
+    </div>
+    <div class="note-box" id="activity-log-status" style="margin-bottom:10px">Loading activity…</div>
+    <div class="form-grid" style="margin-bottom:10px">
+      <div class="fg">
+        <label>Module</label>
+        <select id="activity-log-module-filter" onchange="renderActivityLogs()">
+          <option value="">All modules</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions" style="margin-top:0;margin-bottom:10px">
+      <button class="btn" onclick="refreshActivityLogs()">↻ Refresh</button>
+      <button class="btn" onclick="copyActivityLogsJson()">📋 Copy JSON</button>
+    </div>
+    <div id="activity-log-list"></div>
   </div>
 </div>
 

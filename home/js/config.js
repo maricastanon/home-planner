@@ -11,9 +11,10 @@ const APP_RUNTIME = Object.freeze({
   authProvider: 'cognito',
   deploymentTarget: 'cloudfront_s3_cognito_dynamo',
   installablePwa: true,
-  storageScope: 'cognito_user_sub',
+  storageScope: 'household_override_or_cognito_user_sub',
   dataBackend: 'api_gateway_lambda_dynamo',
 });
+const HOUSEHOLD_SCOPE_PREFIX = 'household:';
 const AUTH_GROUPS = Object.freeze({
   admin: 'admin',
   tester: 'tester',
@@ -80,6 +81,22 @@ function hasAwsActivityApi() {
 function hasAwsDataSyncApi() {
   return Boolean(getAwsBackendConfig().dataSyncUrl);
 }
+function normalizeHouseholdId(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
+function householdScopeFromId(value) {
+  const normalized = normalizeHouseholdId(value);
+  return normalized ? `${HOUSEHOLD_SCOPE_PREFIX}${normalized}` : '';
+}
+function householdIdFromScope(scope) {
+  const value = String(scope || '');
+  return value.startsWith(HOUSEHOLD_SCOPE_PREFIX) ? value.slice(HOUSEHOLD_SCOPE_PREFIX.length) : '';
+}
 
 // Storage keys
 const K = {
@@ -115,6 +132,11 @@ function getStaticRoomMetaByLabel(label) {
   const key = String(label || '').trim().toLowerCase();
   if (!key) return null;
   return ROOMS.find(r => r.label.toLowerCase() === key) || null;
+}
+function getRoomByLabel(label) {
+  const key = String(label || '').trim().toLowerCase();
+  if (!key) return null;
+  return getAllRooms().find(room => String(room.label || '').trim().toLowerCase() === key) || null;
 }
 function getPlanRoomCatalog() {
   const plan = typeof ldPlan === 'function' ? ldPlan() : null;
@@ -158,6 +180,27 @@ function getRoomById(id) {
     colorDark: DEFAULT_ROOM_META.colorDark
   };
 }
+function normalizeRoomSelection(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const roomById = getAllRooms().find(room => room.id === raw);
+  if (roomById) return roomById.id;
+  const roomByLabel = getRoomByLabel(raw);
+  if (roomByLabel) return roomByLabel.id;
+  return raw;
+}
+function getRoomDisplay(value) {
+  const normalized = normalizeRoomSelection(value);
+  const known = getAllRooms().find(room => room.id === normalized);
+  if (known) return known;
+  return {
+    id: normalized || 'r-other',
+    label: String(value || 'Other').trim() || 'Other',
+    emoji: DEFAULT_ROOM_META.emoji,
+    color: DEFAULT_ROOM_META.color,
+    colorDark: DEFAULT_ROOM_META.colorDark
+  };
+}
 function buildRoomOptions(selected = '', { includeBlank = true, blankLabel = '-- select room --' } = {}) {
   const rooms = getAllRooms();
   const seen = new Set();
@@ -175,15 +218,89 @@ function buildRoomOptions(selected = '', { includeBlank = true, blankLabel = '--
 function syncRoomSelect(selectId, options = {}) {
   const select = document.getElementById(selectId);
   if (!select) return;
-  const current = options.selected ?? select.value ?? '';
-  select.innerHTML = buildRoomOptions(current, options);
-  select.value = current && [...select.options].some(opt => opt.value === current) ? current : '';
+  const includeBlank = options.includeBlank ?? true;
+  const blankLabel = options.blankLabel ?? '-- select room --';
+  const fallbackValue = normalizeRoomSelection(options.fallbackValue ?? '');
+  const current = normalizeRoomSelection(options.selected ?? select.value ?? fallbackValue);
+  select.innerHTML = buildRoomOptions(current, { includeBlank, blankLabel });
+  if (current && [...select.options].some(opt => opt.value === current)) {
+    select.value = current;
+    return;
+  }
+  if (!includeBlank) {
+    if (fallbackValue && [...select.options].some(opt => opt.value === fallbackValue)) {
+      select.value = fallbackValue;
+      return;
+    }
+    if (select.options.length) {
+      select.selectedIndex = 0;
+      return;
+    }
+  }
+  select.value = '';
 }
 function syncAllRoomSelects() {
   syncRoomSelect('b-room', { blankLabel:'-- select room --' });
   syncRoomSelect('be-room', { blankLabel:'-- none --' });
   syncRoomSelect('cmp-room', { blankLabel:'-- optional --' });
   syncRoomSelect('cmpe-room', { blankLabel:'-- optional --' });
+  syncRoomSelect('t-room', { includeBlank:false, fallbackValue:'r-other' });
+  syncRoomSelect('te-room', { includeBlank:false, fallbackValue:'r-other' });
+  syncRoomSelect('box-room', { includeBlank:false, fallbackValue:'r-other' });
+  syncRoomSelect('s-room', { includeBlank:false, fallbackValue:'r-other' });
+  syncRoomSelect('se-room', { includeBlank:false, fallbackValue:'r-other' });
+}
+
+function getOwnerOptions() {
+  const names = (typeof ldSettings === 'function' ? ldSettings()?.names : null) || DEFAULT_SETTINGS.names;
+  return [
+    { k:'M', l:names.M || DEFAULT_SETTINGS.names.M, e:'🌸' },
+    { k:'A', l:names.A || DEFAULT_SETTINGS.names.A, e:'💼' },
+    { k:'Both', l:'Both', e:'💕' },
+  ];
+}
+function normalizeOwnerValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'Both';
+  if (raw === 'M' || raw === 'A' || raw === 'Both') return raw;
+  const lower = raw.toLowerCase();
+  const owners = getOwnerOptions();
+  if (lower === owners[0].l.toLowerCase() || lower === 'mari' || lower === 'person1' || lower === 'person 1') return 'M';
+  if (lower === owners[1].l.toLowerCase() || lower === 'alexander' || lower === 'alex' || lower === 'person2' || lower === 'person 2') return 'A';
+  return 'Both';
+}
+function getOwnerMeta(value) {
+  const key = normalizeOwnerValue(value);
+  return getOwnerOptions().find(owner => owner.k === key) || getOwnerOptions()[2];
+}
+function buildOwnerOptions(selected = 'Both', { includeBlank = false, blankLabel = '-- select owner --' } = {}) {
+  const owners = getOwnerOptions();
+  const current = normalizeOwnerValue(selected || 'Both');
+  let html = includeBlank ? `<option value="">${blankLabel}</option>` : '';
+  owners.forEach(owner => {
+    html += `<option value="${esc(owner.k)}">${esc(owner.e)} ${esc(owner.l)}</option>`;
+  });
+  if (current && !owners.some(owner => owner.k === current)) {
+    const owner = getOwnerMeta(current);
+    html += `<option value="${esc(current)}">${esc(owner.e)} ${esc(owner.l)}</option>`;
+  }
+  return html;
+}
+function syncOwnerSelect(selectId, options = {}) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const includeBlank = options.includeBlank ?? false;
+  const blankLabel = options.blankLabel ?? '-- select owner --';
+  const fallbackValue = normalizeOwnerValue(options.fallbackValue ?? 'Both');
+  const current = normalizeOwnerValue(options.selected ?? select.value ?? fallbackValue);
+  select.innerHTML = buildOwnerOptions(current, { includeBlank, blankLabel });
+  select.value = [...select.options].some(opt => opt.value === current)
+    ? current
+    : (includeBlank ? '' : fallbackValue);
+}
+function syncAllOwnerSelects() {
+  syncOwnerSelect('t-owner', { includeBlank:false, fallbackValue:'Both' });
+  syncOwnerSelect('te-owner', { includeBlank:false, fallbackValue:'Both' });
 }
 
 // ── Item categories + types ─────────────────────────────────
@@ -408,6 +525,7 @@ const DEFAULT_SETTINGS = {
   oldAddress: '',
   maxBudget: 5000,
   names: { M: 'Mari', A: 'Alexander' },
+  householdId: '',
   currency: '€',
   useSqm: true,
 };

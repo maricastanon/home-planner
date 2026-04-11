@@ -99,6 +99,7 @@ Resources:
           import os
           import boto3
           from decimal import Decimal
+          from boto3.dynamodb.conditions import Key
 
           dynamodb = boto3.resource("dynamodb")
           table = dynamodb.Table(os.environ["STATE_TABLE_NAME"])
@@ -119,11 +120,42 @@ Resources:
                   "body": json.dumps(body),
               }
 
+          def _jsonify(value):
+              if isinstance(value, Decimal):
+                  return int(value) if value % 1 == 0 else float(value)
+              if isinstance(value, list):
+                  return [_jsonify(item) for item in value]
+              if isinstance(value, dict):
+                  return {key: _jsonify(item) for key, item in value.items()}
+              return value
+
+          def _query_all(user_sub):
+              items = []
+              params = {"KeyConditionExpression": Key("userSub").eq(user_sub)}
+              while True:
+                  result = table.query(**params)
+                  items.extend(result.get("Items") or [])
+                  if "LastEvaluatedKey" not in result:
+                      break
+                  params["ExclusiveStartKey"] = result["LastEvaluatedKey"]
+              return items
+
           def handler(event, context):
               claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
               user_sub = claims.get("sub")
               if not user_sub:
                   return _response(401, {"error": "missing_sub"})
+              method = ((((event.get("requestContext") or {}).get("http") or {}).get("method")) or "").upper()
+              if method == "GET":
+                  state = {}
+                  for item in _query_all(user_sub):
+                      state[item["scopedKey"]] = {
+                          "module": item.get("module") or "",
+                          "storageScope": item.get("storageScope") or "",
+                          "updatedAt": int(item.get("updatedAt") or 0),
+                          "payload": _jsonify(item.get("payload")),
+                      }
+                  return _response(200, {"ok": True, "state": state})
               payload = json.loads(event.get("body") or "{}")
               scoped_key = payload.get("scopedKey")
               if not scoped_key:
@@ -156,6 +188,8 @@ Resources:
           import os
           import time
           import boto3
+          from decimal import Decimal
+          from boto3.dynamodb.conditions import Key
 
           dynamodb = boto3.resource("dynamodb")
           table = dynamodb.Table(os.environ["ACTIVITY_TABLE_NAME"])
@@ -167,11 +201,35 @@ Resources:
                   "body": json.dumps(body),
               }
 
+          def _jsonify(value):
+              if isinstance(value, Decimal):
+                  return int(value) if value % 1 == 0 else float(value)
+              if isinstance(value, list):
+                  return [_jsonify(item) for item in value]
+              if isinstance(value, dict):
+                  return {key: _jsonify(item) for key, item in value.items()}
+              return value
+
           def handler(event, context):
               claims = (((event.get("requestContext") or {}).get("authorizer") or {}).get("jwt") or {}).get("claims") or {}
               user_sub = claims.get("sub")
               if not user_sub:
                   return _response(401, {"error": "missing_sub"})
+              method = ((((event.get("requestContext") or {}).get("http") or {}).get("method")) or "").upper()
+              if method == "GET":
+                  params = event.get("queryStringParameters") or {}
+                  try:
+                      limit = int(params.get("limit") or 150)
+                  except (TypeError, ValueError):
+                      limit = 150
+                  limit = max(1, min(limit, 500))
+                  result = table.query(
+                      KeyConditionExpression=Key("userSub").eq(user_sub),
+                      ScanIndexForward=False,
+                      Limit=limit,
+                  )
+                  entries = [_jsonify(item) for item in result.get("Items") or []]
+                  return _response(200, {"ok": True, "entries": entries})
               payload = json.loads(event.get("body") or "{}")
               ts = int(payload.get("ts") or int(time.time() * 1000))
               ttl = int(time.time()) + (30 * 24 * 60 * 60)
@@ -202,6 +260,7 @@ Resources:
           - x-home-access-token
           - x-home-user-sub
         AllowMethods:
+          - GET
           - POST
           - OPTIONS
         AllowOrigins:
@@ -254,6 +313,24 @@ Resources:
       AuthorizationType: JWT
       AuthorizerId: !Ref JwtAuthorizer
 
+  ActivityRouteGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /activity
+      Target: !Sub 'integrations/${ActivityIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
+  StateRouteGet:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /state
+      Target: !Sub 'integrations/${StateIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+
   ApiStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
@@ -267,7 +344,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref ActivityLogFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/activity'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/activity'
 
   StateInvokePermission:
     Type: AWS::Lambda::Permission
@@ -275,7 +352,7 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Ref StateSyncFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/state'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*/state'
 
 Outputs:
   HttpApiId:

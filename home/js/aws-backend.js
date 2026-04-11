@@ -47,6 +47,19 @@ window.HomeAws = (function createHomeAws() {
       return null;
     }
   }
+  function readScopedUpdatedAt(scopedKey) {
+    return typeof readStateUpdatedAt === 'function' ? readStateUpdatedAt(scopedKey) : 0;
+  }
+  function writeScopedState(scopedKey, payload, updatedAt) {
+    try {
+      localStorage.setItem(scopedKey, JSON.stringify(payload));
+      if (typeof writeStateMeta === 'function') writeStateMeta(scopedKey, updatedAt);
+      return true;
+    } catch (err) {
+      console.warn('Cloud state restore failed:', err);
+      return false;
+    }
+  }
 
   function getAuthTokens() {
     return window.HomeAuth && typeof window.HomeAuth.getSessionTokens === 'function'
@@ -162,21 +175,45 @@ window.HomeAws = (function createHomeAws() {
       if (!res.ok) return null;
       const data = await res.json();
       if (!data?.ok || !data?.state) return null;
-      // Merge cloud state into localStorage (cloud wins if newer)
       let restored = 0;
-      for (const [scopedKey, payload] of Object.entries(data.state)) {
+      let skipped = 0;
+      for (const [scopedKey, rawEntry] of Object.entries(data.state)) {
         try {
-          const existing = localStorage.getItem(scopedKey);
-          if (!existing || payload) {
-            localStorage.setItem(scopedKey, JSON.stringify(payload));
+          const entry = rawEntry && typeof rawEntry === 'object' && Object.prototype.hasOwnProperty.call(rawEntry, 'payload')
+            ? rawEntry
+            : { payload: rawEntry, updatedAt: 0 };
+          const payload = entry.payload;
+          const remoteUpdatedAt = Number(entry.updatedAt || 0);
+          const localUpdatedAt = readScopedUpdatedAt(scopedKey);
+          const hasLocal = localStorage.getItem(scopedKey) != null;
+          const shouldRestore = !hasLocal || (remoteUpdatedAt > 0 && remoteUpdatedAt > localUpdatedAt);
+          if (shouldRestore && writeScopedState(scopedKey, payload, remoteUpdatedAt || Date.now())) {
             restored++;
+          } else {
+            skipped++;
           }
         } catch { /* skip */ }
       }
       if (restored > 0 && typeof toast === 'function') toast(`Restored ${restored} items from cloud ☁️`, 'green');
-      return { restored, total: Object.keys(data.state).length };
+      return { restored, skipped, total: Object.keys(data.state).length };
     } catch (err) {
       console.warn('Cloud load failed:', err);
+      return null;
+    }
+  }
+  async function fetchActivityLog(limit = 150) {
+    const cfg = typeof getAwsBackendConfig === 'function' ? getAwsBackendConfig() : null;
+    if (!cfg?.activityApiUrl || !navigator.onLine || !isAuthenticated()) return null;
+    try {
+      const url = new URL(cfg.activityApiUrl);
+      url.searchParams.set('limit', String(limit));
+      const res = await fetch(url.toString(), { method: 'GET', headers: getHeaders(), credentials: 'omit' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data?.ok) return null;
+      return Array.isArray(data.entries) ? data.entries : [];
+    } catch (err) {
+      console.warn('Activity load failed:', err);
       return null;
     }
   }
@@ -189,6 +226,7 @@ window.HomeAws = (function createHomeAws() {
     init,
     flushAll,
     loadFromCloud,
+    fetchActivityLog,
     queueActivity,
     queueDataSync,
   };

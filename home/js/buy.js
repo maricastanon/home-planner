@@ -7,6 +7,49 @@ let _buyPros = [], _buyCons = [];
 let _editBuyPros = [], _editBuyCons = [];
 let _buySubtab = 'items';
 
+function getItemDeliveryStage(item) {
+  if (!item || normalizeItemSource(item.source) === 'existing') return '';
+  if (item.itemStatus === 'placed' || item.itemStatus === 'delivered') return 'delivered';
+  if (item.itemStatus === 'ordered') return item.deliveryStatus || (item.bought ? 'processing' : 'pending');
+  return item.deliveryStatus || '';
+}
+function normalizeBuyWorkflowState(item) {
+  if (!item) return item;
+  if (normalizeItemSource(item.source) === 'existing') {
+    item.deliveryStatus = '';
+    return item;
+  }
+  if (item.itemStatus === 'placed' || item.itemStatus === 'delivered') {
+    item.deliveryStatus = 'delivered';
+    return item;
+  }
+  if (item.itemStatus === 'ordered') {
+    item.deliveryStatus = getItemDeliveryStage(item) || (item.bought ? 'processing' : 'pending');
+    return item;
+  }
+  if (!item.bought) item.deliveryStatus = '';
+  return item;
+}
+function markItemPurchased(item, fields = {}) {
+  if (!item) return item;
+  item.bought = true;
+  item.actualPrice = fields.actualPrice ?? item.actualPrice ?? item.price ?? 0;
+  item.boughtDate = fields.boughtDate ?? item.boughtDate ?? '';
+  item.boughtStore = fields.boughtStore ?? item.boughtStore ?? '';
+  item.boughtTs = fields.boughtTs ?? Date.now();
+  item.prevItemStatus = item.itemStatus;
+  item.prevDeliveryStatus = getItemDeliveryStage(item);
+  if (item.itemStatus === 'placed') {
+    item.deliveryStatus = 'delivered';
+  } else if (item.itemStatus === 'delivered') {
+    item.deliveryStatus = 'delivered';
+  } else {
+    item.itemStatus = 'ordered';
+    item.deliveryStatus = item.deliveryStatus && item.deliveryStatus !== 'pending' ? item.deliveryStatus : 'processing';
+  }
+  return normalizeBuyWorkflowState(item);
+}
+
 // ── MAIN RENDER ──────────────────────────────────────────────
 function rBuy() {
   rBuyBudget();
@@ -224,6 +267,7 @@ function renderItemCard(it, names) {
   if(it.bought)borderColor='#86efac';
 
   const dimTxt = dimStr(it);
+  const fitInfo = (it.roomId && (it.widthCm || it.depthCm) && typeof getRoomFitAnalysis === 'function') ? getRoomFitAnalysis(it) : null;
 
   return `<div class="item-card ${it.bought?'bought':''}" id="ic-${it.id}" style="border-color:${borderColor}" onclick="openItemDetail('${it.id}')">
     <div class="item-card-photo">
@@ -233,12 +277,15 @@ function renderItemCard(it, names) {
       <div class="item-card-no-img" ${photo?'style="display:none"':''}>${it.category==='Appliances'?'🏠':it.category==='Furniture'?'🛋️':'📦'}</div>
       <div class="item-card-badges">
         <span class="badge" style="background:${prioConf.color};color:${prioConf.colorText}">${prioConf.e} ${esc(prioConf.l)}</span>
+        <span class="badge ${statusConf.c}">${statusConf.e} ${esc(statusConf.l)}</span>
         ${it.bought?'<span class="badge green">✅ Bought</span>':''}
         ${normalizeItemSource(it.source)==='existing'?`<span class="badge blue">${esc(sourceMeta.badge)}</span>`:''}
         ${renderMoveDecisionBadge(it)}
         ${roomRole==='must'?'<span class="badge purple">📍 Must place</span>':''}
         ${bothYes?'<span class="badge green">💕 Both!</span>':''}
         ${disputed?'<span class="badge orange">⚡</span>':''}
+        ${fitInfo && !fitInfo.fits?'<span class="badge" style="background:#fee2e2;color:#991b1b">⚠️ Won\'t fit</span>':''}
+        ${fitInfo && fitInfo.fits && fitInfo.footprintPct>60?'<span class="badge" style="background:#fef9c3;color:#713f12">📐 Tight fit</span>':''}
       </div>
       ${it.price && normalizeItemSource(it.source)!=='existing' ?`<div class="item-card-price">${fmtEur(it.price,0)}</div>`:''}
     </div>
@@ -251,7 +298,9 @@ function renderItemCard(it, names) {
       ${it.optionGroup?`<div class="item-card-brand">🧩 ${esc(it.optionGroup)}</div>`:''}
       ${it.store?`<div class="item-card-brand">🏪 ${esc(it.store)}${it.availability ? ' · ' + availabilityBadge(it.availability) : ''}</div>`:''}
       ${it.quantity && it.quantity > 1 ? `<div class="item-card-brand">📦 Qty: ${it.quantity}</div>` : ''}
+      ${it.deliveryDate && !it.bought ? `<div class="item-card-brand" style="color:${new Date(it.deliveryDate)<new Date()?'#dc2626':'var(--gn)'}">📅 ${fmtDate(it.deliveryDate)}${new Date(it.deliveryDate)<new Date()?' · overdue':''}</div>` : ''}
       ${dimTxt?`<div class="item-card-dims">📐 ${esc(dimTxt)}</div>`:''}
+      ${fitInfo?`<div class="item-card-dims" style="color:${fitInfo.fits?'var(--gn)':'#dc2626'};font-weight:600">${fitInfo.fits?'✅ Fits':'⚠️ Too large'} · ${fitInfo.footprintPct}% of room</div>`:''}
       ${it.energyRating?`<div style="margin-top:2px">${energyBadge(it.energyRating)}</div>`:''}
       <div class="item-card-votes" onclick="event.stopPropagation()">
         <div class="voter">
@@ -329,6 +378,8 @@ function openItemDetail(id) {
   const moveDecisionMeta = getMoveDecisionMeta(it.source, it.moveDecision);
   const cat      = getCatByKey(it.category);
   const statusConf = ITEM_STATUSES.find(s=>s.k===it.itemStatus)||ITEM_STATUSES[0];
+  const deliveryStage = getItemDeliveryStage(it);
+  const deliveryMeta = deliveryStage ? getDeliveryStatusMeta(deliveryStage) : null;
   const photos   = it.photos||[];
 
   const el = document.getElementById('item-detail-content'); if(!el) return;
@@ -366,6 +417,7 @@ function openItemDetail(id) {
       ${it.model?`<div class="info-item"><span class="info-lbl">Model</span><span class="info-val">${esc(it.model)}</span></div>`:''}
       <div class="info-item"><span class="info-lbl">Source</span><span class="info-val">${esc(sourceMeta.e)} ${esc(sourceMeta.l)}</span></div>
       <div class="info-item"><span class="info-lbl">Decision</span><span class="info-val">${esc(moveDecisionMeta.e)} ${esc(moveDecisionMeta.l)}</span></div>
+      <div class="info-item"><span class="info-lbl">Workflow</span><span class="info-val">${statusConf.e} ${esc(statusConf.l)}</span></div>
       ${it.price?`<div class="info-item"><span class="info-lbl">Price</span><span class="info-val" style="color:var(--pk);font-weight:700">${fmtEur(it.price)}</span></div>`:''}
       ${it.originalPrice?`<div class="info-item"><span class="info-lbl">Original</span><span class="info-val"><s>${fmtEur(it.originalPrice)}</s></span></div>`:''}
       ${room?`<div class="info-item"><span class="info-lbl">Room</span><span class="info-val">${room.emoji} ${esc(room.label)}</span></div>`:''}
@@ -379,6 +431,7 @@ function openItemDetail(id) {
       ${it.store?`<div class="info-item"><span class="info-lbl">Store</span><span class="info-val">${getStoreMeta(it.store).e} ${esc(it.store)}${it.storeUrl ? ' <a href="' + esc(it.storeUrl) + '" target="_blank">🔗</a>' : ''}</span></div>`:''}
       ${it.quantity && it.quantity > 1 ?`<div class="info-item"><span class="info-lbl">Quantity</span><span class="info-val">${it.quantity}</span></div>`:''}
       ${it.availability?`<div class="info-item"><span class="info-lbl">Availability</span><span class="info-val">${availabilityBadge(it.availability)}</span></div>`:''}
+      ${deliveryMeta?`<div class="info-item"><span class="info-lbl">Delivery stage</span><span class="info-val"><span class="avail-badge" style="background:${deliveryMeta.color};color:${deliveryMeta.fg}">${deliveryMeta.e} ${deliveryMeta.l}</span></span></div>`:''}
       ${it.deliveryDate?`<div class="info-item"><span class="info-lbl">Delivery</span><span class="info-val">📅 ${fmtDate(it.deliveryDate)}</span></div>`:''}
     </div>
 
@@ -462,6 +515,8 @@ function openItemDetail(id) {
         : it.bought
           ?`<button class="btn ghost" onclick="unmarkBought('${it.id}')">↺ Unmark bought</button>`
           :`<button class="btn ghost" onclick="placeItemInPlan('${it.id}')">🏠 Already owned</button>`}
+      ${it.itemStatus==='ordered' ? `<button class="btn" onclick="setDeliveryStatus('${it.id}','delivered')">📬 Mark delivered</button>` : ''}
+      ${it.itemStatus==='delivered' ? `<button class="btn" onclick="setItemStatus('${it.id}','placed')">🏠 Mark placed</button>` : ''}
       <button class="btn" onclick="openEditItem('${it.id}')">✏️ Edit</button>
       <button class="btn dan" onclick="confirmDlg('Delete this item?',()=>{delBuyItem('${it.id}');closeModal('item-detail-modal');rBuy();toast('Deleted','warn')})">🗑️ Delete</button>
     </div>
@@ -531,16 +586,30 @@ function clearItemPhotos(id) {
 
 function setItemStatus(id, status) {
   const it=getBuyItem(id); if(!it) return;
-  it.itemStatus=status; updBuyItem(it); openItemDetail(id); rBuy();
+  it.itemStatus=status;
+  if (status === 'ordered' && !it.deliveryStatus) it.deliveryStatus = it.bought ? 'processing' : 'pending';
+  if (status === 'delivered' || status === 'placed') it.deliveryStatus = 'delivered';
+  if (!['ordered','delivered','placed'].includes(status) && !it.bought) it.deliveryStatus = '';
+  normalizeBuyWorkflowState(it);
+  updBuyItem(it);
+  openItemDetail(id);
+  rBuy();
 }
 
 // ── CRUD ─────────────────────────────────────────────────────
+function _validateBuyFields(prefix) {
+  const price = fNum(prefix+'-price');
+  if (price < 0) { toast('Price cannot be negative','red'); return false; }
+  const w = fNum(prefix+'-width'), d = fNum(prefix+'-depth'), h = fNum(prefix+'-height'), wt = fNum(prefix+'-weight');
+  if (w < 0 || d < 0 || h < 0) { toast('Dimensions cannot be negative','red'); return false; }
+  if (wt < 0) { toast('Weight cannot be negative','red'); return false; }
+  return true;
+}
 function addBuyItemFromForm() {
   const name=fVal('b-name'); if(!name){toast('Please enter a name','red');return;}
+  if (!_validateBuyFields('b')) return;
   const cat = fVal('b-cat');
-  const specs = {};
-  const catConf = getCatByKey(cat);
-  (catConf?.specsTemplate||[]).forEach(k=>{ const v=fVal('bspec-'+slugify(k)); if(v) specs[k]=v; });
+  const specs = collectBuySpecs('bspec', cat);
   const it = {
     id: uid(), name,
     brand:    fVal('b-brand'),
@@ -551,7 +620,7 @@ function addBuyItemFromForm() {
     prio:     fVal('b-prio')||'want',
     price:    fNum('b-price'),
     originalPrice: fNum('b-orig-price'),
-    currency: '€',
+    currency: _currency(),
     source:   normalizeItemSource(fVal('b-source')),
     moveDecision: normalizeMoveDecision(fVal('b-source'), fVal('b-decision')),
     buyLink:  fVal('b-buylink'),
@@ -561,6 +630,7 @@ function addBuyItemFromForm() {
     storeUrl: fVal('b-store-url'),
     quantity: fNum('b-qty') || 1,
     availability: fVal('b-avail'),
+    deliveryStatus: fVal('b-delivery-status'),
     deliveryDate: fVal('b-delivery-date'),
     priceSources: [],
     roomRole: fVal('b-room-role') || 'candidate',
@@ -582,6 +652,7 @@ function addBuyItemFromForm() {
     notes: fVal('b-notes'),
     created: Date.now(),
   };
+  normalizeBuyWorkflowState(it);
   addBuyItem(it);
   closeModal('buy-add-modal');
   _buyPros=[]; _buyCons=[];
@@ -591,10 +662,18 @@ function addBuyItemFromForm() {
 
 function openEditItem(id) {
   const it=getBuyItem(id); if(!it) return;
+  const category = it.category || 'Furniture';
   syncRoomSelect('be-room', { blankLabel:'-- none --', selected:it.roomId||'' });
   fSet('be-id',id); fSet('be-name',it.name); fSet('be-brand',it.brand||'');
-  fSet('be-model',it.model||''); fSet('be-cat',it.category||'Furniture');
-  fSet('be-type',it.type||''); fSet('be-room',it.roomId||'');
+  fSet('be-model',it.model||''); fSet('be-cat',category);
+  renderBuyCategoryFields(category, {
+    typeId:'be-type',
+    specsId:'be-specs-grid',
+    specPrefix:'bespec',
+    typeValue:it.type||'',
+    specs:it.specs||{}
+  });
+  fSet('be-room',it.roomId||'');
   fSet('be-source',normalizeItemSource(it.source));
   fSet('be-decision',normalizeMoveDecision(it.source, it.moveDecision));
   fSet('be-prio',it.prio||'want'); fSet('be-price',it.price||'');
@@ -603,6 +682,7 @@ function openEditItem(id) {
   fSet('be-option-group',it.optionGroup||''); fSet('be-room-role',it.roomRole||'candidate');
   fSet('be-store',it.store||''); fSet('be-store-url',it.storeUrl||'');
   fSet('be-qty',it.quantity||1); fSet('be-avail',it.availability||'');
+  fSet('be-delivery-status',getItemDeliveryStage(it)||'');
   fSet('be-delivery-date',it.deliveryDate||'');
   fSet('be-depth',it.depthCm||''); fSet('be-height',it.heightCm||'');
   fSet('be-weight',it.weightKg||''); fSet('be-color',it.color||'');
@@ -625,6 +705,7 @@ function removeEditCon(v){ _editBuyCons=_editBuyCons.filter(x=>x!==v); rEditBuyC
 
 function saveBuyEdit() {
   const id=fVal('be-id'); const it=getBuyItem(id); if(!it) return;
+  if (!_validateBuyFields('be')) return;
   it.name=fVal('be-name')||it.name; it.brand=fVal('be-brand'); it.model=fVal('be-model');
   it.category=fVal('be-cat'); it.type=fVal('be-type'); it.roomId=fVal('be-room');
   it.source=normalizeItemSource(fVal('be-source'));
@@ -634,12 +715,15 @@ function saveBuyEdit() {
   it.optionGroup=fVal('be-option-group'); it.roomRole=fVal('be-room-role')||'candidate';
   it.store=fVal('be-store'); it.storeUrl=fVal('be-store-url');
   it.quantity=fNum('be-qty')||1; it.availability=fVal('be-avail');
+  it.deliveryStatus=fVal('be-delivery-status');
   it.deliveryDate=fVal('be-delivery-date');
   it.widthCm=fNum('be-width'); it.depthCm=fNum('be-depth'); it.heightCm=fNum('be-height');
   it.weightKg=fNum('be-weight'); it.color=fVal('be-color'); it.material=fVal('be-material');
   it.energyRating=fVal('be-energy'); it.warranty=fVal('be-warranty');
+  it.specs=collectBuySpecs('bespec', it.category);
   it.notes=fVal('be-notes'); it.itemStatus=fVal('be-status');
   it.pros=[..._editBuyPros]; it.cons=[..._editBuyCons];
+  normalizeBuyWorkflowState(it);
   updBuyItem(it); closeModal('buy-edit-modal'); rBuy(); toast('Saved ✅','green');
   updateStatusBar();
 }
@@ -654,6 +738,8 @@ function unmarkBought(id) {
   const it=getBuyItem(id); if(!it) return;
   it.bought=false; it.actualPrice=0; it.boughtDate=''; it.boughtStore='';
   it.itemStatus = it.prevItemStatus || 'decided'; it.prevItemStatus = '';
+  it.deliveryStatus = it.prevDeliveryStatus || ''; it.prevDeliveryStatus = '';
+  normalizeBuyWorkflowState(it);
   updBuyItem(it); rBuy(); updateStatusBar();
   if(document.getElementById('item-detail-modal')?.classList.contains('open')) openItemDetail(id);
 }
@@ -669,23 +755,86 @@ function rAddBuyChips(){
 }
 
 // ── Dynamic spec fields ───────────────────────────────────────
-function onBuyCatChange(sel) {
-  const cat=sel.value; const catConf=getCatByKey(cat); if(!catConf) return;
-  // Update type dropdown
-  const typeEl=document.getElementById('b-type');
-  if(typeEl) typeEl.innerHTML=catConf.types.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
-  // Update spec fields
-  const specsEl=document.getElementById('b-specs-grid');
-  if(specsEl) specsEl.innerHTML=catConf.specsTemplate.map(f=>`
-    <div class="fg"><label>${esc(f)}</label><input id="bspec-${slugify(f)}" placeholder="${esc(f)}"></div>`
+function readRenderedSpecInputs(specPrefix) {
+  const values = {};
+  document.querySelectorAll(`[id^="${specPrefix}-"]`).forEach(input => {
+    const label = input.parentElement?.querySelector('label')?.textContent?.trim();
+    if (label && input.value) values[label] = input.value;
+  });
+  return values;
+}
+
+function collectBuySpecs(specPrefix, cat) {
+  const specs = {};
+  const catConf = getCatByKey(cat);
+  (catConf?.specsTemplate||[]).forEach(field => {
+    const value = fVal(`${specPrefix}-${slugify(field)}`);
+    if (value) specs[field] = value;
+  });
+  return specs;
+}
+
+function renderBuyCategoryFields(cat, opts = {}) {
+  const catConf = getCatByKey(cat); if(!catConf) return;
+  const {
+    typeId,
+    specsId,
+    specPrefix,
+    typeValue = '',
+    specs = {},
+    proSuggId = '',
+    conSuggId = '',
+    onProClick = '',
+    onConClick = ''
+  } = opts;
+
+  const typeEl=document.getElementById(typeId);
+  if(typeEl) {
+    const currentType = typeValue || typeEl.value || '';
+    const types = [...catConf.types];
+    if(currentType && !types.includes(currentType)) types.unshift(currentType);
+    typeEl.innerHTML = types.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    if(currentType) typeEl.value = currentType;
+    else if(types[0]) typeEl.value = types[0];
+  }
+
+  const specsEl=document.getElementById(specsId);
+  if(specsEl) specsEl.innerHTML=catConf.specsTemplate.map(field=>`
+    <div class="fg"><label>${esc(field)}</label><input id="${specPrefix}-${slugify(field)}" placeholder="${esc(field)}" value="${esc(specs[field]||'')}"></div>`
   ).join('');
-  // Update suggestions
-  const proSugg = PROS_SUGGESTIONS[cat]||PROS_SUGGESTIONS.default;
-  const conSugg = CONS_SUGGESTIONS[cat]||CONS_SUGGESTIONS.default;
-  const proEl=document.getElementById('buy-pro-sugg');
-  const conEl=document.getElementById('buy-con-sugg');
-  if(proEl) proEl.innerHTML=proSugg.map(s=>`<span class="chip-s" onclick="addBuyPro(${jsq(s)})">${esc(s)}</span>`).join('');
-  if(conEl) conEl.innerHTML=conSugg.map(s=>`<span class="chip-s" onclick="addBuyCon(${jsq(s)})">${esc(s)}</span>`).join('');
+
+  if (proSuggId && conSuggId && onProClick && onConClick) {
+    const proSugg = PROS_SUGGESTIONS[cat]||PROS_SUGGESTIONS.default;
+    const conSugg = CONS_SUGGESTIONS[cat]||CONS_SUGGESTIONS.default;
+    const proEl=document.getElementById(proSuggId);
+    const conEl=document.getElementById(conSuggId);
+    if(proEl) proEl.innerHTML=proSugg.map(s=>`<span class="chip-s" onclick="${onProClick}(${jsq(s)})">${esc(s)}</span>`).join('');
+    if(conEl) conEl.innerHTML=conSugg.map(s=>`<span class="chip-s" onclick="${onConClick}(${jsq(s)})">${esc(s)}</span>`).join('');
+  }
+}
+
+function onBuyCatChange(sel) {
+  renderBuyCategoryFields(sel.value, {
+    typeId:'b-type',
+    specsId:'b-specs-grid',
+    specPrefix:'bspec',
+    typeValue:document.getElementById('b-type')?.value || '',
+    specs:readRenderedSpecInputs('bspec'),
+    proSuggId:'buy-pro-sugg',
+    conSuggId:'buy-con-sugg',
+    onProClick:'addBuyPro',
+    onConClick:'addBuyCon'
+  });
+}
+
+function onEditBuyCatChange(sel) {
+  renderBuyCategoryFields(sel.value, {
+    typeId:'be-type',
+    specsId:'be-specs-grid',
+    specPrefix:'bespec',
+    typeValue:document.getElementById('be-type')?.value || '',
+    specs:readRenderedSpecInputs('bespec')
+  });
 }
 
 // ── Compare ───────────────────────────────────────────────────
@@ -761,12 +910,15 @@ function rCompareModal() {
           <div class="cmp-card-body">
             <div class="cmp-card-name">${esc(it.name)} ${isWinner?'🏆':''}</div>
             ${it.brand?`<div style="font-size:.65rem;color:var(--bd3)">${esc(it.brand)}</div>`:''}
+            ${it.store?`<div style="font-size:.62rem;color:var(--bd2);margin-top:2px">${typeof getStoreMeta==='function'?getStoreMeta(it.store).e:'🏪'} ${esc(it.store)}${it.storeUrl ? ` <a href="${esc(it.storeUrl)}" target="_blank" onclick="event.stopPropagation()" style="font-size:.55rem">🔗</a>` : ''}</div>`:''}
+            ${it.availability?`<div style="margin-top:2px">${typeof availabilityBadge==='function'?availabilityBadge(it.availability):esc(it.availability)}</div>`:''}
             ${it.roomId?`<div style="font-size:.62rem;color:var(--bd3);margin-top:2px">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
             ${picked?`<div style="margin-top:4px"><span class="badge green">✅ Scenario pick</span></div>`:''}
             <div style="display:flex;justify-content:space-between;margin:5px 0;font-size:.8rem">
               <strong style="color:${isCheap?'var(--gn)':'var(--pk)'}">${it.price?fmtEur(it.price):'–'}</strong>
               ${isCheap?'<span class="badge green">💰 Cheapest</span>':''}
             </div>
+            ${it.deliveryDate?`<div style="font-size:.58rem;color:var(--bd3)">📅 ${fmtDate(it.deliveryDate)}</div>`:''}
             <div style="font-size:.65rem;color:var(--bd3);margin-bottom:4px">Score: ${it._score.toFixed(1)}/10</div>
             <div class="cmp-score-bar"><div class="cmp-score-fill" style="width:${it._score*10}%"></div></div>
             ${dimStr(it)?`<div style="font-size:.62rem;color:var(--bd3);margin-top:4px">📐 ${esc(dimStr(it))}</div>`:''}
@@ -805,6 +957,9 @@ function rCompareModal() {
           <tr><td class="feat-cell">W × D × H</td>${items.map(it=>`<td>${dimStr(it)||'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Room fit</td>${items.map(it=>`<td>${typeof renderCmpFitText === 'function' ? renderCmpFitText(it) : '–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Energy</td>${items.map(it=>`<td>${it.energyRating?energyBadge(it.energyRating):'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Store</td>${items.map(it=>`<td>${it.store?esc(it.store):'–'}${it.storeUrl?` <a href="${esc(it.storeUrl)}" target="_blank">🔗</a>`:''}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Availability</td>${items.map(it=>`<td>${it.availability&&typeof availabilityBadge==='function'?availabilityBadge(it.availability):'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Delivery</td>${items.map(it=>`<td>${it.deliveryDate?fmtDate(it.deliveryDate):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Warranty</td>${items.map(it=>`<td>${esc(it.warranty||'–')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Color</td>${items.map(it=>`<td>${esc(it.color||'–')}</td>`).join('')}</tr>
           <tr><td class="feat-cell">${names.M}</td>${items.map(it=>`<td>${preferenceCellLabel(it,'M')}</td>`).join('')}</tr>
@@ -1975,9 +2130,12 @@ function rDeliveryTracker() {
   const items = ldBuy();
 
   // Items with delivery-relevant status
-  const ordered = items.filter(it => it.itemStatus === 'ordered' || it.itemStatus === 'delivered' || it.bought);
-  const awaiting = ordered.filter(it => it.itemStatus === 'ordered' && !it.bought);
-  const delivered = ordered.filter(it => it.itemStatus === 'delivered' || it.bought);
+  const tracked = items.filter(it =>
+    normalizeItemSource(it.source) !== 'existing'
+    && ['ordered','delivered','placed'].includes(it.itemStatus)
+  );
+  const awaiting = tracked.filter(it => it.itemStatus === 'ordered');
+  const delivered = tracked.filter(it => it.itemStatus === 'delivered' || it.itemStatus === 'placed');
   const withDates = awaiting.filter(it => it.deliveryDate).sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
   const noDates = awaiting.filter(it => !it.deliveryDate);
   const today = new Date(); today.setHours(0,0,0,0);
@@ -2009,7 +2167,7 @@ function rDeliveryTracker() {
       const isToday = daysLeft === 0;
       const urgColor = isPast ? '#dc2626' : isToday ? '#d97706' : daysLeft <= 3 ? '#d97706' : 'var(--gn)';
       const room = getRoomById(it.roomId);
-      const delivStatus = getDeliveryStatusMeta(it.deliveryStatus || 'pending');
+      const delivStatus = getDeliveryStatusMeta(getItemDeliveryStage(it) || 'pending');
 
       h += `<div class="delivery-timeline-item" onclick="openItemDetail('${it.id}')">
         <div class="delivery-date-badge" style="background:${urgColor}15;border-color:${urgColor}">
@@ -2023,9 +2181,12 @@ function rDeliveryTracker() {
             <div style="min-width:0">
               <div style="font-weight:600;font-size:.75rem">${esc(it.name)}</div>
               <div style="font-size:.58rem;color:var(--bd3)">${it.store ? '🏪 ' + esc(it.store) + ' · ' : ''}${room.emoji} ${esc(room.label)}</div>
-              <div style="display:flex;gap:4px;margin-top:2px">
-                <span class="badge" style="background:${delivStatus.color};color:${delivStatus.fg};font-size:.52rem">${delivStatus.e} ${delivStatus.l}</span>
+              <div style="display:flex;gap:4px;margin-top:2px;align-items:center;flex-wrap:wrap">
+                <select class="delivery-status-select" style="font-size:.52rem;padding:1px 4px;border:1px solid var(--border);border-radius:6px;background:${delivStatus.color};color:${delivStatus.fg}" onclick="event.stopPropagation()" onchange="event.stopPropagation();setDeliveryStatus('${it.id}',this.value)">
+                  ${DELIVERY_STATUSES.map(ds=>`<option value="${ds.k}" ${(getItemDeliveryStage(it)||'pending')===ds.k?'selected':''}>${ds.e} ${ds.l}</option>`).join('')}
+                </select>
                 ${it.price ? `<span style="font-size:.58rem;color:var(--pk);font-weight:600">${fmtEur(it.price, 0)}</span>` : ''}
+                <button class="btn sml" onclick="event.stopPropagation();promptDeliveryDate('${it.id}')" style="font-size:.5rem;padding:1px 5px">📅 Edit</button>
               </div>
             </div>
           </div>
@@ -2060,7 +2221,7 @@ function rDeliveryTracker() {
   if (delivered.length) {
     const recentDelivered = delivered.slice(0, 15);
     h += `<div class="delivery-section">
-      <div style="font-size:.72rem;font-weight:700;color:var(--gn);margin-bottom:8px">✅ Delivered / Bought (${delivered.length})</div>`;
+      <div style="font-size:.72rem;font-weight:700;color:var(--gn);margin-bottom:8px">✅ Delivered / Placed (${delivered.length})</div>`;
     recentDelivered.forEach(it => {
       h += `<div class="delivery-done-item" onclick="openItemDetail('${it.id}')">
         <div style="flex:1;font-size:.7rem;color:var(--bd2)">${esc(it.name)}${it.store ? ' · ' + esc(it.store) : ''}</div>
@@ -2071,7 +2232,7 @@ function rDeliveryTracker() {
     h += '</div>';
   }
 
-  if (!ordered.length) {
+  if (!tracked.length) {
     h += `<div class="empty"><div class="ei">🚚</div>No ordered items yet.<br>Set item status to "Ordered" to track deliveries here.</div>`;
   }
 
@@ -2086,6 +2247,21 @@ function promptDeliveryDate(itemId) {
     rDeliveryTracker();
     toast('Delivery date set', 'green');
   });
+}
+
+function setDeliveryStatus(itemId, status) {
+  const it = getBuyItem(itemId); if (!it) return;
+  it.deliveryStatus = status;
+  if (status === 'delivered') {
+    it.itemStatus = 'delivered';
+  } else if (['processing','shipped','pickup','pending'].includes(status) && !['delivered','placed'].includes(it.itemStatus)) {
+    it.itemStatus = 'ordered';
+  }
+  normalizeBuyWorkflowState(it);
+  updBuyItem(it);
+  rBuy();
+  if(document.getElementById('item-detail-modal')?.classList.contains('open')) openItemDetail(itemId);
+  toast('Delivery status updated', 'green');
 }
 
 // ════════════════════════════════════════════════════════════

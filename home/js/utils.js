@@ -26,13 +26,18 @@ function fmtTs(ts) {
 }
 
 // ── Numbers / currency ───────────────────────────────────────
+function _currency() {
+  return (typeof ldSettings === 'function' ? ldSettings()?.currency : null) || '€';
+}
 function fmtEur(n, dec=2) {
   if (n==null||n==='') return '–';
-  return Number(n).toLocaleString('de-DE',{minimumFractionDigits:dec,maximumFractionDigits:dec}) + '\u00a0€';
+  const c = _currency();
+  return Number(n).toLocaleString('de-DE',{minimumFractionDigits:dec,maximumFractionDigits:dec}) + '\u00a0' + c;
 }
 function fmtEurShort(n) {
   if (!n) return '–';
-  return n>=1000 ? (n/1000).toFixed(1).replace('.0','')+'k€' : fmtEur(n,0);
+  const c = _currency();
+  return n>=1000 ? (n/1000).toFixed(1).replace('.0','')+'k'+c : fmtEur(n,0);
 }
 
 // ── Sorting / grouping ───────────────────────────────────────

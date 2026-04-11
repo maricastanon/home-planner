@@ -28,24 +28,18 @@ window.HomeApp = (function createHomeApp() {
   function setUserChrome(user) {
     const userPill = document.getElementById('auth-user-pill');
     const logoutBtn = document.getElementById('logout-btn');
-    const adminBtn = document.getElementById('admin-logs-btn');
-    const isAdmin = Boolean(user && Array.isArray(user.groups) && user.groups.includes(AUTH_GROUPS.admin));
+    const logsBtn = document.getElementById('admin-logs-btn');
+    const householdId = normalizeHouseholdId(ldSettings()?.householdId || window.HomeAuth?.getWorkspaceOverride?.());
     if (userPill) {
       userPill.hidden = !user;
-      userPill.textContent = user ? `🔒 ${user.email || user.username || 'Authenticated'}` : '';
+      userPill.textContent = user
+        ? `🔒 ${user.email || user.username || 'Authenticated'}${householdId ? ` · 🏡 ${householdId}` : ''}`
+        : '';
     }
     if (logoutBtn) { logoutBtn.hidden = !user; logoutBtn.onclick = () => doLogout(); }
-    if (adminBtn) {
-      adminBtn.hidden = !isAdmin;
-      adminBtn.onclick = isAdmin
-        ? () => toast(
-          typeof hasAwsActivityApi === 'function' && hasAwsActivityApi()
-            ? 'AWS log API is configured. The admin dashboard UI is still pending.'
-            : 'Admin activity dashboard will attach after the AWS log API is wired.',
-          'warn',
-          5000
-        )
-        : null;
+    if (logsBtn) {
+      logsBtn.hidden = !user;
+      logsBtn.onclick = user && typeof openActivityLogs === 'function' ? () => openActivityLogs() : null;
     }
   }
 
@@ -82,6 +76,7 @@ window.HomeApp = (function createHomeApp() {
     initPlan();
     syncHeaderSubtitle();
     if (typeof syncAllRoomSelects === 'function') syncAllRoomSelects();
+    if (typeof syncAllOwnerSelects === 'function') syncAllOwnerSelects();
     setPillVal('buy', 'view', 'room', () => {});
     setPillVal('buy', 'sort', 'vote', () => {});
     setPillVal('sell', 'sort', 'date', () => {});
@@ -108,13 +103,16 @@ window.HomeApp = (function createHomeApp() {
     initHomePlannerApp();
     syncHeaderSubtitle();
     if (typeof syncAllRoomSelects === 'function') syncAllRoomSelects();
+    if (typeof syncAllOwnerSelects === 'function') syncAllOwnerSelects();
     updatePlanRoomItems();
     renderCurrentTab();
+    window.__homePlannerBooted = true;
   }
 
   function showAuthGate() {
     setUserChrome(null);
     setShellVisibility(false);
+    window.__homePlannerBooted = false;
   }
 
   return {

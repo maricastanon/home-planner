@@ -2,7 +2,7 @@
 // moving.js — Moving companies + move-day checklist
 // ============================================================
 
-function rMove() { rMoveFilters(); rMoveStats(); rMoveList(); rMoveChecklist(); }
+function rMove() { initPillFilter('move','status',''); rMoveFilters(); rMoveStats(); rMoveList(); rMoveChecklist(); }
 
 function rMoveStats() {
   const companies=ldMove(), el=document.getElementById('move-stats'); if(!el) return;
@@ -118,6 +118,7 @@ function rMoveList() {
 
 function addMoveCompany() {
   const name=fVal('c-name'); if(!name){toast('Please enter a name','red');return;}
+  if(fNum('c-price')<0){toast('Price cannot be negative','red');return;}
   const c={id:uid(),name,phone:fVal('c-phone'),email:fVal('c-email'),web:fVal('c-web'),
     price:fNum('c-price'),moveDate:fVal('c-movedate'),status:fVal('c-status')||'enquiry',
     notes:fVal('c-notes'),rating:0,pros:[],cons:[],docs:[],created:Date.now()};
@@ -229,14 +230,17 @@ function rTakeStats() {
   const items=ldTake(), el=document.getElementById('take-stats'); if(!el) return;
   const total=items.length, packed=items.filter(i=>i.done).length;
   const fragile=items.filter(i=>i.fragile).length;
-  const byOwner={};items.forEach(it=>{ byOwner[it.owner]=(byOwner[it.owner]||[]).concat(it); });
+  const byOwner={};items.forEach(it=>{
+    const ownerKey = normalizeOwnerValue(it.owner);
+    (byOwner[ownerKey]=(byOwner[ownerKey]||[])).push(it);
+  });
   let h='<div class="mini-stats">';
   h+=`<div class="mini-stat"><div class="ms-num">${packed}<span style="font-size:.7rem;color:var(--bd3)">/${total}</span></div><div class="ms-lbl">Packed</div></div>`;
   h+=`<div class="mini-stat"><div class="ms-num">${Math.round(packed/Math.max(total,1)*100)}%</div><div class="ms-lbl">Progress</div></div>`;
   h+=`<div class="mini-stat"><div class="ms-num" style="color:#d97706">${fragile}</div><div class="ms-lbl">🔴 Fragile</div></div>`;
   h+=`<div class="mini-stat"><div class="ms-num">${ldBoxes().length}</div><div class="ms-lbl">📦 Boxes</div></div>`;
   h+='</div>';
-  OWNERS.forEach(o=>{
+  getOwnerOptions().forEach(o=>{
     const oi=byOwner[o.k]||[];if(!oi.length)return;
     const p=oi.filter(i=>i.done).length;const pct=Math.round(p/oi.length*100);
     h+=`<div style="margin:4px 0"><div style="display:flex;justify-content:space-between;font-size:.68rem;margin-bottom:2px"><span>${o.e} ${o.l} · ${p}/${oi.length}</span><span>${pct}%</span></div>${progressBar(pct)}</div>`;
@@ -251,40 +255,44 @@ function rTakeList() {
   const srt=getPillVal('take','sort')||'room';
   let list=items.filter(it=>{
     if(q&&!(it.name+' '+(it.note||'')).toLowerCase().includes(q))return false;
-    if(rf&&it.room!==rf)return false;
-    if(of&&it.owner!==of)return false;
+    if(rf&&normalizeRoomSelection(it.room)!==rf)return false;
+    if(of&&normalizeOwnerValue(it.owner)!==of)return false;
     if(sf==='packed'&&!it.done)return false;
     if(sf==='unpacked'&&it.done)return false;
     return true;
   });
   if(srt==='name') list=sortBy(list,'name');
   else if(srt==='prio') list.sort((a,b)=>({'high':0,'medium':1,'low':2}[a.prio]??1)-({'high':0,'medium':1,'low':2}[b.prio]??1));
-  else if(srt==='owner') list=sortBy(list,'owner');
-  else list=sortBy(list,'room');
+  else if(srt==='owner') list.sort((a,b)=>getOwnerMeta(a.owner).l.localeCompare(getOwnerMeta(b.owner).l));
+  else list.sort((a,b)=>getRoomDisplay(a.room).label.localeCompare(getRoomDisplay(b.room).label));
   const el=document.getElementById('take-list');if(!el)return;
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">📦</div>Nothing here yet</div>';return;}
-  const groups={};list.forEach(it=>{ (groups[it.room]=groups[it.room]||[]).push(it); });
+  const groups={};list.forEach(it=>{
+    const roomKey = normalizeRoomSelection(it.room) || 'r-other';
+    (groups[roomKey]=groups[roomKey]||[]).push(it);
+  });
   const prioColor={'high':'#fee2e2','medium':'#fef9c3','low':'#dcfce7'};
-  const ownerIcon={Mari:'🌸',Alexander:'💼',Both:'💕'};
-  el.innerHTML=Object.entries(groups).map(([room,ritems])=>{
+  el.innerHTML=Object.entries(groups).map(([roomKey,ritems])=>{
+    const roomInfo = getRoomDisplay(roomKey);
     const done=ritems.filter(i=>i.done).length, all=ritems.length;
     return `<div class="card" style="margin-bottom:8px">
-      <div class="card-h" onclick="togCard('tg-${slugify(room)}')">
-        <div style="flex:1"><div class="card-title">${esc(room)}</div>
+      <div class="card-h" onclick="togCard('tg-${slugify(roomKey)}')">
+        <div style="flex:1"><div class="card-title">${esc(roomInfo.emoji)} ${esc(roomInfo.label)}</div>
         <div class="card-sub">${done}/${all} packed</div></div>
         ${progressBar(Math.round(done/all*100),'var(--pk)','5px')}
-        <button class="btn sml suc" onclick="event.stopPropagation();markRoomPacked(${jsq(room)})" title="Pack all">📦 All</button>
+        <button class="btn sml suc" onclick="event.stopPropagation();markRoomPacked(${jsq(roomKey)})" title="Pack all">📦 All</button>
         <span class="chev">▼</span>
       </div>
-      <div id="tg-${slugify(room)}" class="card-body" style="display:block;padding:4px 12px">
+      <div id="tg-${slugify(roomKey)}" class="card-body" style="display:block;padding:4px 12px">
         ${ritems.map(it=>{
           const box=it.boxId?ldBoxes().find(b=>b.id===it.boxId):null;
+          const ownerMeta = getOwnerMeta(it.owner);
           return `<div class="check-item ${it.done?'done':''}" style="border-left:3px solid ${prioColor[it.prio]||'var(--border)'};padding-left:6px">
             <input type="checkbox" ${it.done?'checked':''} onchange="toggleTakeItem('${it.id}',this.checked)">
             <div style="flex:1"><span class="check-label" onclick="toggleTakeItem('${it.id}',${!it.done})">${esc(it.name)}</span>
             <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:1px">
               ${it.fragile?'<span class="badge pink" style="font-size:.5rem">⚠️ Fragile</span>':''}
-              ${it.owner?`<span style="font-size:.65rem">${ownerIcon[it.owner]||''}</span>`:''}
+              ${it.owner?`<span style="font-size:.65rem">${ownerMeta.e} ${esc(ownerMeta.l)}</span>`:''}
               ${box?`<span class="badge blue" style="font-size:.5rem">📦 ${esc(box.name)}</span>`:''}
               ${it.note?`<span style="font-size:.6rem;color:var(--bd3)">${esc(trunc(it.note,25))}</span>`:''}
             </div></div>
@@ -299,21 +307,27 @@ function rTakeList() {
 
 function addTakeItemFromForm() {
   const name=fVal('t-name');if(!name){toast('Please enter a name','red');return;}
-  const it={id:uid(),name,room:fVal('t-room')||'Other',owner:fVal('t-owner')||'Both',
+  const it={id:uid(),name,room:normalizeRoomSelection(fVal('t-room')||'r-other')||'r-other',owner:normalizeOwnerValue(fVal('t-owner')||'Both'),
     prio:fVal('t-prio')||'medium',fragile:fChk('t-fragile'),note:fVal('t-note'),boxId:'',done:false,created:Date.now()};
   addTakeItem(it);closeModal('take-add-modal');fClear('t-name','t-note');rTake();toast(name+' added 📦','green');
 }
 function toggleTakeItem(id,done) { const it=getTakeItem(id);if(!it)return;it.done=done;updTakeItem(it);rTake();if(done)toast('Packed ✓','green',1500);updateStatusBar(); }
-function markRoomPacked(room) { ldTake().filter(it=>it.room===room).forEach(it=>{it.done=true;updTakeItem(it);});rTake();toast(room+' – all packed! ✅','green'); }
+function markRoomPacked(room) {
+  ldTake().filter(it=>normalizeRoomSelection(it.room)===room).forEach(it=>{it.done=true;updTakeItem(it);});
+  const roomInfo = getRoomDisplay(room);
+  rTake();toast(roomInfo.label+' – all packed! ✅','green');
+}
 function editTakeItem(id) {
   const it=getTakeItem(id);if(!it)return;
-  fSet('te-id',id);fSet('te-name',it.name);fSet('te-room',it.room);fSet('te-owner',it.owner);
+  syncRoomSelect('te-room', { includeBlank:false, fallbackValue:'r-other', selected:it.room||'r-other' });
+  syncOwnerSelect('te-owner', { includeBlank:false, fallbackValue:'Both', selected:it.owner||'Both' });
+  fSet('te-id',id);fSet('te-name',it.name);fSet('te-room',normalizeRoomSelection(it.room));fSet('te-owner',normalizeOwnerValue(it.owner));
   fSet('te-prio',it.prio);fSetChk('te-fragile',it.fragile);fSet('te-note',it.note||'');
   openModal('take-edit-modal');
 }
 function saveTakeEdit() {
   const id=fVal('te-id');const it=getTakeItem(id);if(!it)return;
-  it.name=fVal('te-name')||it.name;it.room=fVal('te-room');it.owner=fVal('te-owner');
+  it.name=fVal('te-name')||it.name;it.room=normalizeRoomSelection(fVal('te-room')||'r-other')||'r-other';it.owner=normalizeOwnerValue(fVal('te-owner')||'Both');
   it.prio=fVal('te-prio');it.fragile=fChk('te-fragile');it.note=fVal('te-note');
   updTakeItem(it);closeModal('take-edit-modal');rTake();toast('Saved ✅','green');
 }
@@ -322,11 +336,12 @@ function rBoxList() {
   if(!boxes.length){el.innerHTML='<div style="color:var(--bd3);font-size:.7rem;text-align:center;padding:10px">No boxes yet</div>';return;}
   el.innerHTML=boxes.map(b=>{
     const bi=items.filter(i=>i.boxId===b.id), packed=bi.filter(i=>i.done).length;
+    const roomInfo = getRoomDisplay(b.room);
     return `<div style="background:var(--bg);border-radius:var(--r);border:1px solid var(--border);padding:8px;margin:4px 0">
       <div style="display:flex;align-items:center;gap:6px">
         <span style="font-size:1.2rem">📦</span>
         <div style="flex:1"><div style="font-weight:700;font-size:.82rem">${esc(b.name)}</div>
-          <div style="font-size:.62rem;color:var(--bd3)">${esc(b.room||'')} · ${bi.length} items</div>
+          <div style="font-size:.62rem;color:var(--bd3)">${esc(roomInfo.emoji)} ${esc(roomInfo.label)} · ${bi.length} items</div>
           ${bi.length?progressBar(Math.round(packed/bi.length*100),'var(--gn)','4px'):''}
         </div>
         <button class="btn sml" onclick="copyText(${jsq(`BOX: ${b.name}\n${bi.map(i=>i.name).join(', ')}`)},'Box label')">🏷️</button>
@@ -337,7 +352,7 @@ function rBoxList() {
 }
 function addBoxFromForm() {
   const name=fVal('box-name');if(!name){toast('Please enter a box name','red');return;}
-  const b={id:uid(),name,room:fVal('box-room'),created:Date.now()};
+  const b={id:uid(),name,room:normalizeRoomSelection(fVal('box-room')||'r-other')||'r-other',created:Date.now()};
   const d=ldBoxes();d.push(b);svBoxes(d);fClear('box-name');closeModal('box-add-modal');rTake();toast('Box "'+name+'" created 📦','green');
 }
 function deleteBox(id) { ldTake().filter(i=>i.boxId===id).forEach(i=>{i.boxId='';updTakeItem(i);});svBoxes(ldBoxes().filter(x=>x.id!==id));rTake(); }
@@ -391,6 +406,7 @@ function rSellList() {
   el.innerHTML=list.map(it=>{
     const p=plt(it.platform);const isSold=it.status==='sold'||it.status==='donated';
     const photo=it.photos?.[0]||'';
+    const roomInfo = getRoomDisplay(it.room);
     return `<div class="card ${isSold?'sold':''}" id="sell-${it.id}">
       <div class="card-h" onclick="togCard('sell-${it.id}')">
         ${photo?`<img src="${esc(photo)}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0">`:''}
@@ -398,7 +414,7 @@ function rSellList() {
           <div class="card-title">${esc(it.name)}
             <span class="badge" style="background:${p.color};color:${p.textColor}">${p.e} ${esc(p.l)}</span>
           </div>
-          <div class="card-sub">${esc(it.room||'')} · ${cnd(it.cond).e} ${esc(cnd(it.cond).l)}</div>
+          <div class="card-sub">${esc(roomInfo.emoji)} ${esc(roomInfo.label)} · ${cnd(it.cond).e} ${esc(cnd(it.cond).l)}</div>
         </div>
         <div style="text-align:right">
           ${isSold?`<div style="font-weight:700;color:var(--gn)">${fmtEur(it.soldPrice)}</div><div style="font-size:.6rem;color:var(--bd3)">${fmtDate(it.soldDate)}</div>`
@@ -433,7 +449,8 @@ function rSellDraftPhotos() {
 function resetSellAddDraft() {
   _sellPros=[]; _sellCons=[]; _sellDraftPhotos=[];
   fClear('s-name','s-price','s-note','s-listing-link');
-  fSet('s-cond','good'); fSet('s-plat','ebay'); fSet('s-room','Other');
+  syncRoomSelect('s-room', { includeBlank:false, fallbackValue:'r-other', selected:'r-other' });
+  fSet('s-cond','good'); fSet('s-plat','ebay'); fSet('s-room','r-other');
   const input=document.getElementById('sell-photo-input'); if(input) input.value='';
   rSellAddChips(); rSellDraftPhotos();
 }
@@ -449,7 +466,7 @@ function addSellItemFromForm() {
   const name=fVal('s-name');if(!name){toast('Please enter a name','red');return;}
   const price=fNum('s-price');
   const it={id:uid(),name,cond:fVal('s-cond')||'good',price,platform:fVal('s-plat')||'ebay',
-    room:fVal('s-room')||'Other',note:fVal('s-note'),listingLink:fVal('s-listing-link'),
+    room:normalizeRoomSelection(fVal('s-room')||'r-other')||'r-other',note:fVal('s-note'),listingLink:fVal('s-listing-link'),
     pros:[..._sellPros],cons:[..._sellCons],
     status:'active',soldPrice:0,soldDate:'',buyer:'',buyers:[],photos:[..._sellDraftPhotos],
     priceLog:price?[{price,date:todayISO()}]:[],created:Date.now()};
@@ -461,8 +478,9 @@ function addSellItemFromForm() {
 }
 function editSellItem(id) {
   const it=getSellItem(id);if(!it)return;
+  syncRoomSelect('se-room', { includeBlank:false, fallbackValue:'r-other', selected:it.room||'r-other' });
   fSet('se-id',id);fSet('se-name',it.name);fSet('se-cond',it.cond);fSet('se-price',it.price);
-  fSet('se-plat',it.platform);fSet('se-room',it.room||'');fSet('se-note',it.note||'');fSet('se-listing-link',it.listingLink||'');
+  fSet('se-plat',it.platform);fSet('se-room',normalizeRoomSelection(it.room));fSet('se-note',it.note||'');fSet('se-listing-link',it.listingLink||'');
   openModal('sell-edit-modal');
 }
 function saveSellEdit() {
@@ -470,7 +488,7 @@ function saveSellEdit() {
   const np=fNum('se-price');
   if(np!==it.price) it.priceLog=[...(it.priceLog||[]),{price:np,date:todayISO()}];
   it.name=fVal('se-name')||it.name;it.cond=fVal('se-cond');it.price=np;
-  it.platform=fVal('se-plat');it.room=fVal('se-room');it.note=fVal('se-note');it.listingLink=fVal('se-listing-link');
+  it.platform=fVal('se-plat');it.room=normalizeRoomSelection(fVal('se-room')||'r-other')||'r-other';it.note=fVal('se-note');it.listingLink=fVal('se-listing-link');
   updSellItem(it);closeModal('sell-edit-modal');rSell();toast('Saved ✅','green');
 }
 function reserveSell(id) { const it=getSellItem(id);if(!it)return;it.status=it.status==='reserved'?'active':'reserved';updSellItem(it);rSell();toast(it.status==='reserved'?'Reserved 🔒':'Back to available','info'); }

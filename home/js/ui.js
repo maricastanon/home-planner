@@ -33,10 +33,16 @@ function togSection(bodyId, arrowId) {
 }
 function togCard(id) {
   const el = document.getElementById(id); if (!el) return;
+  if (el.classList.contains('card')) {
+    el.classList.toggle('xp');
+    return;
+  }
   const open = el.style.display !== 'none';
   el.style.display = open ? 'none' : 'block';
-  const chev = el.parentElement?.querySelector('.chev');
+  const chev = el.closest('.card')?.querySelector('.chev') || el.parentElement?.querySelector('.chev');
   if (chev) chev.textContent = open ? '▶' : '▼';
+  const card = el.closest('.card');
+  if (card) card.classList.toggle('xp', !open);
 }
 
 // ── Status bar ────────────────────────────────────────────────
@@ -58,18 +64,57 @@ function openSettings() {
   fSet('set-movedate',s.moveDate||''); fSet('set-newaddr',s.newAddress||'');
   fSet('set-oldaddr',s.oldAddress||''); fSet('set-budget',s.maxBudget||5000);
   fSet('set-name-m',s.names?.M||'Mari'); fSet('set-name-a',s.names?.A||'Alexander');
+  fSet('set-currency',s.currency||'€');
+  fSet('set-workspace',s.householdId||window.HomeAuth?.getWorkspaceOverride?.()||'');
   openModal('settings-modal');
 }
-function saveSettings() {
-  const s = {
+async function saveSettings() {
+  const desiredHouseholdId = normalizeHouseholdId(fVal('set-workspace'));
+  const nextSettings = {
     moveDate:fVal('set-movedate'), newAddress:fVal('set-newaddr'),
     oldAddress:fVal('set-oldaddr'), maxBudget:fNum('set-budget')||5000,
-    names:{ M:fVal('set-name-m')||'Mari', A:fVal('set-name-a')||'Alexander' }
+    names:{ M:fVal('set-name-m')||'Mari', A:fVal('set-name-a')||'Alexander' },
+    currency:fVal('set-currency')||'€',
+    householdId:desiredHouseholdId,
   };
-  svSettings(s); closeModal('settings-modal');
+  const currentScope = typeof getStorageScope === 'function' ? getStorageScope() : '';
+  const defaultScope = window.HomeAuth?.getDefaultStorageScope?.() || '';
+  const targetScope = householdScopeFromId(desiredHouseholdId) || defaultScope;
+
+  if (window.HomeAuth?.setWorkspaceOverride && targetScope !== currentScope) {
+    const snapshot = typeof captureStorageScope === 'function' ? captureStorageScope(currentScope) : {};
+    window.HomeAuth.setWorkspaceOverride(desiredHouseholdId);
+    if (window.HomeAws?.loadFromCloud) {
+      try { await window.HomeAws.loadFromCloud(); } catch { /* ignore workspace load failures in UI */ }
+    }
+    const targetHasData = typeof storageScopeHasData === 'function' ? storageScopeHasData(targetScope) : false;
+    if (!targetHasData && typeof seedStorageScope === 'function') seedStorageScope(targetScope, snapshot);
+    if (targetHasData) {
+      const workspaceSettings = ldSettings();
+      workspaceSettings.householdId = desiredHouseholdId;
+      svSettings(workspaceSettings);
+    } else {
+      svSettings(nextSettings);
+    }
+    closeModal('settings-modal');
+    toast(
+      desiredHouseholdId
+        ? (targetHasData ? `Joined shared workspace ${desiredHouseholdId} 🏡` : `Created shared workspace ${desiredHouseholdId} 🏡`)
+        : (targetHasData ? 'Switched back to your personal workspace 🏠' : 'Created a personal workspace snapshot 🏠'),
+      'green',
+      2600
+    );
+    setTimeout(() => location.reload(), 500);
+    return;
+  }
+
+  svSettings(nextSettings); closeModal('settings-modal');
   toast('Settings saved ✅','green');
   const sub=document.getElementById('hdr-sub');
-  if(sub) sub.textContent = buildHeaderSubtitle(s);
+  if(sub) sub.textContent = buildHeaderSubtitle(nextSettings);
+  if (typeof syncAllRoomSelects === 'function') syncAllRoomSelects();
+  if (typeof syncAllOwnerSelects === 'function') syncAllOwnerSelects();
+  if (window.HomeApp?.setUserChrome) window.HomeApp.setUserChrome(window.HomeAuth?.getUser?.() || null);
   if(_activeTab==='dash') rDash();
   updateStatusBar();
 }
@@ -103,9 +148,12 @@ function openBuyModal(id) {
 function confirmBought() {
   if(!_pendingBuyId) return;
   const it=getBuyItem(_pendingBuyId); if(!it) return;
-  it.bought=true; it.actualPrice=fNum('buy-modal-price')||it.price;
-  it.boughtDate=fVal('buy-modal-date'); it.boughtStore=fVal('buy-modal-store');
-  it.boughtTs=Date.now(); it.prevItemStatus=it.itemStatus; it.itemStatus='placed';
+  markItemPurchased(it, {
+    actualPrice:fNum('buy-modal-price')||it.price,
+    boughtDate:fVal('buy-modal-date'),
+    boughtStore:fVal('buy-modal-store'),
+    boughtTs:Date.now(),
+  });
   updBuyItem(it); closeModal('buy-confirm-modal'); _pendingBuyId=null;
   celebrate('🎉'); toast(it.name+' bought! 🛒','green');
   rBuy(); updateStatusBar();
@@ -168,9 +216,15 @@ function rSellFilters() {
 function rTakeFilters() {
   const items=ldTake();
   const roomCounts={};
-  items.forEach(it=>{ roomCounts[it.room]=(roomCounts[it.room]||0)+1; });
-  const roomOpts=Object.entries(roomCounts).map(([r,c])=>({k:r,l:r,count:c}));
-  const ownerOpts=OWNERS.map(o=>({k:o.k,l:o.l,e:o.e}));
+  items.forEach(it=>{
+    const roomKey = normalizeRoomSelection(it.room);
+    roomCounts[roomKey]=(roomCounts[roomKey]||0)+1;
+  });
+  const roomOpts=Object.entries(roomCounts).map(([roomId,count])=>{
+    const room = getRoomDisplay(roomId);
+    return { k:room.id, l:room.label, e:room.emoji, count };
+  });
+  const ownerOpts=getOwnerOptions().map(owner=>({k:owner.k,l:owner.l,e:owner.e}));
   const statusOpts=[{k:'packed',l:'Packed ✓',e:'✅'},{k:'unpacked',l:'Still needed',e:'📦'}];
   const sortOpts=[{k:'room',l:'Room',e:'🏠'},{k:'name',l:'A–Z',e:'🔤'},{k:'prio',l:'Priority',e:'🔴'},{k:'owner',l:'Owner',e:'👤'}];
   const el=(id,opts,key,fn,cfg={})=>{ const e=document.getElementById(id); if(e) e.innerHTML=buildPillFilters('take',key,opts,fn,cfg); };
@@ -195,4 +249,94 @@ function rCmpFilters() {
   const el=(id,opts,key,fn,cfg={})=>{ const e=document.getElementById(id); if(e) e.innerHTML=buildPillFilters('cmp',key,opts,fn,cfg); };
   el('cmp-filter-cat', catOpts, 'cat', rCompare, {showCounts:true});
   el('cmp-filter-room',roomOpts,'room',rCompare);
+}
+
+let _activityLogEntries = [];
+
+async function openActivityLogs() {
+  openModal('activity-logs-modal');
+  const status = document.getElementById('activity-log-status');
+  if (status) status.textContent = 'Loading activity…';
+  await refreshActivityLogs();
+}
+
+async function refreshActivityLogs() {
+  const cloudEntries = window.HomeAws && typeof window.HomeAws.fetchActivityLog === 'function'
+    ? await window.HomeAws.fetchActivityLog(150)
+    : null;
+  const localEntries = (ldActivity() || []).map(entry => ({ ...entry, _source:'local' }));
+  const merged = new Map();
+  localEntries.forEach(entry => {
+    const key = entry.id || `${entry.ts}-${entry.module}-${entry.action}-${entry.label}`;
+    merged.set(key, entry);
+  });
+  (cloudEntries || []).forEach(entry => {
+    const key = entry.id || entry.activityId || `${entry.ts || entry.activityTs}-${entry.module}-${entry.action}-${entry.label}`;
+    merged.set(key, {
+      id: entry.id || entry.activityId || key,
+      module: entry.module || '',
+      action: entry.action || '',
+      label: entry.label || '',
+      ts: Number(entry.ts || entry.activityTs || 0),
+      _source:'cloud'
+    });
+  });
+  _activityLogEntries = [...merged.values()].sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const status = document.getElementById('activity-log-status');
+  if (status) {
+    status.textContent = cloudEntries
+      ? `Showing ${_activityLogEntries.length} merged entries from cloud + local cache`
+      : `Showing ${_activityLogEntries.length} local entries`;
+  }
+  populateActivityModuleFilter();
+  renderActivityLogs();
+}
+
+function populateActivityModuleFilter() {
+  const select = document.getElementById('activity-log-module-filter');
+  if (!select) return;
+  const current = select.value || '';
+  const counts = {};
+  _activityLogEntries.forEach(entry => {
+    const key = entry.module || 'unknown';
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  const options = Object.entries(counts)
+    .sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([module,count]) => `<option value="${esc(module)}">${esc(module)} (${count})</option>`);
+  select.innerHTML = ['<option value="">All modules</option>', ...options].join('');
+  if (current && counts[current]) select.value = current;
+}
+
+function renderActivityLogs() {
+  const filter = document.getElementById('activity-log-module-filter')?.value || '';
+  const el = document.getElementById('activity-log-list');
+  if (!el) return;
+  const entries = filter ? _activityLogEntries.filter(entry => entry.module === filter) : _activityLogEntries;
+  const icons={move:'🚚',take:'📦',sell:'💸',buy:'🛒',compare:'⚖️',cmp:'⚖️',plan:'📐',settings:'⚙️',boxes:'📦',movecl:'✅'};
+  const actions={add:'added',update:'updated',delete:'deleted'};
+  if (!entries.length) {
+    el.innerHTML = '<div class="empty" style="padding:20px"><div class="ei">🧾</div>No activity found for this filter.</div>';
+    return;
+  }
+  el.innerHTML = entries.map(entry => `
+    <div class="activity-item" style="padding:10px 0;border-bottom:1px solid var(--bg2);align-items:flex-start">
+      <span style="font-size:1rem">${icons[entry.module] || '📋'}</span>
+      <div style="flex:1">
+        <div style="font-size:.74rem"><strong>${esc(trunc(entry.label, 42))}</strong> <span style="color:var(--bd3)">${actions[entry.action] || esc(entry.action || 'logged')}</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:.58rem;color:var(--bd3);margin-top:2px">
+          <span>${esc(entry.module || 'unknown')}</span>
+          <span>${fmtTs(entry.ts || 0)}</span>
+          <span>${entry._source === 'cloud' ? '☁️ cloud' : '💾 local'}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function copyActivityLogsJson() {
+  if (!_activityLogEntries.length) {
+    toast('No activity to copy yet','warn');
+    return;
+  }
+  copyText(JSON.stringify(_activityLogEntries, null, 2), 'Activity log JSON');
 }

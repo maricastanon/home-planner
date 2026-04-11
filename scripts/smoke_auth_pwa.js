@@ -52,9 +52,13 @@ async function run() {
 
   try {
     await page.goto('http://127.0.0.1:4174/index.html', { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => {
+      const text = document.getElementById('auth-status-note')?.textContent?.trim() || '';
+      return text && text !== 'Checking session...';
+    }, null, { timeout: 15000 });
 
     const lockedState = await page.evaluate(() => ({
-      authShellVisible: !document.getElementById('auth-shell').hidden,
+      loginVisible: !document.getElementById('loginBg').classList.contains('hidden'),
       appShellHidden: document.getElementById('app-shell').hidden,
       bodyLocked: document.body.classList.contains('auth-shell-open'),
       statusText: document.getElementById('auth-status-note').textContent.trim(),
@@ -64,10 +68,10 @@ async function run() {
       awsBridgeLoaded: Boolean(window.HomeAws && typeof window.HomeAws.queueActivity === 'function'),
       awsMode: typeof getAwsBackendConfig === 'function' ? getAwsBackendConfig().mode : ''
     }));
-    if (!lockedState.authShellVisible || !lockedState.appShellHidden || !lockedState.bodyLocked) {
-      throw new Error(`Auth shell did not gate the app: ${JSON.stringify(lockedState)}`);
+    if (!lockedState.loginVisible || !lockedState.appShellHidden || !lockedState.bodyLocked) {
+      throw new Error(`Login shell did not gate the app: ${JSON.stringify(lockedState)}`);
     }
-    if (!/Sign in with your Cognito invite/.test(lockedState.statusText) || lockedState.feedbackText) {
+    if (!/Sign in with your credentials|Cognito not configured/.test(lockedState.statusText) || lockedState.feedbackText) {
       throw new Error(`Auth gate did not land in the expected sign-in state: ${JSON.stringify(lockedState)}`);
     }
     if (lockedState.manifestHref !== 'manifest.webmanifest') {
@@ -99,18 +103,18 @@ async function run() {
       });
     });
     const bootState = await page.evaluate(() => ({
-      authShellHidden: document.getElementById('auth-shell').hidden,
+      loginHidden: document.getElementById('loginBg').classList.contains('hidden'),
       appShellVisible: !document.getElementById('app-shell').hidden,
       userPill: document.getElementById('auth-user-pill').textContent.trim(),
       logoutHidden: document.getElementById('logout-btn').hidden,
-      adminHidden: document.getElementById('admin-logs-btn').hidden,
+      logsHidden: document.getElementById('admin-logs-btn').hidden,
       installHidden: document.getElementById('install-app-btn').hidden
     }));
-    if (!bootState.authShellHidden || !bootState.appShellVisible) {
+    if (!bootState.loginHidden || !bootState.appShellVisible) {
       throw new Error(`Authenticated handoff did not swap shells: ${JSON.stringify(bootState)}`);
     }
-    if (!/admin@example\.com/.test(bootState.userPill) || bootState.logoutHidden || bootState.adminHidden) {
-      throw new Error(`Authenticated chrome did not render expected admin controls: ${JSON.stringify(bootState)}`);
+    if (!/admin@example\.com/.test(bootState.userPill) || bootState.logoutHidden || bootState.logsHidden) {
+      throw new Error(`Authenticated chrome did not render expected user controls: ${JSON.stringify(bootState)}`);
     }
 
     if (pageErrors.length) throw new Error(`Page error(s): ${pageErrors.join(' | ')}`);
