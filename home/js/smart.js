@@ -94,7 +94,7 @@ function rSpaceAnalyzer() {
   const allRooms = [];
   plan.floors.forEach(floor => {
     (floor.rooms || []).forEach(room => {
-      const occ = getRoomOccupancy(room.id);
+      const occ = getRoomOccupancy(room.id) || { areaSqm: 0, occupiedSqm: 0, freeSqm: 0, pct: 0, entries: [] };
       allRooms.push({ room, floor, occ });
     });
   });

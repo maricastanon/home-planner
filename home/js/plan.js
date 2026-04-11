@@ -1100,21 +1100,32 @@ function rPlanSidebar() {
     renderPlanToolsPanel();
     return;
   }
-  el.innerHTML = fl.rooms.map(r=>{
+  // Show banner if floor needs measurements
+  let sidebarHTML = '';
+  if (fl.needsMeasurements) {
+    const unmeasured = fl.rooms.filter(r => !r.area || r.area === 0).length;
+    sidebarHTML += `<div style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #fde68a;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:.65rem;color:#92400e">
+      <div style="font-weight:700;margin-bottom:2px">📏 Measurements needed</div>
+      <div>${unmeasured} room${unmeasured !== 1 ? 's' : ''} still need${unmeasured === 1 ? 's' : ''} exact measurements. Use the Measure tool or double-click rooms to update dimensions from the blueprint.</div>
+    </div>`;
+  }
+  sidebarHTML += fl.rooms.map(r=>{
     const area=((r.w/sc)*(r.h/sc)).toFixed(1);
     const wm=(r.w/sc).toFixed(1), hm=(r.h/sc).toFixed(1);
     const items=ldBuy().filter(it=>it.roomId===r.id);
     const occupancy = getRoomOccupancy(r.id, fl);
+    const needsMeas = !r.area || r.area === 0;
     return `<div class="room-item ${r.id===selected?'active':''}" onclick="selectRoom('${r.id}')">
       <span class="room-swatch" style="background:${r.color||'#fce4ec'}"></span>
       <div class="room-info">
-        <div class="room-name">${esc(r.label||'Room')}</div>
-        <div class="room-dim">${wm}×${hm}m · ${area}m² · ${occupancy?.pct || 0}% used</div>
+        <div class="room-name">${esc(r.emoji || '')} ${esc(r.label||'Room')}${needsMeas ? ' <span style="color:#d97706;font-size:.55rem">📏</span>' : ''}</div>
+        <div class="room-dim">${wm}×${hm}m · ${needsMeas ? '<span style="color:#d97706">needs measuring</span>' : area+'m² · '+( occupancy?.pct || 0)+'% used'}</div>
       </div>
       ${items.length?`<span class="room-item-count" onclick="event.stopPropagation();showRoomItemsPanel('${r.id}')" title="View items for this room">${items.length}</span>`:''}
       <button class="btn sml icon" onclick="event.stopPropagation();renameRoom('${r.id}')">✏️</button>
     </div>`;
   }).join('');
+  el.innerHTML = sidebarHTML;
   if (fl.furniture?.length) {
     el.innerHTML += `<div style="font-size:.6rem;color:var(--bd3);padding:6px 4px;border-top:1px solid var(--border);margin-top:4px">${fl.furniture.length} furniture item${fl.furniture.length!==1?'s':''} placed</div>`;
   }

@@ -7,88 +7,166 @@ const PRELOADED_PLAN = {
   floors: [
     {
       id: 'f-dg',
-      name: 'Apartment',
+      name: 'Dachgeschoss (Apartment)',
       rooms: [
         {
           id: 'r-schlaf',
           label: 'Master Bedroom',
-          emoji: '??',
+          emoji: '🛏️',
           area: 17.08,
           color: '#dbeafe',
           x: 0.25, y: 0.25, w: 4.59, h: 3.89,
-          notes: 'Schlafzimmer - 17.08 m2'
+          notes: 'Schlafzimmer — 3.83 × 4.46 m = 17.08 m²'
         },
         {
           id: 'r-bad',
           label: 'Bathroom',
-          emoji: '??',
+          emoji: '🛁',
           area: 4.01,
           color: '#ccfbf1',
           x: 4.96, y: 0.25, w: 2.20, h: 2.37,
-          notes: 'Bad - 4.01 m2'
+          notes: 'Bad — 1.80 × 2.37 m = 4.01 m² (after deductions)'
         },
         {
           id: 'r-wc',
           label: 'WC',
-          emoji: '??',
+          emoji: '🚽',
           area: 1.87,
           color: '#e0f2fe',
           x: 7.28, y: 0.25, w: 0.93, h: 2.01,
-          notes: 'WC - 1.87 m2'
+          notes: 'WC — 0.93 × 2.01 m = 1.87 m²'
         },
         {
           id: 'r-kueche',
           label: 'Kitchen',
-          emoji: '??',
+          emoji: '🍳',
           area: 13.11,
           color: '#dcfce7',
           x: 9.78, y: 0.25, w: 3.64, h: 3.69,
-          notes: 'Kueche - 13.11 m2'
+          notes: 'Küche — 3.44 × 3.92 m = 13.11 m² (after deductions)'
         },
         {
           id: 'r-flur',
           label: 'Hallway',
-          emoji: '??',
+          emoji: '🚪',
           area: 8.84,
           color: '#fef9c3',
           x: 4.96, y: 2.74, w: 4.70, h: 1.52,
-          notes: 'Flur - 8.84 m2 (includes staircase area)'
+          notes: 'Flur — 1.21 × 6.52 m base = 8.84 m² (L-shape, includes staircase area)'
         },
         {
           id: 'r-kinder',
           label: "Children's Room",
-          emoji: '??',
+          emoji: '🧒',
           area: 19.17,
           color: '#ede9fe',
           x: 0.25, y: 4.26, w: 4.37, h: 4.46,
-          notes: 'Kinderzimmer - 19.17 m2'
+          notes: 'Kinderzimmer — 4.65 × 4.32 m = 19.17 m² (after deductions)'
         },
         {
           id: 'r-esszim',
           label: 'Study / Dining',
-          emoji: '??',
+          emoji: '📚',
           area: 12.71,
           color: '#fce7f3',
           x: 4.74, y: 4.26, w: 3.60, h: 4.46,
-          notes: 'Arbeitszimmer / Esszimmer - 12.71 m2'
+          notes: 'Arbeitszimmer / Esszimmer — 3.57 × 3.57 m = 12.71 m² (after deductions)'
         },
         {
           id: 'r-wohnzim',
           label: 'Living Room',
-          emoji: '??',
+          emoji: '🛋️',
           area: 16.50,
           color: '#ffedd5',
           x: 8.46, y: 5.23, w: 4.96, h: 3.49,
-          notes: 'Wohnzimmer - 16.50 m2'
+          notes: 'Wohnzimmer — 3.55 × 4.90 m = 16.50 m² (after deductions)'
         }
       ],
+      furniture: []
+    },
+    // ── Kellergeschoss (Basement) ─────────────────────────────
+    // Full basement layout from the Kellergeschoss blueprint.
+    // Only Keller 2 is yours — other rooms are shared/neighbours.
+    // Measurements are approximate from the blueprint proportions;
+    // flag needsMeasurements so the UI can prompt to verify.
+    {
+      id: 'f-keller',
+      name: 'Kellergeschoss (Basement)',
+      storageNote: 'Keller 2',
+      needsMeasurements: true,
+      rooms: [
+        {
+          id: 'r-keller-2',
+          label: 'Keller 2 (Ours)',
+          emoji: '📦',
+          area: 22.08,
+          color: '#dbeafe',
+          x: 0.50, y: 4.08, w: 4.95, h: 4.46,
+          notes: 'Keller 2 — your storage cellar. ~4.95 × 4.46 m ≈ 22 m²'
+        },
+        {
+          id: 'r-keller-1',
+          label: 'Keller 1',
+          emoji: '🔒',
+          area: 0,
+          color: '#e2e8f0',
+          x: 0.50, y: 0.50, w: 4.06, h: 3.50,
+          notes: 'Keller 1 — neighbour. Needs exact measurements.'
+        },
+        {
+          id: 'r-keller-haus',
+          label: 'Hausanschluss',
+          emoji: '🔧',
+          area: 0,
+          color: '#fef9c3',
+          x: 5.57, y: 4.08, w: 2.86, h: 4.46,
+          notes: 'Hausanschluss-Keller — utility connections. Needs measurements.'
+        },
+        {
+          id: 'r-keller-heiz',
+          label: 'Heizraum',
+          emoji: '🔥',
+          area: 0,
+          color: '#fed7aa',
+          x: 7.50, y: 0.50, w: 2.33, h: 3.50,
+          notes: 'Heizraum — boiler room. Needs measurements.'
+        },
+        {
+          id: 'r-keller-elektro',
+          label: 'Elektro-Zähler',
+          emoji: '⚡',
+          area: 0,
+          color: '#e0f2fe',
+          x: 5.57, y: 0.50, w: 1.87, h: 2.33,
+          notes: 'Elektro-Zähler — meter room. Needs measurements.'
+        },
+        {
+          id: 'r-keller-3',
+          label: 'Keller 3',
+          emoji: '🔒',
+          area: 0,
+          color: '#e2e8f0',
+          x: 8.68, y: 4.08, w: 4.85, h: 4.46,
+          notes: 'Keller 3 — neighbour. Needs measurements.'
+        }
+      ],
+      blueprint: {
+        src: 'blueprints/preloaded/keller-2-floorplan.jpeg',
+        widthM: 13.46,
+        heightM: 8.40,
+        x: 0,
+        y: 0,
+        opacity: 0.42,
+        presetId: 'keller-2',
+        presetLabel: 'Keller 2 Cellar'
+      },
       furniture: []
     }
   ],
   scale: 45,
   activeFloor: 0,
   _preloaded: true,
-  _planVersion: 4
+  _planVersion: 5
 };
 
 function getPreloadedPlanBoundsMeters() {
@@ -141,15 +219,68 @@ const CELLAR_PRESET_FLOOR = {
   id: 'f-keller',
   name: 'Keller',
   storageNote: 'Keller 2',
+  needsMeasurements: true,
   rooms: [
     {
+      // Keller 2 — your cellar room. Measurements from blueprint:
+      // width: 4.95 m, depth: roughly 4.46 m (estimated from plan proportions)
       id: 'r-keller-2',
       label: 'Keller 2',
-      emoji: '??',
+      emoji: '📦',
       area: 22.08,
       color: '#dbeafe',
       x: 0.50, y: 4.08, w: 4.95, h: 4.46,
-      notes: 'Your cellar room from the Kellergeschoss blueprint.'
+      notes: 'Keller 2 — your storage cellar. ~22 m²'
+    },
+    {
+      // Keller 1 — neighbouring cellar. Approximate from blueprint.
+      id: 'r-keller-1',
+      label: 'Keller 1',
+      emoji: '🔒',
+      area: 0,
+      color: '#e2e8f0',
+      x: 0.50, y: 0.50, w: 4.06, h: 3.50,
+      notes: 'Keller 1 — neighbour cellar (not yours). Needs measurements.'
+    },
+    {
+      // Hausanschluss-Keller — utility room between Keller 2 and 3
+      id: 'r-keller-haus',
+      label: 'Hausanschluss',
+      emoji: '🔧',
+      area: 0,
+      color: '#fef9c3',
+      x: 5.57, y: 4.08, w: 2.86, h: 4.46,
+      notes: 'Hausanschluss-Keller — utility connections. Needs measurements.'
+    },
+    {
+      // Heizraum — heating / boiler room, top right of basement
+      id: 'r-keller-heiz',
+      label: 'Heizraum',
+      emoji: '🔥',
+      area: 0,
+      color: '#fed7aa',
+      x: 7.50, y: 0.50, w: 2.33, h: 3.50,
+      notes: 'Heizraum — heating / boiler room. Needs measurements.'
+    },
+    {
+      // Elektro-Zähler — meter room, top centre
+      id: 'r-keller-elektro',
+      label: 'Elektro-Zähler',
+      emoji: '⚡',
+      area: 0,
+      color: '#e0f2fe',
+      x: 5.57, y: 0.50, w: 1.87, h: 2.33,
+      notes: 'Elektro-Zähler — electric meter room. Needs measurements.'
+    },
+    {
+      // Keller 3 — third cellar room, bottom right
+      id: 'r-keller-3',
+      label: 'Keller 3',
+      emoji: '🔒',
+      area: 0,
+      color: '#e2e8f0',
+      x: 8.68, y: 4.08, w: 4.85, h: 4.46,
+      notes: 'Keller 3 — neighbour cellar (not yours). Needs measurements.'
     }
   ],
   blueprint: {
@@ -268,7 +399,11 @@ window.getPreloadedFloorPreset = function getPreloadedFloorPreset(presetId) {
     const floor = buildPreloadedPlanPixels().floors.find(entry => entry.id === 'f-dg');
     return floor ? JSON.parse(JSON.stringify(floor)) : null;
   }
-  if (presetId === 'keller-2') return buildCellarPresetFloorPixels();
+  if (presetId === 'keller-2') {
+    // Return full keller floor from the main preloaded plan (includes all rooms)
+    const floor = buildPreloadedPlanPixels().floors.find(entry => entry.id === 'f-keller');
+    return floor ? JSON.parse(JSON.stringify(floor)) : buildCellarPresetFloorPixels();
+  }
   return null;
 };
 
@@ -324,6 +459,25 @@ function maybeInjectPreloaded() {
         return nextFloor;
       })
     : [];
+
+  // Inject keller floor if missing (added in v5)
+  const hasKeller = nextFloors.some(f => f.id === 'f-keller');
+  if (!hasKeller) {
+    const kellerFloor = buildPreloadedPlanPixels().floors.find(f => f.id === 'f-keller');
+    if (kellerFloor) nextFloors.push(kellerFloor);
+  }
+
+  // Update emojis on DG rooms if they still have the old ?? placeholder
+  const dgFloor = nextFloors.find(f => f.id === 'f-dg');
+  if (dgFloor) {
+    const emojiMap = {
+      'r-schlaf':'🛏️','r-bad':'🛁','r-wc':'🚽','r-kueche':'🍳',
+      'r-flur':'🚪','r-kinder':'🧒','r-esszim':'📚','r-wohnzim':'🛋️'
+    };
+    (dgFloor.rooms || []).forEach(r => {
+      if (r.emoji === '??' && emojiMap[r.id]) r.emoji = emojiMap[r.id];
+    });
+  }
 
   svPlan({
     ...saved,
