@@ -1302,6 +1302,154 @@ canvas { display:block; touch-action:none; outline:none; max-width:100%; height:
 .shortlist-option:hover { background:var(--pkl); color:var(--pk); }
 .shortlist-option.new { color:var(--pk); border-top:var(--line-thin) solid var(--border); margin-top:4px; padding-top:8px; }
 
+/* ════════════════════════════════════════════════════════════
+   MOVE-IN HUB — Checklist, Addresses, Utilities, Catalog
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Move-In Subtabs ──────────────────────────────────────── */
+.movein-subtabs {
+  display:flex; gap:2px; overflow-x:auto; padding:2px 0 8px;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.movein-subtabs::-webkit-scrollbar { display:none; }
+.movein-subtab {
+  padding:6px 12px; border:none; background:var(--bg2); color:var(--bd3);
+  font-size:.65rem; font-weight:600; border-radius:8px; cursor:pointer;
+  white-space:nowrap; transition:all .15s; font-family:inherit;
+}
+.movein-subtab.active { background:var(--pk); color:#fff; }
+.movein-subtab:hover:not(.active) { background:var(--pkl); color:var(--pk); }
+.movein-subtab-panel { display:none; }
+.movein-subtab-panel.active { display:block; }
+
+/* ── Move-In Hero ─────────────────────────────────────────── */
+.movein-hero {
+  background:linear-gradient(135deg,#fdf2f8 0%,#ffffff 40%,#ecfdf5 100%);
+  border-radius:var(--r2); padding:16px 18px; margin-bottom:12px;
+  box-shadow:var(--sh); border:1px solid var(--border);
+}
+
+/* ── Move-In Category ─────────────────────────────────────── */
+.movein-cat {
+  background:var(--white); border-radius:var(--r2); overflow:hidden;
+  box-shadow:var(--sh); border:1px solid var(--border); margin-bottom:8px;
+}
+.movein-cat-hdr {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  cursor:pointer; transition:background .15s;
+}
+.movein-cat-hdr:hover { background:var(--bg); }
+
+/* ── Move-In Item ─────────────────────────────────────────── */
+.movein-item {
+  display:flex; align-items:center; gap:10px; padding:8px 14px;
+  border-bottom:1px solid var(--bg2); transition:all .15s;
+}
+.movein-item:hover { background:var(--bg); }
+.movein-item.done { opacity:.6; }
+
+/* ── Utility Card ─────────────────────────────────────────── */
+.utility-card {
+  background:var(--white); border-radius:var(--r2); overflow:hidden;
+  box-shadow:var(--sh); border:1px solid var(--border); margin-bottom:8px;
+}
+.utility-card-header {
+  display:flex; align-items:center; gap:12px; padding:12px 14px;
+  border-bottom:1px solid var(--bg2);
+}
+.utility-card-body { padding:10px 14px; }
+
+/* ── Furniture Catalog ────────────────────────────────────── */
+.catalog-cat { margin-bottom:14px; }
+.catalog-cat-hdr {
+  font-weight:700; font-size:.82rem; color:var(--pk); margin-bottom:8px;
+  border-bottom:2px solid var(--pkl); padding-bottom:4px;
+}
+.catalog-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:8px;
+}
+.catalog-card {
+  background:var(--white); border-radius:var(--r2); padding:12px;
+  box-shadow:var(--sh); border:1px solid var(--border); cursor:pointer;
+  transition:all .15s; position:relative; text-align:center;
+}
+.catalog-card:hover {
+  transform:translateY(-2px); box-shadow:0 4px 16px rgba(233,30,99,.12);
+  border-color:var(--pk);
+}
+.catalog-card-icon { font-size:2rem; margin-bottom:4px; }
+.catalog-card-name { font-weight:700; font-size:.72rem; margin-bottom:3px; color:var(--bd); }
+.catalog-card-dims { font-size:.58rem; color:var(--bd3); }
+.catalog-card-price { font-size:.68rem; color:var(--pk); font-weight:700; margin-top:3px; }
+.catalog-card-store { font-size:.55rem; color:var(--bd3); margin-top:2px; }
+.catalog-add-badge {
+  position:absolute; top:6px; right:6px; font-size:.5rem; font-weight:700;
+  background:var(--pk); color:#fff; padding:2px 6px; border-radius:8px;
+  opacity:0; transition:opacity .15s;
+}
+.catalog-card:hover .catalog-add-badge { opacity:1; }
+
+/* ── Running Costs ────────────────────────────────────────── */
+.running-cost-row {
+  display:flex; align-items:center; gap:10px; padding:8px 0;
+  border-bottom:1px solid var(--bg2); cursor:pointer;
+  transition:background .15s;
+}
+.running-cost-row:hover { background:var(--bg); }
+.running-cost-thumb {
+  width:40px; height:40px; object-fit:cover; border-radius:8px; flex-shrink:0;
+}
+.running-cost-thumb-placeholder {
+  width:40px; height:40px; background:var(--bg2); border-radius:8px;
+  display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;
+}
+
+/* ── Smart Room Audit ─────────────────────────────────────── */
+.audit-room-card {
+  background:var(--white); border-radius:var(--r2); overflow:hidden;
+  box-shadow:var(--sh); border:1px solid var(--border); margin-bottom:8px;
+}
+.audit-room-hdr {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  cursor:pointer; transition:background .15s;
+}
+.audit-room-hdr:hover { background:rgba(0,0,0,.02); }
+.audit-item {
+  display:flex; align-items:center; gap:8px; padding:7px 14px;
+  border-bottom:1px solid var(--bg2);
+}
+.audit-item.missing { background:#fef2f2; }
+.audit-item.covered { background:#f0fdf4; }
+
+/* ── Store Card (Shopping Hub) enhanced ───────────────────── */
+.store-card {
+  background:var(--white); border-radius:var(--r2); overflow:hidden;
+  box-shadow:var(--sh); border:1px solid var(--border); margin-bottom:8px;
+}
+.store-card-header {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  cursor:pointer; transition:background .15s;
+}
+.store-card-header:hover { background:var(--bg); }
+.store-link-btn {
+  font-size:.6rem; text-decoration:none; padding:2px 5px;
+  background:var(--bg); border-radius:4px;
+}
+.shopping-list-item {
+  display:flex; align-items:center; gap:8px; padding:6px 0;
+  border-bottom:1px solid var(--bg2); cursor:pointer; transition:background .15s;
+}
+.shopping-list-item:hover { background:var(--bg); }
+.shopping-list-item.bought { opacity:.5; }
+.shop-item-thumb {
+  width:32px; height:32px; object-fit:cover; border-radius:6px; flex-shrink:0;
+}
+.shop-item-thumb-placeholder {
+  width:32px; height:32px; background:var(--bg2); border-radius:6px;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem; flex-shrink:0;
+}
+
 /* ── PRINT (floor plan) ──────────────────────────────────────── */
 @media print {
   .hdr, .tabs, .status-bar, .plan-toolbar, .furn-bar, .plan-status, .floor-tabs { display:none!important; }

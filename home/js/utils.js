@@ -89,7 +89,7 @@ function preferenceInlineLabel(it, personKey) {
 }
 function buildHeaderSubtitle(settings) {
   const s = settings || ldSettings();
-  const parts = [(s.names?.M || 'Mari') + ' & ' + (s.names?.A || 'Alexander')];
+  const parts = [(s.names?.M || 'Mari') + ' 💕 ' + (s.names?.A || 'Alex')];
   if (s.newAddress) parts.push(s.newAddress);
   if (s.moveDate) parts.push('Move-in: ' + fmtDate(s.moveDate));
   return parts.join(' · ');
@@ -122,7 +122,12 @@ function numCircle(n, color='var(--pk)') {
 // PILL FILTER SYSTEM
 // ─────────────────────────────────────────────────────────────
 // State: module → filterKey → activeValue
-const PILL_STATE = {};
+const PILL_STATE = (() => {
+  try {
+    const saved = sessionStorage.getItem('hnz_pill_state');
+    return saved ? JSON.parse(saved) : {};
+  } catch { return {}; }
+})();
 
 function initPillFilter(module, key, defaultVal = '') {
   if (!PILL_STATE[module]) PILL_STATE[module] = {};
@@ -132,6 +137,7 @@ function getPillVal(module, key) { return PILL_STATE[module]?.[key] ?? ''; }
 function setPillVal(module, key, val, renderFn) {
   if (!PILL_STATE[module]) PILL_STATE[module] = {};
   PILL_STATE[module][key] = val;
+  try { sessionStorage.setItem('hnz_pill_state', JSON.stringify(PILL_STATE)); } catch {}
   if (renderFn) renderFn();
 }
 

@@ -311,7 +311,7 @@ async function run() {
     if (!/Living Room/.test(state.roomMapText) || !/Family Sofa/.test(state.roomMapText)) {
       throw new Error(`Room Map subtab did not render room-grouped buy items: ${JSON.stringify(state)}`);
     }
-    if (!state.room3dHasSvg || !/Pseudo-3D Room Preview/.test(state.room3dText) || !/Best free-space setup/.test(state.room3dText)) {
+    if (!state.room3dHasSvg || !/Room Preview/.test(state.room3dText) || !/Best free-space setup/.test(state.room3dText)) {
       throw new Error(`3D preview subtab did not render the isometric room layout view: ${JSON.stringify(state)}`);
     }
     if (!/Setup Wishlist Intelligence/.test(state.wishlistText) || !/Living room setup/.test(state.wishlistText) || !/Main seating/.test(state.wishlistText)) {

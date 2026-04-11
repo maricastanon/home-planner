@@ -42,6 +42,17 @@ function initPlan() {
   if (canvas) { setupPlanListeners(canvas); resizePlanCanvas(); }
   syncFurnitureButtons();
   window.addEventListener('resize', resizePlanCanvas);
+  // Preload blueprint images
+  if (typeof BLUEPRINT_ASSET_FILES !== 'undefined') {
+    Object.values(BLUEPRINT_ASSET_FILES).forEach(src => {
+      const path = typeof buildBlueprintAssetPath === 'function' ? buildBlueprintAssetPath(src) : src;
+      if (!blueprintImageCache.has(path)) {
+        const img = new Image();
+        img.onload = () => blueprintImageCache.set(path, img);
+        img.src = path;
+      }
+    });
+  }
 }
 
 function buildPlanPayload() {
@@ -1120,7 +1131,8 @@ function rPlanSidebar() {
     const unmeasured = fl.rooms.filter(r => !r.area || r.area === 0).length;
     sidebarHTML += `<div style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #fde68a;border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:.65rem;color:#92400e">
       <div style="font-weight:700;margin-bottom:2px">📏 Measurements needed</div>
-      <div>${unmeasured} room${unmeasured !== 1 ? 's' : ''} still need${unmeasured === 1 ? 's' : ''} exact measurements. Use the Measure tool or double-click rooms to update dimensions from the blueprint.</div>
+      <div>${unmeasured} room${unmeasured !== 1 ? 's' : ''} still need${unmeasured === 1 ? 's' : ''} exact measurements.</div>
+      <button class="btn sml" style="margin-top:4px;font-size:.6rem" onclick="startMeasurementFlow()">📏 Start Guided Measurement</button>
     </div>`;
   }
   sidebarHTML += fl.rooms.map(r=>{
@@ -1136,6 +1148,7 @@ function rPlanSidebar() {
         <div class="room-dim">${wm}×${hm}m · ${needsMeas ? '<span style="color:#d97706">needs measuring</span>' : area+'m² · '+( occupancy?.pct || 0)+'% used'}</div>
       </div>
       ${items.length?`<span class="room-item-count" onclick="event.stopPropagation();showRoomItemsPanel('${r.id}')" title="View items for this room">${items.length}</span>`:''}
+      ${needsMeas?`<button class="btn sml icon" onclick="event.stopPropagation();openMeasureRoom('${r.id}')" title="Measure">📏</button>`:''}
       <button class="btn sml icon" onclick="event.stopPropagation();renameRoom('${r.id}')">✏️</button>
     </div>`;
   }).join('');
@@ -1579,6 +1592,57 @@ function resizePlanCanvas() {
 function rPlanUI() { syncFurnitureButtons(); renderFloorTabs(); renderPlan(); rPlanSidebar(); }
 
 // ── Place a buy item in floor plan ───────────────────────────
+function getPlanPlacementZone(item) {
+  return String(item?.placementZone || '').trim();
+}
+
+function clampPlacementCm(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getAnchoredPlacementForZone(zone, slotIndex, roomWidthCm, roomDepthCm, widthCm, depthCm, paddingCm, gapCm) {
+  const minX = paddingCm;
+  const maxX = Math.max(paddingCm, roomWidthCm - paddingCm - widthCm);
+  const minY = paddingCm;
+  const maxY = Math.max(paddingCm, roomDepthCm - paddingCm - depthCm);
+  const step = Math.max(10, gapCm);
+  const offset = slotIndex * step;
+  if (zone === 'top-left') {
+    return { xCm: clampPlacementCm(minX + offset, minX, maxX), yCm: clampPlacementCm(minY + offset, minY, maxY) };
+  }
+  if (zone === 'top-right') {
+    return { xCm: clampPlacementCm(maxX - offset, minX, maxX), yCm: clampPlacementCm(minY + offset, minY, maxY) };
+  }
+  if (zone === 'bottom-left') {
+    return { xCm: clampPlacementCm(minX + offset, minX, maxX), yCm: clampPlacementCm(maxY - offset, minY, maxY) };
+  }
+  if (zone === 'bottom-right') {
+    return { xCm: clampPlacementCm(maxX - offset, minX, maxX), yCm: clampPlacementCm(maxY - offset, minY, maxY) };
+  }
+  if (zone === 'top-wall') {
+    return { xCm: clampPlacementCm(minX + offset, minX, maxX), yCm: minY };
+  }
+  if (zone === 'bottom-wall') {
+    return { xCm: clampPlacementCm(minX + offset, minX, maxX), yCm: maxY };
+  }
+  if (zone === 'left-wall') {
+    return { xCm: minX, yCm: clampPlacementCm(minY + offset, minY, maxY) };
+  }
+  if (zone === 'right-wall') {
+    return { xCm: maxX, yCm: clampPlacementCm(minY + offset, minY, maxY) };
+  }
+  if (zone === 'center') {
+    const swing = Math.ceil(slotIndex / 2) * step;
+    const xShift = slotIndex === 0 ? 0 : (slotIndex % 2 ? swing : -swing);
+    const yShift = slotIndex === 0 ? 0 : (slotIndex % 2 ? -Math.max(8, Math.round(step / 2)) : Math.max(8, Math.round(step / 2)));
+    return {
+      xCm: clampPlacementCm(((roomWidthCm - widthCm) / 2) + xShift, minX, maxX),
+      yCm: clampPlacementCm(((roomDepthCm - depthCm) / 2) + yShift, minY, maxY)
+    };
+  }
+  return null;
+}
+
 function getAutoLayoutPlacementsForRoom(room, items) {
   const roomWidthCm = Math.max(80, Math.round((room.w / planState.scale) * 100));
   const roomDepthCm = Math.max(80, Math.round((room.h / planState.scale) * 100));
@@ -1587,13 +1651,20 @@ function getAutoLayoutPlacementsForRoom(room, items) {
   let cursorX = paddingCm;
   let cursorY = paddingCm;
   let rowDepth = 0;
+  const zoneCounts = {};
   return [...items]
     .filter(item => item.widthCm || item.depthCm)
-    .sort((a, b) => getItemFootprintSqm(b) - getItemFootprintSqm(a))
+    .sort((a, b) => {
+      const zoneA = getPlanPlacementZone(a) ? 1 : 0;
+      const zoneB = getPlanPlacementZone(b) ? 1 : 0;
+      if (zoneA !== zoneB) return zoneB - zoneA;
+      return getItemFootprintSqm(b) - getItemFootprintSqm(a);
+    })
     .map(item => {
       let widthCm = Number(item.widthCm) || Number(item.depthCm) || 60;
       let depthCm = Number(item.depthCm) || Number(item.widthCm) || 60;
       let rotated = false;
+      const zone = getPlanPlacementZone(item);
       const usableWidth = roomWidthCm - (paddingCm * 2);
       const usableDepth = roomDepthCm - (paddingCm * 2);
       const canNormal = widthCm <= usableWidth && depthCm <= usableDepth;
@@ -1601,6 +1672,14 @@ function getAutoLayoutPlacementsForRoom(room, items) {
       if (!canNormal && canRotated) {
         [widthCm, depthCm] = [depthCm, widthCm];
         rotated = true;
+      }
+      if (zone) {
+        const slotIndex = zoneCounts[zone] || 0;
+        zoneCounts[zone] = slotIndex + 1;
+        const anchored = getAnchoredPlacementForZone(zone, slotIndex, roomWidthCm, roomDepthCm, widthCm, depthCm, paddingCm, gapCm);
+        if (anchored) {
+          return { item, xCm: anchored.xCm, yCm: anchored.yCm, widthCm, depthCm, rotated };
+        }
       }
       if (cursorX + widthCm > roomWidthCm - paddingCm && cursorX > paddingCm) {
         cursorX = paddingCm;
@@ -1702,14 +1781,86 @@ function placeItemInPlan(itemId) {
   if (!room) { toast('Room not found on this floor — switch floors or link to another room','warn'); return; }
   const wPx=(it.widthCm||60)/100*planState.scale;
   const dPx=(it.depthCm||60)/100*planState.scale;
+  const preferredZone = getPlanPlacementZone(it);
+  const preferredPlacement = preferredZone ? getAutoLayoutPlacementsForRoom(room, [it])[0] : null;
   it.placedInPlan=true;
-  it.planX = room.x + (room.w-wPx)/2;
-  it.planY = room.y + (room.h-dPx)/2;
+  it.planX = preferredPlacement
+    ? room.x + ((preferredPlacement.xCm / 100) * planState.scale)
+    : room.x + (room.w-wPx)/2;
+  it.planY = preferredPlacement
+    ? room.y + ((preferredPlacement.yCm / 100) * planState.scale)
+    : room.y + (room.h-dPx)/2;
   it.planFloor=fl.id;
-  it.planRotated=false;
+  it.planRotated=Boolean(preferredPlacement?.rotated);
   updBuyItem(it);
   switchTab('plan');
   toast(it.name+' placed in floor plan 🏠','green');
   renderPlan();
   rPlanSidebar();
+}
+
+// ── Measurement flow ────────────────────────────────────────
+let _measFlowQueue = [];
+let _measFlowIdx = 0;
+
+function openMeasureRoom(roomId) {
+  const fl = getFloor();
+  const r = (fl.rooms || []).find(x => x.id === roomId);
+  if (!r) return;
+  const sc = planState.scale;
+  const nameEl = document.getElementById('measure-room-name');
+  if (nameEl) nameEl.textContent = (r.emoji || '') + ' ' + (r.label || 'Room');
+  fSet('meas-width', (r.w / sc).toFixed(2));
+  fSet('meas-depth', (r.h / sc).toFixed(2));
+  fSet('meas-room-id', roomId);
+  const preview = document.getElementById('meas-area-preview');
+  if (preview) preview.textContent = '';
+  const progEl = document.getElementById('meas-flow-progress');
+  if (progEl) progEl.textContent = _measFlowQueue.length > 0
+    ? `Room ${_measFlowIdx + 1} of ${_measFlowQueue.length}`
+    : '';
+  const nextBtn = document.getElementById('meas-next-btn');
+  if (nextBtn) nextBtn.style.display = (_measFlowQueue.length > 0 && _measFlowIdx < _measFlowQueue.length - 1) ? '' : 'none';
+  openModal('measure-room-modal');
+}
+
+function updateMeasPreview() {
+  const w = fNum('meas-width'), d = fNum('meas-depth');
+  const el = document.getElementById('meas-area-preview');
+  if (el && w > 0 && d > 0) el.textContent = '= ' + (w * d).toFixed(1) + ' m²';
+}
+
+function saveMeasureRoom() {
+  const roomId = fVal('meas-room-id');
+  const fl = getFloor();
+  const r = (fl.rooms || []).find(x => x.id === roomId);
+  if (!r) return;
+  const wM = fNum('meas-width'), dM = fNum('meas-depth');
+  if (wM <= 0 || dM <= 0) { toast('Enter valid measurements', 'red'); return; }
+  const sc = planState.scale;
+  r.w = Math.round(wM * sc);
+  r.h = Math.round(dM * sc);
+  r.area = Number((wM * dM).toFixed(2));
+  // Check if all rooms on this floor are now measured
+  const unmeasured = fl.rooms.filter(rm => !rm.area || rm.area === 0).length;
+  if (unmeasured === 0) fl.needsMeasurements = false;
+  savePlan(); renderPlan(); rPlanSidebar();
+  toast((r.label || 'Room') + ' measured ✅', 'green');
+  // Flow mode: advance to next
+  if (_measFlowQueue.length > 0 && _measFlowIdx < _measFlowQueue.length - 1) {
+    _measFlowIdx++;
+    openMeasureRoom(_measFlowQueue[_measFlowIdx]);
+  } else {
+    closeModal('measure-room-modal');
+    _measFlowQueue = [];
+    _measFlowIdx = 0;
+  }
+}
+
+function startMeasurementFlow() {
+  const fl = getFloor();
+  _measFlowQueue = (fl.rooms || []).filter(r => !r.area || r.area === 0).map(r => r.id);
+  _measFlowIdx = 0;
+  if (!_measFlowQueue.length) { toast('All rooms are measured!', 'green'); return; }
+  openMeasureRoom(_measFlowQueue[0]);
 }

@@ -6,6 +6,18 @@
 let _buyPros = [], _buyCons = [];
 let _editBuyPros = [], _editBuyCons = [];
 let _buySubtab = 'items';
+const BUY_PLACEMENT_ZONES = [
+  { k:'', l:'Auto / no preference', e:'✨' },
+  { k:'top-left', l:'Top-left corner', e:'↖️' },
+  { k:'top-right', l:'Top-right corner', e:'↗️' },
+  { k:'bottom-left', l:'Bottom-left corner', e:'↙️' },
+  { k:'bottom-right', l:'Bottom-right corner', e:'↘️' },
+  { k:'top-wall', l:'Top wall', e:'🧱' },
+  { k:'bottom-wall', l:'Bottom wall', e:'🧱' },
+  { k:'left-wall', l:'Left wall', e:'🧱' },
+  { k:'right-wall', l:'Right wall', e:'🧱' },
+  { k:'center', l:'Center', e:'🎯' },
+];
 
 function getItemDeliveryStage(item) {
   if (!item || normalizeItemSource(item.source) === 'existing') return '';
@@ -81,6 +93,71 @@ function renderMoveDecisionBadge(item) {
   return `<span class="badge" style="background:${meta.bg};color:${meta.fg}">${esc(meta.e)} ${esc(meta.l)}</span>`;
 }
 
+function normalizePlacementZone(zone) {
+  const key = String(zone || '').trim();
+  return BUY_PLACEMENT_ZONES.some(entry => entry.k === key) ? key : '';
+}
+
+function getPlacementZoneMeta(zone) {
+  return BUY_PLACEMENT_ZONES.find(entry => entry.k === normalizePlacementZone(zone)) || BUY_PLACEMENT_ZONES[0];
+}
+
+function getItemRoomImpactReport(item) {
+  if (typeof getRoomFitReport === 'function') return getRoomFitReport(item);
+  const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(item) : null;
+  return fit ? {
+    fits: fit.fits,
+    hasRoom: Boolean(item?.roomId),
+    freeSqm: fit.remainingAreaM2 || 0,
+    footprintSqm: getBuyItemFootprintSqm(item),
+    footprintPct: fit.footprintPct || 0,
+    widthSlackCm: 0,
+    depthSlackCm: 0,
+  } : null;
+}
+
+function formatRoomSlack(report) {
+  if (!report?.hasRoom) return 'Assign a room to calculate side slack.';
+  if (!report.fits && !report.widthSlackCm && !report.depthSlackCm) return 'Room fit needs measured room dimensions.';
+  const width = typeof report.widthSlackCm === 'number' ? `${report.widthSlackCm >= 0 ? '+' : ''}${report.widthSlackCm} cm W` : '';
+  const depth = typeof report.depthSlackCm === 'number' ? `${report.depthSlackCm >= 0 ? '+' : ''}${report.depthSlackCm} cm D` : '';
+  return [width, depth].filter(Boolean).join(' · ') || 'No side slack data';
+}
+
+function renderPlacementPlannerPanel(it) {
+  const room = getRoomById(it.roomId);
+  const zone = getPlacementZoneMeta(it.placementZone);
+  const report = getItemRoomImpactReport(it);
+  const occupancy = it.roomId && typeof getStoredRoomOccupancy === 'function'
+    ? getStoredRoomOccupancy(it.roomId)
+    : null;
+  const roomLine = report?.hasRoom
+    ? `${report.fits ? 'Fits' : 'Needs review'} · ${report.freeSqm?.toFixed?.(2) || '0.00'} m² left after this item`
+    : 'Assign a room to calculate impact on free space.';
+  const occupancyLine = occupancy?.areaSqm
+    ? `${occupancy.freeSqm.toFixed(2)} m² currently free in placed layout`
+    : 'No stored room occupancy yet.';
+  return `<div class="note-box" style="margin-bottom:10px;background:linear-gradient(135deg,#fff7ed 0%,#ffffff 48%,#eff6ff 100%)">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.74rem;font-weight:700;color:var(--bd)">📍 Placement planner</div>
+        <div style="font-size:.62rem;color:var(--bd3)">${room ? `${esc(room.emoji || '📦')} ${esc(room.label || it.roomId)}` : 'No room linked'} · ${esc(zone.e)} ${esc(zone.l)}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="chip">${esc(zone.e)} ${esc(zone.l)}</span>
+        ${it.placementNote ? `<span class="chip" style="background:var(--bg2);max-width:220px">${esc(trunc(it.placementNote, 42))}</span>` : ''}
+      </div>
+    </div>
+    <div style="font-size:.64rem;color:${report?.fits ? 'var(--gns)' : 'var(--bd2)'};margin-top:8px">${roomLine}</div>
+    <div style="font-size:.6rem;color:var(--bd3);margin-top:4px">${formatRoomSlack(report)}</div>
+    <div style="font-size:.6rem;color:var(--bd3);margin-top:2px">${occupancyLine}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <button class="btn sml" onclick="placeItemInPlan('${it.id}')">📐 Place with preference</button>
+      ${it.roomId ? `<button class="btn sml" onclick="openRoomInPlanOptimizer('${it.roomId}')">🧠 Open room optimizer</button>` : ''}
+    </div>
+  </div>`;
+}
+
 // ── BUDGET BAR ──────────────────────────────────────────────
 function rBuyBudget() {
   const b   = getBudgetStats();
@@ -138,7 +215,7 @@ function updateMaxBudget(v) {
 function rBuyList() {
   const items   = ldBuy();
   const settings= ldSettings();
-  const names   = settings.names||{M:'Mari',A:'Alexander'};
+  const names   = settings.names||{M:'Mari',A:'Alex'};
   const q       = document.getElementById('buy-search')?.value.toLowerCase()||'';
   const roomF   = getPillVal('buy','room');
   const catF    = getPillVal('buy','cat');
@@ -372,10 +449,11 @@ function quickShortlist(itemId) {
 function openItemDetail(id) {
   const it = getBuyItem(id); if(!it) return;
   const settings = ldSettings();
-  const names    = settings.names||{M:'Mari',A:'Alexander'};
+  const names    = settings.names||{M:'Mari',A:'Alex'};
   const room     = getRoomById(it.roomId);
   const sourceMeta = getItemSourceMeta(it.source);
   const moveDecisionMeta = getMoveDecisionMeta(it.source, it.moveDecision);
+  const placementMeta = getPlacementZoneMeta(it.placementZone);
   const cat      = getCatByKey(it.category);
   const statusConf = ITEM_STATUSES.find(s=>s.k===it.itemStatus)||ITEM_STATUSES[0];
   const deliveryStage = getItemDeliveryStage(it);
@@ -423,6 +501,8 @@ function openItemDetail(id) {
       ${room?`<div class="info-item"><span class="info-lbl">Room</span><span class="info-val">${room.emoji} ${esc(room.label)}</span></div>`:''}
       ${it.optionGroup?`<div class="info-item"><span class="info-lbl">Option group</span><span class="info-val">${esc(it.optionGroup)}</span></div>`:''}
       ${it.roomRole==='must'?`<div class="info-item"><span class="info-lbl">Room role</span><span class="info-val">📍 Must place</span></div>`:''}
+      ${(it.placementZone || it.placementNote) ? `<div class="info-item"><span class="info-lbl">Placement</span><span class="info-val">${esc(placementMeta.e)} ${esc(placementMeta.l)}</span></div>` : ''}
+      ${it.placementNote ? `<div class="info-item"><span class="info-lbl">Placement note</span><span class="info-val">${esc(it.placementNote)}</span></div>` : ''}
       ${it.energyRating?`<div class="info-item"><span class="info-lbl">Energy</span><span class="info-val">${energyBadge(it.energyRating)}</span></div>`:''}
       ${it.color?`<div class="info-item"><span class="info-lbl">Color</span><span class="info-val">${esc(it.color)}</span></div>`:''}
       ${it.material?`<div class="info-item"><span class="info-lbl">Material</span><span class="info-val">${esc(it.material)}</span></div>`:''}
@@ -483,8 +563,8 @@ function openItemDetail(id) {
 
     ${it.notes?`<div class="note-box" style="margin-bottom:10px">${esc(it.notes)}</div>`:''}
 
-    <!-- Price Sources -->
-    ${renderPriceSources(it)}
+    <!-- Placement intelligence -->
+    ${renderPlacementPlannerPanel(it)}
 
     <!-- Store info -->
     ${it.store?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:8px">
@@ -634,6 +714,8 @@ function addBuyItemFromForm() {
     deliveryDate: fVal('b-delivery-date'),
     priceSources: [],
     roomRole: fVal('b-room-role') || 'candidate',
+    placementZone: normalizePlacementZone(fVal('b-placement-zone')),
+    placementNote: fVal('b-placement-note'),
     widthCm:  fNum('b-width'),
     depthCm:  fNum('b-depth'),
     heightCm: fNum('b-height'),
@@ -680,6 +762,8 @@ function openEditItem(id) {
   fSet('be-orig-price',it.originalPrice||''); fSet('be-buylink',it.buyLink||'');
   fSet('be-altlink',it.altLink||''); fSet('be-width',it.widthCm||'');
   fSet('be-option-group',it.optionGroup||''); fSet('be-room-role',it.roomRole||'candidate');
+  fSet('be-placement-zone',normalizePlacementZone(it.placementZone));
+  fSet('be-placement-note',it.placementNote||'');
   fSet('be-store',it.store||''); fSet('be-store-url',it.storeUrl||'');
   fSet('be-qty',it.quantity||1); fSet('be-avail',it.availability||'');
   fSet('be-delivery-status',getItemDeliveryStage(it)||'');
@@ -713,6 +797,8 @@ function saveBuyEdit() {
   it.prio=fVal('be-prio'); it.price=fNum('be-price'); it.originalPrice=fNum('be-orig-price');
   it.buyLink=fVal('be-buylink'); it.altLink=fVal('be-altlink');
   it.optionGroup=fVal('be-option-group'); it.roomRole=fVal('be-room-role')||'candidate';
+  it.placementZone=normalizePlacementZone(fVal('be-placement-zone'));
+  it.placementNote=fVal('be-placement-note');
   it.store=fVal('be-store'); it.storeUrl=fVal('be-store-url');
   it.quantity=fNum('be-qty')||1; it.availability=fVal('be-avail');
   it.deliveryStatus=fVal('be-delivery-status');
@@ -882,7 +968,7 @@ function rCompareModal() {
   const items = [..._compareIds].map(id=>resolveCompareItem(id)).filter(Boolean);
   if(!items.length) return;
   const el=document.getElementById('compare-modal-content'); if(!el) return;
-  const settings=ldSettings(); const names=settings.names||{M:'Mari',A:'Alexander'};
+  const settings=ldSettings(); const names=settings.names||{M:'Mari',A:'Alex'};
 
   // Score each item
   items.forEach(it=>{
@@ -894,9 +980,31 @@ function rCompareModal() {
   });
   const maxScore=Math.max(...items.map(i=>i._score));
   const minPrice=Math.min(...items.filter(i=>i.price>0).map(i=>i.price));
+  const maxPrice=Math.max(...items.filter(i=>i.price>0).map(i=>i.price));
+  const priceSpread=(Number.isFinite(maxPrice) && Number.isFinite(minPrice)) ? Math.max(0, maxPrice - minPrice) : 0;
+  const roomReports = items.map(it => ({ item: it, report: getItemRoomImpactReport(it) }));
+  const bestFreeSqm = roomReports
+    .filter(entry => entry.report?.hasRoom && typeof entry.report.freeSqm === 'number' && entry.report.fits)
+    .reduce((best, entry) => Math.max(best, entry.report.freeSqm), 0);
+  const footprintValues = items.map(it => getBuyItemFootprintSqm(it)).filter(value => value > 0);
+  const minFootprint = footprintValues.length ? Math.min(...footprintValues) : 0;
 
   // Cards
   el.innerHTML = `
+    <div class="note-box" style="margin-bottom:10px;background:linear-gradient(135deg,#fff7ed 0%,#ffffff 44%,#eff6ff 100%)">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.8rem;font-weight:700;color:var(--bd)">⚖️ Side-by-side decision cockpit</div>
+          <div style="font-size:.62rem;color:var(--bd3)">Compare price, room fit, free space left, slack to walls, and preferred placement before you lock a scenario pick.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div class="mini-stat"><div class="ms-num">${items.length}</div><div class="ms-lbl">Options</div></div>
+          <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${priceSpread ? fmtEur(priceSpread,0) : '—'}</div><div class="ms-lbl">Price spread</div></div>
+          <div class="mini-stat"><div class="ms-num">${minFootprint ? minFootprint.toFixed(2) : '—'}</div><div class="ms-lbl">Smallest m²</div></div>
+          <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${bestFreeSqm ? bestFreeSqm.toFixed(2) : '—'}</div><div class="ms-lbl">Most free m²</div></div>
+        </div>
+      </div>
+    </div>
     <div class="compare-modal-grid">
       ${items.map(it=>{
         const isWinner=it._score===maxScore&&maxScore>0;
@@ -904,7 +1012,12 @@ function rCompareModal() {
         const photo=it.photos?.[0]||'';
         const room=getRoomById(it.roomId);
         const fit=typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
+        const report=getItemRoomImpactReport(it);
+        const placementMeta=getPlacementZoneMeta(it.placementZone);
         const picked=typeof isCmpScenarioSelected === 'function' ? isCmpScenarioSelected(it) : false;
+        const isBestSpace = report?.hasRoom && report.fits && Math.abs((report.freeSqm || 0) - bestFreeSqm) < 0.001 && bestFreeSqm > 0;
+        const footprint = getBuyItemFootprintSqm(it);
+        const isSmallestFootprint = footprint > 0 && Math.abs(footprint - minFootprint) < 0.001;
         return `<div class="cmp-card ${isWinner?'winner':''}">
           ${photo?`<img src="${esc(photo)}" class="cmp-card-img">`:`<div class="cmp-card-img" style="display:flex;align-items:center;justify-content:center;font-size:3rem;background:var(--bg2)">📦</div>`}
           <div class="cmp-card-body">
@@ -914,6 +1027,11 @@ function rCompareModal() {
             ${it.availability?`<div style="margin-top:2px">${typeof availabilityBadge==='function'?availabilityBadge(it.availability):esc(it.availability)}</div>`:''}
             ${it.roomId?`<div style="font-size:.62rem;color:var(--bd3);margin-top:2px">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
             ${picked?`<div style="margin-top:4px"><span class="badge green">✅ Scenario pick</span></div>`:''}
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+              ${isBestSpace ? '<span class="badge green">🫧 Most free space</span>' : ''}
+              ${isSmallestFootprint ? '<span class="badge blue">📐 Smallest footprint</span>' : ''}
+              ${(it.placementZone || it.placementNote) ? `<span class="badge">${esc(placementMeta.e)} ${esc(placementMeta.l)}</span>` : ''}
+            </div>
             <div style="display:flex;justify-content:space-between;margin:5px 0;font-size:.8rem">
               <strong style="color:${isCheap?'var(--gn)':'var(--pk)'}">${it.price?fmtEur(it.price):'–'}</strong>
               ${isCheap?'<span class="badge green">💰 Cheapest</span>':''}
@@ -922,7 +1040,8 @@ function rCompareModal() {
             <div style="font-size:.65rem;color:var(--bd3);margin-bottom:4px">Score: ${it._score.toFixed(1)}/10</div>
             <div class="cmp-score-bar"><div class="cmp-score-fill" style="width:${it._score*10}%"></div></div>
             ${dimStr(it)?`<div style="font-size:.62rem;color:var(--bd3);margin-top:4px">📐 ${esc(dimStr(it))}</div>`:''}
-            ${fit?`<div style="font-size:.62rem;color:${fit.fits?'var(--gns)':'var(--pk)'};margin-top:4px">${fit.fits ? `✅ ${fit.footprintPct}% of room` : '❌ Too large for room'}</div>`:''}
+            ${report?.hasRoom ? `<div style="font-size:.62rem;color:${report.fits?'var(--gns)':'var(--pk)'};margin-top:4px">${report.fits ? `✅ ${report.freeSqm.toFixed(2)} m² left · ${report.footprintPct}% of room` : `❌ ${formatRoomSlack(report)}`}</div>` : ''}
+            ${(it.placementZone || it.placementNote) ? `<div style="font-size:.58rem;color:var(--bd3);margin-top:3px">📍 ${esc(placementMeta.l)}${it.placementNote ? ` · ${esc(trunc(it.placementNote, 30))}` : ''}</div>` : ''}
             ${it.energyRating?`<div style="margin-top:3px">${energyBadge(it.energyRating)}</div>`:''}
             <div style="margin-top:5px">
               <div style="font-size:.6rem;font-weight:700;color:var(--gns);margin-bottom:2px">✅ Pros</div>
@@ -955,7 +1074,11 @@ function rCompareModal() {
         <tbody>
           <tr><td class="feat-cell">Price</td>${items.map(it=>`<td class="${it.price===minPrice&&it.price>0?'best':''}">${it.price?fmtEur(it.price):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">W × D × H</td>${items.map(it=>`<td>${dimStr(it)||'–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Footprint</td>${items.map(it=>`<td>${getBuyItemFootprintSqm(it) ? `${getBuyItemFootprintSqm(it).toFixed(2)} m²` : '–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Room fit</td>${items.map(it=>`<td>${typeof renderCmpFitText === 'function' ? renderCmpFitText(it) : '–'}</td>`).join('')}</tr>
+          <tr><td class="feat-cell">Free room area</td>${items.map(it=>{ const report=getItemRoomImpactReport(it); return `<td>${report?.hasRoom ? (report.fits ? `${report.freeSqm.toFixed(2)} m² left` : 'Needs review') : '–'}</td>`; }).join('')}</tr>
+          <tr><td class="feat-cell">Wall slack</td>${items.map(it=>{ const report=getItemRoomImpactReport(it); return `<td>${report?.hasRoom ? esc(formatRoomSlack(report)) : '–'}</td>`; }).join('')}</tr>
+          <tr><td class="feat-cell">Placement wish</td>${items.map(it=>{ const meta=getPlacementZoneMeta(it.placementZone); return `<td>${it.placementZone || it.placementNote ? `${esc(meta.e)} ${esc(meta.l)}${it.placementNote ? `<div style="font-size:.55rem;color:var(--bd3);margin-top:2px">${esc(trunc(it.placementNote, 30))}</div>` : ''}` : '–'}</td>`; }).join('')}</tr>
           <tr><td class="feat-cell">Energy</td>${items.map(it=>`<td>${it.energyRating?energyBadge(it.energyRating):'–'}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Store</td>${items.map(it=>`<td>${it.store?esc(it.store):'–'}${it.storeUrl?` <a href="${esc(it.storeUrl)}" target="_blank">🔗</a>`:''}</td>`).join('')}</tr>
           <tr><td class="feat-cell">Availability</td>${items.map(it=>`<td>${it.availability&&typeof availabilityBadge==='function'?availabilityBadge(it.availability):'–'}</td>`).join('')}</tr>
@@ -1796,7 +1919,7 @@ function renderRoom3DVariant(room, title, items, accent, metaText, noteText) {
       <path d="${leftWallPath}" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2"></path>
       <path d="${rightWallPath}" fill="#eef2ff" stroke="#cbd5e1" stroke-width="1.2"></path>
       <path d="${floorPath}" fill="url(#room-floor-${esc(title).replace(/[^a-z0-9]/gi,'').toLowerCase()})" stroke="#94a3b8" stroke-width="1.4"></path>
-      ${blocks || `<text x="180" y="145" text-anchor="middle" font-size="12" fill="#64748b">Add measured items in this room to generate a pseudo-3D layout.</text>`}
+      ${blocks || `<text x="180" y="145" text-anchor="middle" font-size="12" fill="#64748b">Add measured items in this room to generate a room layout preview.</text>`}
       <text x="48" y="32" font-size="11" fill="#475569">${dims.widthM.toFixed(2)} m wide</text>
       <text x="244" y="56" font-size="11" fill="#475569">${dims.depthM.toFixed(2)} m deep</text>
     </svg>
@@ -1891,7 +2014,7 @@ function rRoom3D() {
   if (!el) return;
   const rooms = getAllRooms().filter(room => ldBuy().some(item => item.roomId === room.id));
   if (!rooms.length) {
-    el.innerHTML = '<div class="empty"><div class="ei">🧊</div>Add room-assigned furniture with dimensions to generate a pseudo-3D preview.</div>';
+    el.innerHTML = '<div class="empty"><div class="ei">🧊</div>Add room-assigned furniture with dimensions to generate a room preview.</div>';
     return;
   }
   const roomOptions = rooms.map(room => ({ k: room.id, l: room.label || room.id, e: room.emoji || '📦' }));
@@ -1906,8 +2029,8 @@ function rRoom3D() {
   html += `<div class="note-box" style="margin-bottom:10px;background:linear-gradient(135deg,#fff7ed 0%,#ffffff 42%,#eff6ff 100%)">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
       <div>
-        <div style="font-size:.82rem;font-weight:700;color:var(--bd)">🧊 Pseudo-3D Room Preview</div>
-        <div style="font-size:.62rem;color:var(--bd3)">A quick isometric layout based on your measurements, shortlist picks, and best free-space combo. This complements the exact 2D blueprint planner; it does not replace true 3D modeling.</div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--bd)">🧊 Room Preview</div>
+        <div style="font-size:.62rem;color:var(--bd3)">A quick isometric layout based on your measurements, shortlist picks, and best free-space combo. This complements the exact 2D blueprint planner.</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <div class="mini-stat"><div class="ms-num">${selectedItems.length}</div><div class="ms-lbl">Current picks</div></div>
@@ -2013,6 +2136,7 @@ function rShoppingHub() {
         <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--pk)">Shopping Hub</div>
         <div style="font-size:.62rem;color:var(--bd3)">All your items organized by store</div>
       </div>
+      <button class="btn sml pri" onclick="printShoppingList()" style="margin-left:auto">🖨️ Print List</button>
     </div>
     <div class="mini-stats">
       <div class="mini-stat"><div class="ms-num">${storeCount}</div><div class="ms-lbl">Stores</div></div>

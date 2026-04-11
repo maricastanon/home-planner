@@ -2,7 +2,7 @@
 // moving.js — Moving companies + move-day checklist
 // ============================================================
 
-function rMove() { initPillFilter('move','status',''); rMoveFilters(); rMoveStats(); rMoveList(); rMoveChecklist(); }
+function rMove() { initPillFilter('move','status',''); rMoveFilters(); rMoveStats(); rMoveList(); rUtilities(); rMoveChecklist(); rTimeline(); rKeys(); }
 
 function rMoveStats() {
   const companies=ldMove(), el=document.getElementById('move-stats'); if(!el) return;
@@ -171,21 +171,21 @@ function deleteMoverDoc(cid,did) {
 
 // Move-day checklist
 const DEF_CHECKLIST=[
-  {id:'mc1',cat:'Before',text:'Get moving boxes',done:false},
-  {id:'mc2',cat:'Before',text:'Request no-parking zone permit',done:false},
-  {id:'mc3',cat:'Before',text:'Set up mail forwarding',done:false},
-  {id:'mc4',cat:'Before',text:'Register electricity / gas at new address',done:false},
-  {id:'mc5',cat:'Before',text:'Transfer internet / phone',done:false},
-  {id:'mc6',cat:'Before',text:'Update address at bank',done:false},
-  {id:'mc7',cat:'Before',text:'Update health insurance address',done:false},
-  {id:'mc8',cat:'Before',text:'Register new address (Einwohnermeldeamt)',done:false},
-  {id:'mc9',cat:'Moving Day',text:'Read meters at old flat',done:false},
-  {id:'mc10',cat:'Moving Day',text:'Read meters at new flat',done:false},
-  {id:'mc11',cat:'Moving Day',text:'Handover protocol at old flat',done:false},
-  {id:'mc12',cat:'Moving Day',text:'Handover protocol at new flat',done:false},
-  {id:'mc13',cat:'Moving Day',text:'Hand over old flat keys',done:false},
-  {id:'mc14',cat:'After',text:'Unpack all boxes',done:false},
-  {id:'mc15',cat:'After',text:'Assemble all furniture',done:false},
+  {id:'mc1',cat:'Before',text:'Get moving boxes',done:false,assignee:'Both'},
+  {id:'mc2',cat:'Before',text:'Request no-parking zone permit',done:false,assignee:'A'},
+  {id:'mc3',cat:'Before',text:'Set up mail forwarding',done:false,assignee:'M'},
+  {id:'mc4',cat:'Before',text:'Register electricity / gas at new address',done:false,assignee:'A'},
+  {id:'mc5',cat:'Before',text:'Transfer internet / phone',done:false,assignee:'A'},
+  {id:'mc6',cat:'Before',text:'Update address at bank',done:false,assignee:'Both'},
+  {id:'mc7',cat:'Before',text:'Update health insurance address',done:false,assignee:'Both'},
+  {id:'mc8',cat:'Before',text:'Register new address (Einwohnermeldeamt)',done:false,assignee:'Both'},
+  {id:'mc9',cat:'Moving Day',text:'Read meters at old flat',done:false,assignee:'A'},
+  {id:'mc10',cat:'Moving Day',text:'Read meters at new flat',done:false,assignee:'A'},
+  {id:'mc11',cat:'Moving Day',text:'Handover protocol at old flat',done:false,assignee:'Both'},
+  {id:'mc12',cat:'Moving Day',text:'Handover protocol at new flat',done:false,assignee:'Both'},
+  {id:'mc13',cat:'Moving Day',text:'Hand over old flat keys',done:false,assignee:'Both'},
+  {id:'mc14',cat:'After',text:'Unpack all boxes',done:false,assignee:'Both'},
+  {id:'mc15',cat:'After',text:'Assemble all furniture',done:false,assignee:'Both'},
 ];
 function ldMoveCL() { return ld(K.movecl,null)||DEF_CHECKLIST; }
 function svMoveCL(d) { sv(K.movecl,d); }
@@ -200,16 +200,18 @@ function rMoveChecklist() {
   h+=Object.entries(groups).map(([cat,items])=>`
     <div style="margin-bottom:10px">
       <div style="font-size:.7rem;font-weight:700;color:var(--pk);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px">${esc(cat)}</div>
-      ${items.map(it=>`<div class="check-item ${it.done?'done':''}">
+      ${items.map(it=>{const om=getOwnerMeta(it.assignee||'Both');return `<div class="check-item ${it.done?'done':''}">
         <input type="checkbox" ${it.done?'checked':''} onchange="toggleMoveCL('${it.id}',this.checked)">
         <label class="check-label" onclick="toggleMoveCL('${it.id}',${!it.done})">${esc(it.text)}</label>
+        <span style="font-size:.55rem;color:var(--bd3)">${om.e}</span>
         <button class="btn sml icon" onclick="deleteMoveCL('${it.id}')">✕</button>
-      </div>`).join('')}
+      </div>`;}).join('')}
     </div>`).join('');
   h+=`<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
     <select id="mc-cat" style="font-size:.72rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:10px">
       <option>Before</option><option>Moving Day</option><option>After</option>
     </select>
+    <select id="mc-assignee" style="font-size:.72rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:10px">${buildOwnerOptions('Both')}</select>
     <input id="mc-text" placeholder="New task..." style="flex:1;font-size:.75rem;padding:5px 10px;border:1.5px solid var(--border);border-radius:10px;min-width:120px">
     <button class="btn pri sml" onclick="addMoveCL()">+ Add</button>
   </div>`;
@@ -217,14 +219,14 @@ function rMoveChecklist() {
 }
 function toggleMoveCL(id,done) { const l=ldMoveCL();const it=l.find(x=>x.id===id);if(it){it.done=done;svMoveCL(l);rMoveChecklist();} }
 function deleteMoveCL(id) { svMoveCL(ldMoveCL().filter(x=>x.id!==id));rMoveChecklist(); }
-function addMoveCL() { const text=fVal('mc-text');if(!text)return;const l=ldMoveCL();l.push({id:uid(),cat:document.getElementById('mc-cat')?.value||'Before',text,done:false});svMoveCL(l);fClear('mc-text');rMoveChecklist(); }
+function addMoveCL() { const text=fVal('mc-text');if(!text)return;const l=ldMoveCL();l.push({id:uid(),cat:document.getElementById('mc-cat')?.value||'Before',text,done:false,assignee:fVal('mc-assignee')||'Both'});svMoveCL(l);fClear('mc-text');rMoveChecklist(); }
 
 
 // ============================================================
 // take.js — Packing list + boxes
 // ============================================================
 
-function rTake() { rTakeFilters(); rTakeStats(); rTakeList(); rBoxList(); }
+function rTake() { rTakeFilters(); rTakeStats(); rTakeList(); rBoxList(); rWalkthrough(); }
 
 function rTakeStats() {
   const items=ldTake(), el=document.getElementById('take-stats'); if(!el) return;
@@ -609,7 +611,7 @@ function renderCmpGroup(cat,items) {
   items.forEach(it=>{ it._score=calcCmpScore(it); });
   const maxS=Math.max(...items.map(i=>i._score));
   const minP=Math.min(...items.filter(i=>i.price>0).map(i=>i.price)||[Infinity]);
-  const settings=ldSettings();const names=settings.names||{M:'Mari',A:'Alexander'};
+  const settings=ldSettings();const names=settings.names||{M:'Mari',A:'Alex'};
   return `<div class="cmp-group">
     <div class="cmp-group-hdr">
       <span>${esc(cat)} <span style="font-size:.7rem;opacity:.75">${items.length} options</span></span>
@@ -733,4 +735,412 @@ function openCmpModal(cat) {
   if(!items.length)return;
   setCompareContext(items.map(i=>i.id), 'cmp');
   rCompareModal();openModal('compare-modal');
+}
+
+
+// ============================================================
+// timeline.js — Move Timeline
+// ============================================================
+
+const DEF_TIMELINE = [
+  {id:'tl1',  title:'Cancel old internet provider',        date:'', assignee:'A',    category:'Before', done:false, notes:''},
+  {id:'tl2',  title:'Set up new internet',                 date:'', assignee:'A',    category:'Before', done:false, notes:''},
+  {id:'tl3',  title:'Set up mail forwarding (Nachsendeauftrag)', date:'', assignee:'M', category:'Before', done:false, notes:''},
+  {id:'tl4',  title:'Cancel / transfer gym membership',   date:'', assignee:'Both', category:'Before', done:false, notes:''},
+  {id:'tl5',  title:'Update address at employer',          date:'', assignee:'Both', category:'Before', done:false, notes:''},
+  {id:'tl6',  title:'Pack non-essentials (books, decor)',  date:'', assignee:'Both', category:'Before', done:false, notes:''},
+  {id:'tl7',  title:'Arrange cleaning for old apartment',  date:'', assignee:'M',    category:'Before', done:false, notes:''},
+  {id:'tl8',  title:'Pack kitchen',                        date:'', assignee:'Both', category:'Moving Week', done:false, notes:''},
+  {id:'tl9',  title:'Pack bedroom & clothes',              date:'', assignee:'Both', category:'Moving Week', done:false, notes:''},
+  {id:'tl10', title:'Defrost fridge / freezer',            date:'', assignee:'M',    category:'Moving Week', done:false, notes:''},
+  {id:'tl11', title:'Register new address (Einwohnermeldeamt)', date:'', assignee:'Both', category:'After', done:false, notes:''},
+  {id:'tl12', title:'Update address at bank & insurance',  date:'', assignee:'Both', category:'After', done:false, notes:''},
+  {id:'tl13', title:'Update vehicle registration',         date:'', assignee:'A',    category:'After', done:false, notes:''},
+  {id:'tl14', title:'Housewarming party!',                 date:'', assignee:'Both', category:'After', done:false, notes:'🎉'},
+];
+
+function getTimeline() {
+  return ldTimeline() || DEF_TIMELINE.map(t => ({...t, id: t.id || uid()}));
+}
+
+function rTimeline() {
+  const el = document.getElementById('move-timeline'); if (!el) return;
+  initPillFilter('timeline', 'assignee', '');
+  const list = getTimeline();
+  const af = getPillVal('timeline', 'assignee');
+  const filtered = af ? list.filter(t => normalizeOwnerValue(t.assignee) === af) : list;
+
+  // Filter pills
+  const filterEl = document.getElementById('timeline-filter-assignee');
+  if (filterEl) {
+    filterEl.innerHTML = buildPillFilters('timeline', 'assignee', getOwnerOptions(), rTimeline, { allowAll: true });
+  }
+
+  if (!filtered.length) { el.innerHTML = '<div class="empty" style="padding:12px"><div class="ei">📅</div>No timeline tasks yet</div>'; return; }
+
+  const done = filtered.filter(t => t.done).length;
+  let h = `<div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:700;margin-bottom:3px">
+      <span>Progress: ${done}/${filtered.length}</span><span style="color:var(--pk)">${Math.round(done/filtered.length*100)}%</span>
+    </div>${progressBar(Math.round(done/filtered.length*100))}</div>`;
+
+  const groups = {};
+  filtered.forEach(t => { (groups[t.category] = groups[t.category] || []).push(t); });
+  const catOrder = ['Before', 'Moving Week', 'After'];
+  const catEmoji = { Before: '📋', 'Moving Week': '🚚', After: '🏠' };
+
+  catOrder.forEach(cat => {
+    const items = groups[cat]; if (!items) return;
+    const sorted = [...items].sort((a, b) => {
+      if (a.date && b.date) return a.date.localeCompare(b.date);
+      if (a.date) return -1; if (b.date) return 1;
+      return 0;
+    });
+    h += `<div style="margin-bottom:10px">
+      <div style="font-size:.7rem;font-weight:700;color:var(--pk);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px">${catEmoji[cat] || '📋'} ${esc(cat)}</div>`;
+    sorted.forEach(t => {
+      const om = getOwnerMeta(t.assignee);
+      h += `<div class="check-item ${t.done ? 'done' : ''}" style="border-left:3px solid ${t.done ? 'var(--gn)' : 'var(--border)'}; padding-left:6px">
+        <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTimeline('${t.id}',this.checked)">
+        <div style="flex:1">
+          <span class="check-label" onclick="toggleTimeline('${t.id}',${!t.done})">${esc(t.title)}</span>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:1px">
+            ${t.date ? `<span style="font-size:.55rem;color:var(--bd3)">📅 ${fmtDate(t.date)}</span>` : ''}
+            <span style="font-size:.55rem">${om.e} ${esc(om.l)}</span>
+            ${t.notes ? `<span style="font-size:.55rem;color:var(--bd3)">${esc(trunc(t.notes, 20))}</span>` : ''}
+          </div>
+        </div>
+        <button class="btn sml icon" onclick="editTimelineTask('${t.id}')">✏️</button>
+        <button class="btn sml icon" onclick="confirmDlg('Delete task?',()=>{delTimelineItem('${t.id}');rTimeline();})">✕</button>
+      </div>`;
+    });
+    h += '</div>';
+  });
+  el.innerHTML = h;
+}
+
+function toggleTimeline(id, done) {
+  const list = getTimeline();
+  const t = list.find(x => x.id === id);
+  if (!t) return;
+  t.done = done;
+  svTimeline(list);
+  rTimeline();
+  if (done) toast('Done ✅', 'green', 1500);
+}
+
+function addTimelineFromForm() {
+  const title = fVal('tl-title');
+  if (!title) { toast('Please enter a task', 'red'); return; }
+  syncOwnerSelect('tl-assignee', { fallbackValue: 'Both' });
+  const t = {
+    id: uid(), title, date: fVal('tl-date'), assignee: normalizeOwnerValue(fVal('tl-assignee') || 'Both'),
+    category: fVal('tl-cat') || 'Before', done: false, notes: fVal('tl-notes'), created: Date.now()
+  };
+  const list = getTimeline();
+  list.push(t);
+  svTimeline(list);
+  logActivity('timeline', 'add', title);
+  closeModal('timeline-add-modal');
+  fClear('tl-title', 'tl-date', 'tl-notes');
+  rTimeline();
+  toast(title + ' added 📅', 'green');
+}
+
+function editTimelineTask(id) {
+  const t = (getTimeline()).find(x => x.id === id); if (!t) return;
+  fSet('tle-id', id); fSet('tle-title', t.title); fSet('tle-date', t.date || '');
+  fSet('tle-cat', t.category || 'Before'); fSet('tle-notes', t.notes || '');
+  syncOwnerSelect('tle-assignee', { fallbackValue: 'Both', selected: t.assignee || 'Both' });
+  openModal('timeline-edit-modal');
+}
+
+function saveTimelineEdit() {
+  const id = fVal('tle-id');
+  const list = getTimeline();
+  const t = list.find(x => x.id === id); if (!t) return;
+  t.title = fVal('tle-title') || t.title;
+  t.date = fVal('tle-date');
+  t.assignee = normalizeOwnerValue(fVal('tle-assignee') || 'Both');
+  t.category = fVal('tle-cat') || t.category;
+  t.notes = fVal('tle-notes');
+  svTimeline(list);
+  logActivity('timeline', 'update', t.title);
+  closeModal('timeline-edit-modal');
+  rTimeline();
+  toast('Saved ✅', 'green');
+}
+
+
+// ============================================================
+// utilities.js — Utility Setup Tracker
+// ============================================================
+
+const UTILITY_TYPES = [
+  { k:'internet',     l:'Internet',        e:'🌐' },
+  { k:'electricity',  l:'Electricity',     e:'⚡' },
+  { k:'gas',          l:'Gas',             e:'🔥' },
+  { k:'water',        l:'Water',           e:'💧' },
+  { k:'insurance',    l:'Insurance',       e:'🛡️' },
+  { k:'mail',         l:'Mail Forwarding', e:'📬' },
+  { k:'address',      l:'Address Change',  e:'🏠' },
+  { k:'phone',        l:'Phone Contract',  e:'📱' },
+  { k:'gez',          l:'GEZ / Broadcasting', e:'📺' },
+];
+function getUtilTypeMeta(k) { return UTILITY_TYPES.find(t => t.k === k) || { k, l: k, e: '📋' }; }
+
+function rUtilities() {
+  const el = document.getElementById('util-list'); if (!el) return;
+  const items = ldUtil();
+  if (!items.length) {
+    el.innerHTML = '<div class="empty" style="padding:10px"><div class="ei">🔌</div>No utilities tracked yet</div>';
+    return;
+  }
+  const done = items.filter(i => i.status === 'done').length;
+  const statusColors = { todo: '#6b7280', 'in-progress': '#d97706', done: '#15803d' };
+  const statusLabels = { todo: 'To Do', 'in-progress': 'In Progress', done: 'Done ✅' };
+  let h = `<div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:700;margin-bottom:3px">
+      <span>${done}/${items.length} done</span><span style="color:var(--pk)">${Math.round(done/items.length*100)}%</span>
+    </div>${progressBar(Math.round(done/items.length*100),'var(--gn)')}</div>`;
+  items.forEach(it => {
+    const tm = getUtilTypeMeta(it.type);
+    const om = getOwnerMeta(it.assignee);
+    const sc = statusColors[it.status] || '#6b7280';
+    h += `<div class="card" style="margin-bottom:6px">
+      <div class="card-h" onclick="togCard('util-${it.id}')">
+        <div style="flex:1">
+          <div class="card-title">${tm.e} ${esc(tm.l)}</div>
+          <div class="card-sub">${it.oldProvider ? esc(it.oldProvider) + ' → ' : ''}${esc(it.newProvider || '')} ${om.e}</div>
+        </div>
+        <span class="badge" style="background:${sc}22;color:${sc}">${esc(statusLabels[it.status] || it.status)}</span>
+        <span class="chev">▼</span>
+      </div>
+      <div class="card-body">
+        <div class="info-grid">
+          ${it.cancelDate ? `<div class="info-item"><span class="info-lbl">Cancel by</span><span class="info-val">${fmtDate(it.cancelDate)}</span></div>` : ''}
+          ${it.startDate ? `<div class="info-item"><span class="info-lbl">Start date</span><span class="info-val">${fmtDate(it.startDate)}</span></div>` : ''}
+          ${it.accountNo ? `<div class="info-item"><span class="info-lbl">Account #</span><span class="info-val">${esc(it.accountNo)}</span></div>` : ''}
+        </div>
+        ${it.notes ? `<div class="note-box">${esc(it.notes)}</div>` : ''}
+        <div class="card-actions">
+          <select class="btn sml" onchange="changeUtilStatus('${it.id}',this.value)">
+            <option value="todo" ${it.status === 'todo' ? 'selected' : ''}>To Do</option>
+            <option value="in-progress" ${it.status === 'in-progress' ? 'selected' : ''}>In Progress</option>
+            <option value="done" ${it.status === 'done' ? 'selected' : ''}>Done</option>
+          </select>
+          <button class="btn sml" onclick="editUtil('${it.id}')">✏️</button>
+          <button class="btn sml dan" onclick="confirmDlg('Delete?',()=>{delUtilItem('${it.id}');rUtilities();toast('Deleted','warn')})">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = h;
+}
+
+function changeUtilStatus(id, st) {
+  const it = getUtilItem(id); if (!it) return;
+  it.status = st;
+  updUtilItem(it);
+  if (st === 'done') { toast(getUtilTypeMeta(it.type).l + ' done ✅', 'green'); celebrate('✅'); }
+  rUtilities();
+}
+
+function addUtilFromForm() {
+  syncOwnerSelect('ut-assignee', { fallbackValue: 'Both' });
+  const type = fVal('ut-type');
+  if (!type) { toast('Select a type', 'red'); return; }
+  const it = {
+    id: uid(), type, status: fVal('ut-status') || 'todo',
+    oldProvider: fVal('ut-old-provider'), newProvider: fVal('ut-new-provider'),
+    cancelDate: fVal('ut-cancel-date'), startDate: fVal('ut-start-date'),
+    assignee: normalizeOwnerValue(fVal('ut-assignee') || 'Both'),
+    accountNo: fVal('ut-account'), notes: fVal('ut-notes'), created: Date.now()
+  };
+  addUtilItem(it);
+  closeModal('util-add-modal');
+  fClear('ut-old-provider', 'ut-new-provider', 'ut-cancel-date', 'ut-start-date', 'ut-account', 'ut-notes');
+  rUtilities();
+  toast(getUtilTypeMeta(type).l + ' added 🔌', 'green');
+}
+
+function editUtil(id) {
+  const it = getUtilItem(id); if (!it) return;
+  fSet('ute-id', id); fSet('ute-type', it.type); fSet('ute-status', it.status || 'todo');
+  fSet('ute-old-provider', it.oldProvider || ''); fSet('ute-new-provider', it.newProvider || '');
+  fSet('ute-cancel-date', it.cancelDate || ''); fSet('ute-start-date', it.startDate || '');
+  fSet('ute-account', it.accountNo || ''); fSet('ute-notes', it.notes || '');
+  syncOwnerSelect('ute-assignee', { fallbackValue: 'Both', selected: it.assignee || 'Both' });
+  openModal('util-edit-modal');
+}
+
+function saveUtilEdit() {
+  const id = fVal('ute-id');
+  const it = getUtilItem(id); if (!it) return;
+  it.type = fVal('ute-type') || it.type;
+  it.status = fVal('ute-status') || it.status;
+  it.oldProvider = fVal('ute-old-provider');
+  it.newProvider = fVal('ute-new-provider');
+  it.cancelDate = fVal('ute-cancel-date');
+  it.startDate = fVal('ute-start-date');
+  it.assignee = normalizeOwnerValue(fVal('ute-assignee') || 'Both');
+  it.accountNo = fVal('ute-account');
+  it.notes = fVal('ute-notes');
+  updUtilItem(it);
+  closeModal('util-edit-modal');
+  rUtilities();
+  toast('Saved ✅', 'green');
+}
+
+
+// ============================================================
+// keys.js — Key Handover Tracking
+// ============================================================
+
+function rKeys() {
+  const el = document.getElementById('key-list'); if (!el) return;
+  const items = ldKeys();
+  if (!items.length) {
+    el.innerHTML = '<div class="empty" style="padding:10px"><div class="ei">🔑</div>No keys tracked yet</div>';
+    return;
+  }
+  const oldKeys = items.filter(k => k.type === 'old');
+  const newKeys = items.filter(k => k.type === 'new');
+  let h = '';
+  [{ label: '🏚️ Old Apartment', keys: oldKeys, field: 'returned', verb: 'Returned' },
+   { label: '🏠 New Apartment', keys: newKeys, field: 'received', verb: 'Received' }].forEach(group => {
+    if (!group.keys.length) return;
+    h += `<div style="margin-bottom:8px">
+      <div style="font-size:.68rem;font-weight:700;color:var(--bd2);margin-bottom:4px">${group.label}</div>`;
+    group.keys.forEach(k => {
+      const done = k[group.field];
+      h += `<div class="check-item ${done ? 'done' : ''}" style="padding:4px 0">
+        <input type="checkbox" ${done ? 'checked' : ''} onchange="toggleKey('${k.id}','${group.field}',this.checked)">
+        <div style="flex:1">
+          <span class="check-label" style="font-size:.75rem">${esc(k.label)}</span>
+          <div style="font-size:.55rem;color:var(--bd3)">${k.holder ? 'Held by: ' + esc(k.holder) : ''}${k.date ? ' · ' + fmtDate(k.date) : ''}${k.notes ? ' · ' + esc(trunc(k.notes, 20)) : ''}</div>
+        </div>
+        <span style="font-size:.55rem;color:${done ? 'var(--gn)' : 'var(--bd3)'}">${done ? group.verb + ' ✅' : 'Pending'}</span>
+        <button class="btn sml icon" onclick="confirmDlg('Delete key?',()=>{delKeyItem('${k.id}');rKeys();})">✕</button>
+      </div>`;
+    });
+    h += '</div>';
+  });
+  el.innerHTML = h;
+}
+
+function toggleKey(id, field, val) {
+  const k = getKeyItem(id); if (!k) return;
+  k[field] = val;
+  if (val) k.date = todayISO();
+  updKeyItem(k);
+  rKeys();
+  if (val) toast('Key ' + (field === 'returned' ? 'returned' : 'received') + ' ✅', 'green');
+}
+
+function addKeyFromForm() {
+  const label = fVal('key-label');
+  if (!label) { toast('Enter a key label', 'red'); return; }
+  const holders = getOwnerOptions();
+  const holderVal = fVal('key-holder');
+  const holderMeta = holders.find(o => o.k === holderVal);
+  const k = {
+    id: uid(), label, type: fVal('key-type') || 'new',
+    holder: holderMeta ? holderMeta.l : (holderVal || ''),
+    returned: false, received: false, date: '', notes: fVal('key-notes'), created: Date.now()
+  };
+  addKeyItem(k);
+  closeModal('key-add-modal');
+  fClear('key-label', 'key-notes');
+  rKeys();
+  toast(label + ' added 🔑', 'green');
+}
+
+
+// ============================================================
+// walkthrough.js — Room-by-Room Walkthrough Checklist
+// ============================================================
+
+const WALKTHROUGH_CHECKS = [
+  { id: 'wk1', label: 'Walls — check for marks, holes, nails' },
+  { id: 'wk2', label: 'All drawers & cabinets empty' },
+  { id: 'wk3', label: 'Under furniture checked' },
+  { id: 'wk4', label: 'Closets & shelves empty' },
+  { id: 'wk5', label: 'Windowsills clear' },
+  { id: 'wk6', label: 'Light fixtures / bulbs removed' },
+  { id: 'wk7', label: 'Power outlets & switches work' },
+  { id: 'wk8', label: 'Floor clean & undamaged' },
+];
+
+function getWalkthrough() {
+  let data = ldWalk();
+  if (!data) {
+    // Seed with default checks for each room
+    data = {};
+    getAllRooms().forEach(room => {
+      data[room.id] = WALKTHROUGH_CHECKS.map(c => ({ id: c.id + '-' + room.id, label: c.label, done: false }));
+    });
+    svWalk(data);
+  }
+  return data;
+}
+
+function rWalkthrough() {
+  const el = document.getElementById('walkthrough-list'); if (!el) return;
+  const data = getWalkthrough();
+  const rooms = getAllRooms().filter(r => data[r.id]);
+  if (!rooms.length) {
+    el.innerHTML = '<div style="color:var(--bd3);font-size:.7rem;text-align:center;padding:8px">No rooms to walk through</div>';
+    return;
+  }
+  let totalDone = 0, totalAll = 0;
+  rooms.forEach(r => { const checks = data[r.id] || []; totalDone += checks.filter(c => c.done).length; totalAll += checks.length; });
+  let h = `<div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:700;margin-bottom:3px">
+      <span>${totalDone}/${totalAll} checked</span><span style="color:var(--pk)">${totalAll ? Math.round(totalDone / totalAll * 100) : 0}%</span>
+    </div>${progressBar(totalAll ? Math.round(totalDone / totalAll * 100) : 0, 'var(--gn)')}</div>`;
+
+  rooms.forEach(r => {
+    const checks = data[r.id] || [];
+    const done = checks.filter(c => c.done).length;
+    const allDone = done === checks.length && checks.length > 0;
+    h += `<div class="card" style="margin-bottom:6px;${allDone ? 'opacity:.6' : ''}">
+      <div class="card-h" onclick="togCard('walk-${r.id}')">
+        <div style="flex:1">
+          <div class="card-title">${esc(r.emoji)} ${esc(r.label)} ${allDone ? '✅' : ''}</div>
+          <div class="card-sub">${done}/${checks.length} checked</div>
+        </div>
+        ${progressBar(checks.length ? Math.round(done / checks.length * 100) : 0, allDone ? 'var(--gn)' : 'var(--pk)', '4px')}
+        <span class="chev">▼</span>
+      </div>
+      <div id="walk-${r.id}" class="card-body" style="padding:4px 12px">
+        ${checks.map(c => `<div class="check-item ${c.done ? 'done' : ''}">
+          <input type="checkbox" ${c.done ? 'checked' : ''} onchange="toggleWalk('${r.id}','${c.id}',this.checked)">
+          <label class="check-label" onclick="toggleWalk('${r.id}','${c.id}',${!c.done})">${esc(c.label)}</label>
+        </div>`).join('')}
+        <button class="btn sml suc" style="margin-top:4px" onclick="markRoomWalked('${r.id}')">✅ All Clear</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = h;
+}
+
+function toggleWalk(roomId, checkId, done) {
+  const data = getWalkthrough();
+  const checks = data[roomId]; if (!checks) return;
+  const c = checks.find(x => x.id === checkId); if (!c) return;
+  c.done = done;
+  svWalk(data);
+  rWalkthrough();
+}
+
+function markRoomWalked(roomId) {
+  const data = getWalkthrough();
+  const checks = data[roomId]; if (!checks) return;
+  checks.forEach(c => c.done = true);
+  svWalk(data);
+  rWalkthrough();
+  const room = getRoomById(roomId);
+  toast(room.label + ' — all clear! ✅', 'green');
+  celebrate('✅');
 }

@@ -33,7 +33,7 @@ window.HomeApp = (function createHomeApp() {
     if (userPill) {
       userPill.hidden = !user;
       userPill.textContent = user
-        ? `🔒 ${user.email || user.username || 'Authenticated'}${householdId ? ` · 🏡 ${householdId}` : ''}`
+        ? `💕 ${user.username || 'Marex'}${householdId ? ` · 🏡 ${householdId}` : ''}`
         : '';
     }
     if (logoutBtn) { logoutBtn.hidden = !user; logoutBtn.onclick = () => doLogout(); }

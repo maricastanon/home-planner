@@ -2,7 +2,7 @@
 // ui.js — Our New Home · UI state & interactions
 // ============================================================
 
-const TAB_IDS = ['dash','plan','move','take','sell','buy','cmp'];
+const TAB_IDS = ['dash','plan','move','take','sell','buy','cmp','movein'];
 let _activeTab = 'dash';
 
 function switchTab(t) {
@@ -14,7 +14,7 @@ function switchTab(t) {
   const tab   = document.querySelector('.tb[data-tab="'+t+'"]');
   if (panel) panel.classList.add('active');
   if (tab) { tab.classList.add('active'); tab.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }
-  const renderers = { dash:rDash, plan:rPlanUI, move:rMove, take:rTake, sell:rSell, buy:rBuy, cmp:rCompare };
+  const renderers = { dash:rDash, plan:rPlanUI, move:rMove, take:rTake, sell:rSell, buy:rBuy, cmp:rCompare, movein:rMovein };
   if (renderers[t]) renderers[t]();
   scrollTop();
 }
@@ -50,10 +50,13 @@ function updateStatusBar() {
   const budget = getBudgetStats(), sell = getSellStats(), pack = getPackingStats(), cd = getCountdown();
   const el = document.getElementById('status-bar'); if(!el) return;
   const cdText = cd ? (cd.past ? '🏠 Moved in!' : `📅 ${cd.days}d to go`) : '';
+  const mi = typeof getMoveinStats === 'function' ? getMoveinStats() : null;
+  const miPct = mi && mi.checkTotal ? Math.round(mi.checkDone / mi.checkTotal * 100) : 0;
   el.innerHTML = [
     `<span onclick="switchTab('buy')">${budget.pct>=100?'⚠️':'💰'} Budget ${budget.pct}%</span>`,
     `<span onclick="switchTab('sell')">💸 ${fmtEurShort(sell.earned)}</span>`,
     `<span onclick="switchTab('take')">📦 ${pack.pct}% packed</span>`,
+    mi && mi.checkTotal ? `<span onclick="switchTab('movein')">🏡 ${miPct}% moved in</span>` : '',
     cdText ? `<span onclick="openSettings()">${cdText}</span>` : ''
   ].filter(Boolean).join('');
 }
@@ -63,7 +66,7 @@ function openSettings() {
   const s=ldSettings();
   fSet('set-movedate',s.moveDate||''); fSet('set-newaddr',s.newAddress||'');
   fSet('set-oldaddr',s.oldAddress||''); fSet('set-budget',s.maxBudget||5000);
-  fSet('set-name-m',s.names?.M||'Mari'); fSet('set-name-a',s.names?.A||'Alexander');
+  fSet('set-name-m',s.names?.M||'Mari'); fSet('set-name-a',s.names?.A||'Alex');
   fSet('set-currency',s.currency||'€');
   fSet('set-workspace',s.householdId||window.HomeAuth?.getWorkspaceOverride?.()||'');
   openModal('settings-modal');
@@ -73,7 +76,7 @@ async function saveSettings() {
   const nextSettings = {
     moveDate:fVal('set-movedate'), newAddress:fVal('set-newaddr'),
     oldAddress:fVal('set-oldaddr'), maxBudget:fNum('set-budget')||5000,
-    names:{ M:fVal('set-name-m')||'Mari', A:fVal('set-name-a')||'Alexander' },
+    names:{ M:fVal('set-name-m')||'Mari', A:fVal('set-name-a')||'Alex' },
     currency:fVal('set-currency')||'€',
     householdId:desiredHouseholdId,
   };
@@ -163,7 +166,7 @@ function confirmBought() {
 // ── Keyboard shortcuts ────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
-  const map={'1':'dash','2':'plan','3':'move','4':'take','5':'sell','6':'buy','7':'cmp'};
+  const map={'1':'dash','2':'plan','3':'move','4':'take','5':'sell','6':'buy','7':'cmp','8':'movein'};
   if (map[e.key]) { e.preventDefault(); switchTab(map[e.key]); }
   if (e.key==='Escape') closeAllModals();
   if ((e.ctrlKey||e.metaKey)&&e.key==='k') { e.preventDefault(); document.getElementById('buy-search')?.focus(); }
@@ -313,7 +316,7 @@ function renderActivityLogs() {
   const el = document.getElementById('activity-log-list');
   if (!el) return;
   const entries = filter ? _activityLogEntries.filter(entry => entry.module === filter) : _activityLogEntries;
-  const icons={move:'🚚',take:'📦',sell:'💸',buy:'🛒',compare:'⚖️',cmp:'⚖️',plan:'📐',settings:'⚙️',boxes:'📦',movecl:'✅'};
+  const icons={move:'🚚',take:'📦',sell:'💸',buy:'🛒',compare:'⚖️',cmp:'⚖️',plan:'📐',settings:'⚙️',boxes:'📦',movecl:'✅',timeline:'📅',utilities:'🔌',keys:'🔑',walkthrough:'🚶'};
   const actions={add:'added',update:'updated',delete:'deleted'};
   if (!entries.length) {
     el.innerHTML = '<div class="empty" style="padding:20px"><div class="ei">🧾</div>No activity found for this filter.</div>';

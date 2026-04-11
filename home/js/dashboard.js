@@ -6,7 +6,7 @@ function rDash() {
   const el=document.getElementById('p-dash'); if(!el) return;
   const s=ldSettings(), cd=getCountdown(), budget=getBudgetStats();
   const sell=getSellStats(), pack=getPackingStats(), move=getMoveStats();
-  const names=s.names||{M:'Mari',A:'Alexander'};
+  const names=s.names||{M:'Mari',A:'Alex'};
   const activity=ldActivity().slice(0,10);
   let h='';
 
@@ -90,6 +90,8 @@ function rDash() {
       <button class="qa-btn" onclick="switchTab('move');setTimeout(()=>openModal('move-add-modal'),150)">🚚 Add moving company</button>
       <button class="qa-btn" onclick="switchTab('cmp');setTimeout(()=>openModal('cmp-add-modal'),150)">⚖️ Compare products</button>
       <button class="qa-btn" onclick="switchTab('plan')">📐 Open floor plan</button>
+      <button class="qa-btn" onclick="switchTab('movein')">🏡 Move-in hub</button>
+      <button class="qa-btn" onclick="switchTab('movein');setTimeout(()=>switchMoveinSubtab('catalog'),150)">📦 Furniture catalog</button>
       <button class="qa-btn" onclick="openSettings()">⚙️ Settings</button>
       <button class="qa-btn" onclick="exportAll()">💾 Backup data</button>
     </div>
@@ -98,7 +100,7 @@ function rDash() {
     <div class="dash-box-hdr">🕐 Recent Activity</div>
     <div style="max-height:200px;overflow-y:auto">
       ${activity.length?activity.map(a=>{
-        const icons={move:'🚚',take:'📦',sell:'💸',buy:'🛒',compare:'⚖️',plan:'📐'};
+        const icons={move:'🚚',take:'📦',sell:'💸',buy:'🛒',compare:'⚖️',plan:'📐',timeline:'📅',utilities:'🔌',keys:'🔑',walkthrough:'🚶'};
         const actions={add:'added',update:'updated',delete:'deleted'};
         return `<div class="activity-item">
           <span style="font-size:1rem">${icons[a.module]||'📋'}</span>
@@ -109,6 +111,69 @@ function rDash() {
     </div>
   </div>`;
   h+='</div>'; // end dash-cols
+
+  // ── My Tasks (per-person) ──────────────────────────────────
+  {
+    const owners = getOwnerOptions();
+    const timeline = typeof getTimeline === 'function' ? getTimeline() : [];
+    const checklist = typeof ldMoveCL === 'function' ? ldMoveCL() : [];
+    const packing = ldTake();
+    const utilities = typeof ldUtil === 'function' ? ldUtil() : [];
+
+    function countTasksFor(ownerKey) {
+      const tl = timeline.filter(t => !t.done && normalizeOwnerValue(t.assignee) === ownerKey).length;
+      const cl = checklist.filter(t => !t.done && normalizeOwnerValue(t.assignee || 'Both') === ownerKey).length;
+      const pk = packing.filter(t => !t.done && normalizeOwnerValue(t.owner) === ownerKey).length;
+      const ut = utilities.filter(t => t.status !== 'done' && normalizeOwnerValue(t.assignee) === ownerKey).length;
+      return { timeline: tl, checklist: cl, packing: pk, utilities: ut, total: tl + cl + pk + ut };
+    }
+
+    h += `<div class="dash-box" style="margin-top:0">
+      <div class="dash-box-hdr">📋 My Tasks</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">`;
+    owners.forEach(o => {
+      const c = countTasksFor(o.k);
+      h += `<div style="background:var(--bg);border-radius:12px;padding:10px;border:1px solid var(--border)">
+        <div style="font-weight:700;font-size:.78rem;margin-bottom:6px">${o.e} ${esc(o.l)}</div>
+        <div style="font-size:.68rem;color:var(--bd2)">
+          ${c.timeline ? `<div>📅 ${c.timeline} timeline task${c.timeline > 1 ? 's' : ''}</div>` : ''}
+          ${c.checklist ? `<div>✅ ${c.checklist} checklist item${c.checklist > 1 ? 's' : ''}</div>` : ''}
+          ${c.packing ? `<div>📦 ${c.packing} to pack</div>` : ''}
+          ${c.utilities ? `<div>🔌 ${c.utilities} utilit${c.utilities > 1 ? 'ies' : 'y'}</div>` : ''}
+          ${c.total === 0 ? '<div style="color:var(--gn)">All done! 🎉</div>' : `<div style="font-weight:700;color:var(--pk);margin-top:4px">${c.total} total</div>`}
+        </div>
+      </div>`;
+    });
+    h += '</div></div>';
+  }
+
+  // ── Move readiness ──────────────────────────────────────────
+  {
+    const timeline = typeof getTimeline === 'function' ? getTimeline() : [];
+    const checklist = typeof ldMoveCL === 'function' ? ldMoveCL() : [];
+    const utilities = typeof ldUtil === 'function' ? ldUtil() : [];
+    const keys = typeof ldKeys === 'function' ? ldKeys() : [];
+    const tlDone = timeline.filter(t => t.done).length;
+    const clDone = checklist.filter(t => t.done).length;
+    const utDone = utilities.filter(t => t.status === 'done').length;
+    const oldKeys = keys.filter(k => k.type === 'old');
+    const newKeys = keys.filter(k => k.type === 'new');
+    const okReturned = oldKeys.length ? oldKeys.filter(k => k.returned).length : 0;
+    const nkReceived = newKeys.length ? newKeys.filter(k => k.received).length : 0;
+
+    if (timeline.length || utilities.length || keys.length) {
+      h += `<div class="dash-box" style="margin-top:0">
+        <div class="dash-box-hdr">🏠 Move Readiness</div>
+        <div class="mini-stats" style="margin-top:0">
+          ${timeline.length ? `<div class="mini-stat"><div class="ms-num">${tlDone}/${timeline.length}</div><div class="ms-lbl">📅 Timeline</div></div>` : ''}
+          ${checklist.length ? `<div class="mini-stat"><div class="ms-num">${clDone}/${checklist.length}</div><div class="ms-lbl">✅ Checklist</div></div>` : ''}
+          ${utilities.length ? `<div class="mini-stat"><div class="ms-num">${utDone}/${utilities.length}</div><div class="ms-lbl">🔌 Utilities</div></div>` : ''}
+          ${oldKeys.length ? `<div class="mini-stat"><div class="ms-num">${okReturned}/${oldKeys.length}</div><div class="ms-lbl">🔑 Keys returned</div></div>` : ''}
+          ${newKeys.length ? `<div class="mini-stat"><div class="ms-num">${nkReceived}/${newKeys.length}</div><div class="ms-lbl">🔑 Keys received</div></div>` : ''}
+        </div>
+      </div>`;
+    }
+  }
 
   // ── Budget by room ──────────────────────────────────────────
   const byRoom=getBudgetByRoom();
@@ -210,8 +275,43 @@ function rDash() {
     </div>`;
   }
 
+  // ── Move-In Progress ────────────────────────────────────────
+  if (typeof getMoveinStats === 'function') {
+    const mi = getMoveinStats();
+    if (mi.checkTotal || mi.addrTotal || mi.utilTotal) {
+      const checkPct = mi.checkTotal ? Math.round(mi.checkDone / mi.checkTotal * 100) : 0;
+      const addrPct = mi.addrTotal ? Math.round(mi.addrDone / mi.addrTotal * 100) : 0;
+      h += `<div class="dash-box" style="margin-top:0">
+        <div class="dash-box-hdr">🏡 Move-In Progress</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+          <div style="background:var(--bg);border-radius:12px;padding:10px;cursor:pointer" onclick="switchTab('movein');setTimeout(()=>switchMoveinSubtab('checklist'),50)">
+            <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px">
+              <span style="font-weight:600">✅ Checklist</span>
+              <span style="font-weight:700;color:${checkPct>=80?'var(--gn)':'var(--pk)'}">${checkPct}%</span>
+            </div>
+            ${progressBar(checkPct, checkPct>=80?'var(--gn)':'var(--pk)', '4px')}
+            <div style="font-size:.55rem;color:var(--bd3);margin-top:2px">${mi.checkDone}/${mi.checkTotal} done</div>
+          </div>
+          <div style="background:var(--bg);border-radius:12px;padding:10px;cursor:pointer" onclick="switchTab('movein');setTimeout(()=>switchMoveinSubtab('addresses'),50)">
+            <div style="display:flex;justify-content:space-between;font-size:.72rem;margin-bottom:3px">
+              <span style="font-weight:600">📮 Addresses</span>
+              <span style="font-weight:700;color:${addrPct>=80?'var(--gn)':'#d97706'}">${addrPct}%</span>
+            </div>
+            ${progressBar(addrPct, addrPct>=80?'var(--gn)':'#d97706', '4px')}
+            <div style="font-size:.55rem;color:var(--bd3);margin-top:2px">${mi.addrDone}/${mi.addrTotal} updated</div>
+          </div>
+          <div style="background:var(--bg);border-radius:12px;padding:10px;cursor:pointer" onclick="switchTab('movein');setTimeout(()=>switchMoveinSubtab('utilities'),50)">
+            <div style="font-size:.72rem;font-weight:600;margin-bottom:3px">⚡ Utilities</div>
+            <div style="font-size:1rem;font-weight:700;color:var(--pk)">${mi.utilMonthly ? fmtEur(mi.utilMonthly, 0) + '/mo' : 'Not set up'}</div>
+            <div style="font-size:.55rem;color:var(--bd3)">${mi.utilActive}/${mi.utilTotal} active</div>
+          </div>
+        </div>
+      </div>`;
+    }
+  }
+
   h+=`<div style="text-align:center;font-size:.6rem;color:var(--bd3);margin-top:16px;padding-bottom:4px">
-    Keyboard: 1–7 = tabs · Esc = close modal · Ctrl+K = search
+    Keyboard: 1–8 = tabs · Esc = close modal · Ctrl+K = search
   </div>`;
   el.innerHTML=h;
 }

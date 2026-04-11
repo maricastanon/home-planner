@@ -100,17 +100,22 @@ function householdIdFromScope(scope) {
 
 // Storage keys
 const K = {
-  plan:    'hnz_plan',
-  move:    'hnz_move',
-  take:    'hnz_take',
-  boxes:   'hnz_boxes',
-  sell:    'hnz_sell',
-  buy:     'hnz_buy',
-  compare: 'hnz_cmp',
-  scenario:'hnz_scenario',
-  settings:'hnz_settings',
-  activity:'hnz_activity',
-  movecl:  'hnz_movecl',
+  plan:      'hnz_plan',
+  move:      'hnz_move',
+  take:      'hnz_take',
+  boxes:     'hnz_boxes',
+  sell:      'hnz_sell',
+  buy:       'hnz_buy',
+  compare:   'hnz_cmp',
+  scenario:  'hnz_scenario',
+  settings:  'hnz_settings',
+  activity:  'hnz_activity',
+  movecl:    'hnz_movecl',
+  timeline:  'hnz_timeline',
+  walkthrough:'hnz_walk',
+  utilities: 'hnz_util',
+  keys:      'hnz_keys',
+  movein:    'hnz_movein',
 };
 
 // ── Rooms ───────────────────────────────────────────────────
@@ -301,6 +306,11 @@ function syncOwnerSelect(selectId, options = {}) {
 function syncAllOwnerSelects() {
   syncOwnerSelect('t-owner', { includeBlank:false, fallbackValue:'Both' });
   syncOwnerSelect('te-owner', { includeBlank:false, fallbackValue:'Both' });
+  syncOwnerSelect('tl-assignee', { includeBlank:false, fallbackValue:'Both' });
+  syncOwnerSelect('tle-assignee', { includeBlank:false, fallbackValue:'Both' });
+  syncOwnerSelect('ut-assignee', { includeBlank:false, fallbackValue:'Both' });
+  syncOwnerSelect('ute-assignee', { includeBlank:false, fallbackValue:'Both' });
+  syncOwnerSelect('key-holder', { includeBlank:false, fallbackValue:'Both' });
 }
 
 // ── Item categories + types ─────────────────────────────────
@@ -514,7 +524,7 @@ const COMPANY_STATUS = [
 // ── Owners ───────────────────────────────────────────────────
 const OWNERS = [
   { k:'Mari',      l:'Mari',      e:'🌸' },
-  { k:'Alexander', l:'Alexander', e:'💼' },
+  { k:'Alex', l:'Alex', e:'💙' },
   { k:'Both',      l:'Both',      e:'💕' },
 ];
 
@@ -524,7 +534,7 @@ const DEFAULT_SETTINGS = {
   newAddress: '',
   oldAddress: '',
   maxBudget: 5000,
-  names: { M: 'Mari', A: 'Alexander' },
+  names: { M: 'Mari', A: 'Alex' },
   householdId: '',
   currency: '€',
   useSqm: true,

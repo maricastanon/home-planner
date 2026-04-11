@@ -97,7 +97,7 @@
 <div class="hdr">
   <div class="hdr-icon">🏠 💕 🏠</div>
   <h1>Our New Home</h1>
-  <div class="hdr-sub" id="hdr-sub">Mari &amp; Alexander · Apartment Planner</div>
+  <div class="hdr-sub" id="hdr-sub">Mari 💕 Alex · Apartment Planner</div>
   <div class="hdr-actions">
     <button class="hdr-btn" onclick="openSettings()">⚙️ Settings</button>
     <button class="hdr-btn" onclick="exportAll()">💾 Backup</button>
@@ -120,6 +120,7 @@
   <div class="tb" data-tab="sell"        onclick="switchTab('sell')"><span class="ti">💸</span>Sell</div>
   <div class="tb" data-tab="buy"         onclick="switchTab('buy')"><span class="ti">🛒</span>Buy &amp; Wishlist</div>
   <div class="tb" data-tab="cmp"         onclick="switchTab('cmp')"><span class="ti">⚖️</span>Compare</div>
+  <div class="tb" data-tab="movein"     onclick="switchTab('movein')"><span class="ti">🏡</span>Move-In</div>
 </div>
 
 <!-- ═══════════════ DASHBOARD ═══════════════ -->
@@ -234,9 +235,35 @@
   </div>
   <div id="move-filter-status"></div>
   <div id="move-list" style="margin-top:6px"></div>
+  <!-- Utility Setup -->
+  <div style="background:var(--white);border-radius:var(--r2);padding:14px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:700;font-size:.85rem;color:var(--pk)">🔌 Utility Setup</div>
+      <button class="btn pri sml" onclick="openModal('util-add-modal')">+ Add</button>
+    </div>
+    <div id="util-list"></div>
+  </div>
+  <!-- Move-day Checklist -->
   <div style="background:var(--white);border-radius:var(--r2);padding:14px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:12px">
     <div style="font-weight:700;font-size:.85rem;color:var(--pk);margin-bottom:10px">✅ Move-day Checklist</div>
     <div id="move-checklist"></div>
+  </div>
+  <!-- Move Timeline -->
+  <div style="background:var(--white);border-radius:var(--r2);padding:14px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:700;font-size:.85rem;color:var(--pk)">📅 Move Timeline</div>
+      <button class="btn pri sml" onclick="openModal('timeline-add-modal')">+ Add Task</button>
+    </div>
+    <div id="timeline-filter-assignee"></div>
+    <div id="move-timeline"></div>
+  </div>
+  <!-- Key Handover -->
+  <div style="background:var(--white);border-radius:var(--r2);padding:14px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:700;font-size:.85rem;color:var(--pk)">🔑 Key Handover</div>
+      <button class="btn pri sml" onclick="openModal('key-add-modal')">+ Add Key</button>
+    </div>
+    <div id="key-list"></div>
   </div>
 </div>
 
@@ -264,6 +291,12 @@
   <div style="background:var(--white);border-radius:var(--r2);padding:12px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:10px">
     <div style="font-weight:700;font-size:.82rem;color:var(--pk);margin-bottom:8px">📦 Boxes</div>
     <div id="box-list"></div>
+  </div>
+  <!-- Room Walkthrough -->
+  <div style="background:var(--white);border-radius:var(--r2);padding:12px;box-shadow:var(--sh);border:1px solid var(--border);margin-top:10px">
+    <div style="font-weight:700;font-size:.82rem;color:var(--pk);margin-bottom:4px">🚶 Room Walkthrough</div>
+    <div style="font-size:.62rem;color:var(--bd3);margin-bottom:8px">Walk through each room in the old apartment — make sure nothing is left behind.</div>
+    <div id="walkthrough-list"></div>
   </div>
 </div>
 
@@ -303,7 +336,7 @@
     <button class="buy-subtab" data-subtab="budget" onclick="switchBuySubtab('budget')">💰 Budget Planner</button>
     <button class="buy-subtab" data-subtab="decision" onclick="switchBuySubtab('decision')">🧭 Decision Lab</button>
     <button class="buy-subtab" data-subtab="roommap" onclick="switchBuySubtab('roommap')">🏠 Room Map</button>
-    <button class="buy-subtab" data-subtab="3d" onclick="switchBuySubtab('3d')">🧊 3D Preview</button>
+    <button class="buy-subtab" data-subtab="3d" onclick="switchBuySubtab('3d')">🧊 Room Preview</button>
     <button class="buy-subtab" data-subtab="shopping" onclick="switchBuySubtab('shopping')">🏪 Shopping Hub</button>
     <button class="buy-subtab" data-subtab="delivery" onclick="switchBuySubtab('delivery')">🚚 Delivery</button>
     <button class="buy-subtab" data-subtab="wishlist" onclick="switchBuySubtab('wishlist')">✨ Setup Wishlist</button>
@@ -388,6 +421,27 @@
   </div>
 </div>
 
+<!-- ═══════════════ MOVE-IN ═══════════════ -->
+<div class="tp" id="p-movein">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-weight:700;font-size:.95rem;color:var(--pk)">🏡 Move-In Hub</div>
+  </div>
+  <div class="movein-subtabs">
+    <button class="movein-subtab active" data-subtab="checklist" onclick="switchMoveinSubtab('checklist')">✅ Checklist</button>
+    <button class="movein-subtab" data-subtab="addresses" onclick="switchMoveinSubtab('addresses')">📮 Addresses</button>
+    <button class="movein-subtab" data-subtab="utilities" onclick="switchMoveinSubtab('utilities')">⚡ Utilities</button>
+    <button class="movein-subtab" data-subtab="catalog" onclick="switchMoveinSubtab('catalog')">📦 Furniture Catalog</button>
+    <button class="movein-subtab" data-subtab="costs" onclick="switchMoveinSubtab('costs')">💡 Running Costs</button>
+    <button class="movein-subtab" data-subtab="audit" onclick="switchMoveinSubtab('audit')">🔍 Room Audit</button>
+  </div>
+  <div class="movein-subtab-panel active" id="movein-sub-checklist"><div id="movein-checklist-content"></div></div>
+  <div class="movein-subtab-panel" id="movein-sub-addresses"><div id="movein-addresses-content"></div></div>
+  <div class="movein-subtab-panel" id="movein-sub-utilities"><div id="movein-utilities-content"></div></div>
+  <div class="movein-subtab-panel" id="movein-sub-catalog"><div id="movein-catalog-content"></div></div>
+  <div class="movein-subtab-panel" id="movein-sub-costs"><div id="movein-costs-content"></div></div>
+  <div class="movein-subtab-panel" id="movein-sub-audit"><div id="movein-audit-content"></div></div>
+</div>
+
 <!-- ═══════════════════ SCROLL / TOAST ═══════════════════ -->
 <button id="scroll-top-btn" onclick="scrollTop()" title="Back to top">▲</button>
 <div id="toast-container"></div>
@@ -406,7 +460,7 @@
       <div class="fg"><label>Old address</label><input id="set-oldaddr"></div>
       <div class="fg"><label>Max budget (€)</label><input type="number" id="set-budget" placeholder="5000"></div>
       <div class="fg"><label>Person 1 name</label><input id="set-name-m" placeholder="Mari"></div>
-      <div class="fg"><label>Person 2 name</label><input id="set-name-a" placeholder="Alexander"></div>
+      <div class="fg"><label>Person 2 name</label><input id="set-name-a" placeholder="Alex"></div>
       <div class="fg"><label>Currency symbol</label><input id="set-currency" placeholder="€" maxlength="3" style="width:60px"></div>
       <div class="fg"><label>Household workspace code</label><input id="set-workspace" placeholder="alex-mari-home"></div>
     </div>
@@ -484,7 +538,7 @@
       </select></div>
       <div class="fg"><label>Owner</label><select id="t-owner">
         <option value="Mari">🌸 Mari</option>
-        <option value="Alexander">💼 Alexander</option>
+        <option value="Alex">💙 Alex</option>
         <option value="Both">💕 Both</option>
       </select></div>
       <div class="fg"><label>Priority</label><select id="t-prio">
@@ -518,7 +572,7 @@
         <option>Hallway</option><option>Other</option>
       </select></div>
       <div class="fg"><label>Owner</label><select id="te-owner">
-        <option value="Mari">🌸 Mari</option><option value="Alexander">💼 Alexander</option><option value="Both">💕 Both</option>
+        <option value="Mari">🌸 Mari</option><option value="Alex">💙 Alex</option><option value="Both">💕 Both</option>
       </select></div>
       <div class="fg"><label>Priority</label><select id="te-prio">
         <option value="high">🔴 High</option><option value="medium">🟡 Medium</option><option value="low">🟢 Low</option>
@@ -740,6 +794,19 @@
         <option value="must">✅ Must be in room</option>
         <option value="ignore">🚫 Ignore in optimizer</option>
       </select></div>
+      <div class="fg"><label>Placement wish</label><select id="b-placement-zone">
+        <option value="">✨ Auto / no preference</option>
+        <option value="top-left">↖️ Top-left corner</option>
+        <option value="top-right">↗️ Top-right corner</option>
+        <option value="bottom-left">↙️ Bottom-left corner</option>
+        <option value="bottom-right">↘️ Bottom-right corner</option>
+        <option value="top-wall">🧱 Top wall</option>
+        <option value="bottom-wall">🧱 Bottom wall</option>
+        <option value="left-wall">🧱 Left wall</option>
+        <option value="right-wall">🧱 Right wall</option>
+        <option value="center">🎯 Center</option>
+      </select></div>
+      <div class="fg"><label>Placement note</label><input id="b-placement-note" placeholder="Near window, next to outlet..."></div>
     </div>
     <!-- Dimensions -->
     <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--bd3);margin-bottom:4px">📐 Dimensions</div>
@@ -867,6 +934,19 @@
         <option value="must">✅ Must be in room</option>
         <option value="ignore">🚫 Ignore in optimizer</option>
       </select></div>
+      <div class="fg"><label>Placement wish</label><select id="be-placement-zone">
+        <option value="">✨ Auto / no preference</option>
+        <option value="top-left">↖️ Top-left corner</option>
+        <option value="top-right">↗️ Top-right corner</option>
+        <option value="bottom-left">↙️ Bottom-left corner</option>
+        <option value="bottom-right">↘️ Bottom-right corner</option>
+        <option value="top-wall">🧱 Top wall</option>
+        <option value="bottom-wall">🧱 Bottom wall</option>
+        <option value="left-wall">🧱 Left wall</option>
+        <option value="right-wall">🧱 Right wall</option>
+        <option value="center">🎯 Center</option>
+      </select></div>
+      <div class="fg"><label>Placement note</label><input id="be-placement-note" placeholder="Near window, next to outlet..."></div>
       <div class="fg"><label>Width (cm)</label><input id="be-width" type="number"></div>
       <div class="fg"><label>Depth (cm)</label><input id="be-depth" type="number"></div>
       <div class="fg"><label>Height (cm)</label><input id="be-height" type="number"></div>
@@ -1151,6 +1231,159 @@
   </div>
 </div>
 
+<!-- ═══════════════ MEASURE ROOM MODAL ═══════════════ -->
+<div class="modal" id="measure-room-modal">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-hdr"><h3>📏 Measure Room</h3><span class="modal-close" onclick="closeModal('measure-room-modal')">✕</span></div>
+    <div id="measure-room-name" style="font-weight:700;font-size:.85rem;margin-bottom:8px;color:var(--bd)"></div>
+    <div id="meas-flow-progress" style="font-size:.62rem;color:var(--bd3);margin-bottom:6px"></div>
+    <input type="hidden" id="meas-room-id">
+    <div class="form-grid cols2">
+      <div class="fg"><label>Width (m)</label><input id="meas-width" type="number" step="0.01" min="0" oninput="updateMeasPreview()"></div>
+      <div class="fg"><label>Depth (m)</label><input id="meas-depth" type="number" step="0.01" min="0" oninput="updateMeasPreview()"></div>
+    </div>
+    <div id="meas-area-preview" style="font-size:.8rem;font-weight:700;color:var(--pk);margin:8px 0;text-align:center"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('measure-room-modal')">Cancel</button>
+      <button class="btn pri" onclick="saveMeasureRoom()">Save</button>
+      <button class="btn suc" id="meas-next-btn" style="display:none" onclick="saveMeasureRoom()">Save & Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TIMELINE MODAL ═══════════════ -->
+<div class="modal" id="timeline-add-modal">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-hdr"><h3>📅 Add Timeline Task</h3><span class="modal-close" onclick="closeModal('timeline-add-modal')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Task *</label><input id="tl-title" placeholder="e.g. Cancel old internet"></div>
+      <div class="fg"><label>Target Date</label><input id="tl-date" type="date"></div>
+      <div class="fg"><label>Assignee</label><select id="tl-assignee"></select></div>
+      <div class="fg"><label>Category</label>
+        <select id="tl-cat"><option value="Before">Before Move</option><option value="Moving Week">Moving Week</option><option value="After">After Move</option></select>
+      </div>
+      <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="tl-notes" rows="2" placeholder="Optional notes..."></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('timeline-add-modal')">Cancel</button>
+      <button class="btn pri" onclick="addTimelineFromForm()">✓ Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TIMELINE EDIT MODAL ═══════════════ -->
+<div class="modal" id="timeline-edit-modal">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-hdr"><h3>✏️ Edit Timeline Task</h3><span class="modal-close" onclick="closeModal('timeline-edit-modal')">✕</span></div>
+    <input type="hidden" id="tle-id">
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Task *</label><input id="tle-title"></div>
+      <div class="fg"><label>Target Date</label><input id="tle-date" type="date"></div>
+      <div class="fg"><label>Assignee</label><select id="tle-assignee"></select></div>
+      <div class="fg"><label>Category</label>
+        <select id="tle-cat"><option value="Before">Before Move</option><option value="Moving Week">Moving Week</option><option value="After">After Move</option></select>
+      </div>
+      <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="tle-notes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('timeline-edit-modal')">Cancel</button>
+      <button class="btn pri" onclick="saveTimelineEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ UTILITY MODAL ═══════════════ -->
+<div class="modal" id="util-add-modal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-hdr"><h3>🔌 Add Utility</h3><span class="modal-close" onclick="closeModal('util-add-modal')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg"><label>Type *</label>
+        <select id="ut-type">
+          <option value="internet">🌐 Internet</option>
+          <option value="electricity">⚡ Electricity</option>
+          <option value="gas">🔥 Gas</option>
+          <option value="water">💧 Water</option>
+          <option value="insurance">🛡️ Insurance</option>
+          <option value="mail">📬 Mail Forwarding</option>
+          <option value="address">🏠 Address Change</option>
+          <option value="phone">📱 Phone Contract</option>
+          <option value="gez">📺 GEZ / Broadcasting</option>
+        </select>
+      </div>
+      <div class="fg"><label>Status</label>
+        <select id="ut-status"><option value="todo">To Do</option><option value="in-progress">In Progress</option><option value="done">Done</option></select>
+      </div>
+      <div class="fg"><label>Old Provider</label><input id="ut-old-provider" placeholder="e.g. Vodafone"></div>
+      <div class="fg"><label>New Provider</label><input id="ut-new-provider" placeholder="e.g. Telekom"></div>
+      <div class="fg"><label>Cancel Date</label><input id="ut-cancel-date" type="date"></div>
+      <div class="fg"><label>Start Date</label><input id="ut-start-date" type="date"></div>
+      <div class="fg"><label>Assignee</label><select id="ut-assignee"></select></div>
+      <div class="fg"><label>Account #</label><input id="ut-account" placeholder="Optional"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="ut-notes" rows="2" placeholder="Optional notes..."></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('util-add-modal')">Cancel</button>
+      <button class="btn pri" onclick="addUtilFromForm()">✓ Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ UTILITY EDIT MODAL ═══════════════ -->
+<div class="modal" id="util-edit-modal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-hdr"><h3>✏️ Edit Utility</h3><span class="modal-close" onclick="closeModal('util-edit-modal')">✕</span></div>
+    <input type="hidden" id="ute-id">
+    <div class="form-grid">
+      <div class="fg"><label>Type</label>
+        <select id="ute-type">
+          <option value="internet">🌐 Internet</option>
+          <option value="electricity">⚡ Electricity</option>
+          <option value="gas">🔥 Gas</option>
+          <option value="water">💧 Water</option>
+          <option value="insurance">🛡️ Insurance</option>
+          <option value="mail">📬 Mail Forwarding</option>
+          <option value="address">🏠 Address Change</option>
+          <option value="phone">📱 Phone Contract</option>
+          <option value="gez">📺 GEZ / Broadcasting</option>
+        </select>
+      </div>
+      <div class="fg"><label>Status</label>
+        <select id="ute-status"><option value="todo">To Do</option><option value="in-progress">In Progress</option><option value="done">Done</option></select>
+      </div>
+      <div class="fg"><label>Old Provider</label><input id="ute-old-provider"></div>
+      <div class="fg"><label>New Provider</label><input id="ute-new-provider"></div>
+      <div class="fg"><label>Cancel Date</label><input id="ute-cancel-date" type="date"></div>
+      <div class="fg"><label>Start Date</label><input id="ute-start-date" type="date"></div>
+      <div class="fg"><label>Assignee</label><select id="ute-assignee"></select></div>
+      <div class="fg"><label>Account #</label><input id="ute-account"></div>
+      <div class="fg" style="grid-column:1/-1"><label>Notes</label><textarea id="ute-notes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('util-edit-modal')">Cancel</button>
+      <button class="btn pri" onclick="saveUtilEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ KEY MODAL ═══════════════ -->
+<div class="modal" id="key-add-modal">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-hdr"><h3>🔑 Add Key</h3><span class="modal-close" onclick="closeModal('key-add-modal')">✕</span></div>
+    <div class="form-grid">
+      <div class="fg" style="grid-column:1/-1"><label>Key Label *</label><input id="key-label" placeholder="e.g. Front door key #1"></div>
+      <div class="fg"><label>Apartment</label>
+        <select id="key-type"><option value="old">🏚️ Old Apartment</option><option value="new">🏠 New Apartment</option></select>
+      </div>
+      <div class="fg"><label>Held by</label><select id="key-holder"></select></div>
+      <div class="fg" style="grid-column:1/-1"><label>Notes</label><input id="key-notes" placeholder="Optional"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('key-add-modal')">Cancel</button>
+      <button class="btn pri" onclick="addKeyFromForm()">✓ Add Key</button>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
@@ -1167,6 +1400,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/smart.js"></script>
+<script src="js/movein.js"></script>
 <script src="js/app.js"></script>
 <!-- Cognito SDK removed — using direct API calls -->
 <script src="js/aws-backend.js"></script>

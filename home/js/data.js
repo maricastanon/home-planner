@@ -209,6 +209,23 @@ function readPhotoAsDataURL(file) {
   });
 }
 
+function compressPhoto(dataUrl, maxWidth = 800, quality = 0.7) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 const PHOTO_MAX_SIZE = 2 * 1024 * 1024; // 2 MB per photo
 const PHOTO_ALLOWED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
 
@@ -236,7 +253,8 @@ async function attachPhotos(itemId, files, module = 'buy') {
     const err = validatePhotoFile(file);
     if (err) { skipped++; if (typeof toast === 'function') toast(err, 'red', 5000); continue; }
     // AWS_HOOK: const url = await uploadPhotoToS3(file, itemId);
-    const url = await readPhotoAsDataURL(file);
+    const raw = await readPhotoAsDataURL(file);
+    const url = await compressPhoto(raw);
     item.photos = [...(item.photos || []), url];
   }
   if (skipped && typeof toast === 'function' && skipped === files.length) return false;
@@ -540,6 +558,36 @@ function getRoomOptimization(roomId, items = ldBuy()) {
     failingItems,
   };
 }
+
+// ── Move checklist (already in modules.js, kept there) ──────
+
+// ── Timeline ────────────────────────────────────────────────
+function ldTimeline()        { return ld(K.timeline, null); }
+function svTimeline(d)       { return sv(K.timeline, d); }
+function addTimelineItem(i)  { const d=ldTimeline()||[]; d.push(i); if(svTimeline(d)) logActivity('timeline','add',activityLabel(i,'timeline task')); }
+function updTimelineItem(i)  { const d=ldTimeline()||[]; const idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if(svTimeline(d)) logActivity('timeline','update',activityLabel(i,'timeline task'));} }
+function delTimelineItem(id) { const d=ldTimeline()||[]; const item=d.find(x=>x.id===id); if(svTimeline(d.filter(x=>x.id!==id))&&item) logActivity('timeline','delete',activityLabel(item,'timeline task')); }
+function getTimelineItem(id) { return (ldTimeline()||[]).find(x=>x.id===id); }
+
+// ── Walkthrough ─────────────────────────────────────────────
+function ldWalk()  { return ld(K.walkthrough, null); }
+function svWalk(d) { return sv(K.walkthrough, d); }
+
+// ── Utilities ───────────────────────────────────────────────
+function ldUtil()        { return ld(K.utilities, []); }
+function svUtil(d)       { return sv(K.utilities, d); }
+function addUtilItem(i)  { const d=ldUtil(); d.push(i); if(svUtil(d)) logActivity('utilities','add',activityLabel(i,'utility')); }
+function updUtilItem(i)  { const d=ldUtil(); const idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if(svUtil(d)) logActivity('utilities','update',activityLabel(i,'utility'));} }
+function delUtilItem(id) { const item=getUtilItem(id); if(svUtil(ldUtil().filter(x=>x.id!==id))&&item) logActivity('utilities','delete',activityLabel(item,'utility')); }
+function getUtilItem(id) { return ldUtil().find(x=>x.id===id); }
+
+// ── Keys ────────────────────────────────────────────────────
+function ldKeys()        { return ld(K.keys, []); }
+function svKeys(d)       { return sv(K.keys, d); }
+function addKeyItem(i)   { const d=ldKeys(); d.push(i); if(svKeys(d)) logActivity('keys','add',activityLabel(i,'key')); }
+function updKeyItem(i)   { const d=ldKeys(); const idx=d.findIndex(x=>x.id===i.id); if(idx>=0){d[idx]=i;if(svKeys(d)) logActivity('keys','update',activityLabel(i,'key'));} }
+function delKeyItem(id)  { const item=getKeyItem(id); if(svKeys(ldKeys().filter(x=>x.id!==id))&&item) logActivity('keys','delete',activityLabel(item,'key')); }
+function getKeyItem(id)  { return ldKeys().find(x=>x.id===id); }
 
 // ── Export / import ──────────────────────────────────────────
 function exportAll() {
