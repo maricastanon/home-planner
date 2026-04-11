@@ -2,7 +2,7 @@
 // config.js — Our New Home · Global constants (English)
 // ============================================================
 
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 const APP_NAME    = 'Our New Home';
 const APP_THEME_COLOR = '#e91e63';
 const APP_BACKGROUND_COLOR = '#f8eef4';
@@ -246,8 +246,26 @@ function normalizeItemSource(source) {
 function getItemSourceMeta(source) {
   return ITEM_SOURCES.find(entry => entry.k === normalizeItemSource(source)) || ITEM_SOURCES[0];
 }
+const MOVE_DECISIONS = [
+  { k:'buy',      l:'Buy for new apartment', e:'🛒', bg:'#fce4ec', fg:'#9d174d' },
+  { k:'take',     l:'Take from old apartment', e:'📦', bg:'#dbeafe', fg:'#1d4ed8' },
+  { k:'consider', l:'Decide later', e:'🤔', bg:'#fef3c7', fg:'#92400e' },
+  { k:'store',    l:'Store in Keller', e:'🧱', bg:'#e2e8f0', fg:'#334155' },
+  { k:'sell',     l:'Sell / replace', e:'💸', bg:'#dcfce7', fg:'#166534' },
+  { k:'donate',   l:'Donate', e:'🎁', bg:'#ccfbf1', fg:'#0f766e' },
+  { k:'skip',     l:'Skip for now', e:'⏭️', bg:'#f3f4f6', fg:'#4b5563' },
+];
+function normalizeMoveDecision(source, decision) {
+  const value = String(decision || '').trim();
+  if (MOVE_DECISIONS.some(entry => entry.k === value)) return value;
+  return normalizeItemSource(source) === 'existing' ? 'take' : 'buy';
+}
+function getMoveDecisionMeta(source, decision) {
+  return MOVE_DECISIONS.find(entry => entry.k === normalizeMoveDecision(source, decision)) || MOVE_DECISIONS[0];
+}
 function getItemBudgetValue(item) {
   if (!item) return 0;
+  if (normalizeMoveDecision(item.source, item.moveDecision) === 'skip') return 0;
   return normalizeItemSource(item.source) === 'existing'
     ? 0
     : (item.bought ? (item.actualPrice || item.price || 0) : (item.price || 0));
@@ -267,6 +285,55 @@ const CONS_SUGGESTIONS = {
   Electronics: ['Expensive','Connectivity issues','Fragile','Complex setup','Poor support'],
   default:     ['Pricey','Long delivery','Complex','Not in stock','Mixed reviews','Heavy'],
 };
+
+// ── Availability statuses ────────────────────────────────────
+const AVAILABILITY_STATUSES = [
+  { k:'in-stock',      l:'In Stock',     e:'✅', color:'#dcfce7', fg:'#166534' },
+  { k:'low-stock',     l:'Low Stock',    e:'⚠️', color:'#fef9c3', fg:'#713f12' },
+  { k:'pre-order',     l:'Pre-order',    e:'📋', color:'#dbeafe', fg:'#1d4ed8' },
+  { k:'out-of-stock',  l:'Out of Stock', e:'❌', color:'#fee2e2', fg:'#991b1b' },
+  { k:'discontinued',  l:'Discontinued', e:'🚫', color:'#f3f4f6', fg:'#4b5563' },
+];
+function getAvailabilityMeta(k) {
+  return AVAILABILITY_STATUSES.find(a => a.k === k) || null;
+}
+function availabilityBadge(k) {
+  const m = getAvailabilityMeta(k);
+  if (!m) return '';
+  return `<span class="avail-badge" style="background:${m.color};color:${m.fg}">${m.e} ${m.l}</span>`;
+}
+
+// ── Popular stores ──────────────────────────────────────────
+const POPULAR_STORES = [
+  { k:'ikea',       l:'IKEA',          e:'🟡', color:'#fef9c3' },
+  { k:'amazon',     l:'Amazon',        e:'📦', color:'#ffedd5' },
+  { k:'mediamarkt', l:'MediaMarkt',    e:'🔴', color:'#fee2e2' },
+  { k:'saturn',     l:'Saturn',        e:'🔵', color:'#dbeafe' },
+  { k:'otto',       l:'Otto',          e:'🟠', color:'#fed7aa' },
+  { k:'poco',       l:'POCO',          e:'🟤', color:'#e5e7eb' },
+  { k:'hoeffner',   l:'Höffner',       e:'🟢', color:'#dcfce7' },
+  { k:'xxxlutz',    l:'XXXLutz',       e:'🔴', color:'#fce7f3' },
+  { k:'ebay',       l:'eBay',          e:'🌈', color:'#ede9fe' },
+  { k:'other',      l:'Other',         e:'🏪', color:'#f3f4f6' },
+];
+function getStoreMeta(storeName) {
+  if (!storeName) return { e:'🏪', color:'#f3f4f6', l:storeName||'Unknown' };
+  const key = storeName.toLowerCase().replace(/[^a-z]/g,'');
+  const match = POPULAR_STORES.find(s => key.includes(s.k));
+  return match || { e:'🏪', color:'#f3f4f6', l:storeName };
+}
+
+// ── Delivery statuses ───────────────────────────────────────
+const DELIVERY_STATUSES = [
+  { k:'pending',    l:'Pending',     e:'⏳', color:'#f3f4f6', fg:'#4b5563' },
+  { k:'processing', l:'Processing',  e:'⚙️', color:'#dbeafe', fg:'#1d4ed8' },
+  { k:'shipped',    l:'Shipped',     e:'🚛', color:'#fef9c3', fg:'#713f12' },
+  { k:'delivered',  l:'Delivered',   e:'📬', color:'#dcfce7', fg:'#166534' },
+  { k:'pickup',     l:'Self-pickup', e:'🏪', color:'#ede9fe', fg:'#5b21b6' },
+];
+function getDeliveryStatusMeta(k) {
+  return DELIVERY_STATUSES.find(d => d.k === k) || DELIVERY_STATUSES[0];
+}
 
 // ── Item statuses ────────────────────────────────────────────
 const ITEM_STATUSES = [

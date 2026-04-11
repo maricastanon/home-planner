@@ -1171,6 +1171,139 @@ canvas { display:block; touch-action:none; outline:none; max-width:100%; height:
 .lo-msg{font-family:'DM Sans',sans-serif;font-size:.68rem;color:rgba(255,255,255,.3);letter-spacing:.8px;min-height:1.4em;transition:opacity .35s ease}
 .lo-msg.lo-fade{opacity:0}
 
+/* ── ROOM MAP CARDS ────────────────────────────────────────── */
+.rm-card { background:rgba(255,251,253,.94); border-radius:var(--r2); box-shadow:var(--sh); border:var(--line-base) solid var(--border); overflow:hidden; transition:all .2s; }
+.rm-card:hover { border-color:var(--pk2); box-shadow:var(--sh2); }
+
+/* ── SHOPPING HUB ─────────────────────────────────────────── */
+.shopping-summary {
+  background:linear-gradient(135deg,rgba(233,30,99,.04),rgba(76,175,80,.04));
+  border-radius:var(--r2); padding:16px 18px; box-shadow:var(--sh);
+  border:var(--line-base) solid var(--border); margin-bottom:12px;
+}
+.store-card {
+  background:rgba(255,251,253,.94); border-radius:var(--r2); box-shadow:var(--sh);
+  border:var(--line-base) solid var(--border); margin-bottom:10px; overflow:hidden;
+  transition:border-color .2s, box-shadow .2s;
+}
+.store-card:hover { border-color:var(--pk2); box-shadow:var(--sh2); }
+.store-card-header { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; transition:background .2s; }
+.store-card-header:hover { background:rgba(233,30,99,.04); }
+.store-link-btn {
+  font-size:.6rem; text-decoration:none; padding:3px 8px; border-radius:8px;
+  background:var(--pkl); color:var(--pk); font-weight:700; transition:all .2s;
+}
+.store-link-btn:hover { background:var(--pk); color:#fff; }
+.shopping-list-section { padding:0 6px; }
+.shopping-list-item {
+  display:flex; align-items:center; gap:8px; padding:8px 8px;
+  border-bottom:var(--line-thin) solid rgba(233,30,99,.08); cursor:pointer;
+  border-radius:var(--r); transition:all .15s;
+}
+.shopping-list-item:hover { background:var(--pkl); transform:translateX(2px); }
+.shopping-list-item.bought { opacity:.55; }
+.shop-item-thumb { width:40px; height:40px; object-fit:cover; border-radius:var(--r); flex-shrink:0; border:var(--line-thin) solid var(--border); }
+.shop-item-thumb-placeholder {
+  width:40px; height:40px; background:linear-gradient(135deg,var(--bg2),var(--bg));
+  border-radius:var(--r); display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem; flex-shrink:0; border:var(--line-thin) solid var(--border);
+}
+
+/* ── AVAILABILITY BADGE ──────────────────────────────────────── */
+.avail-badge { font-size:.52rem; font-weight:700; padding:2px 7px; border-radius:8px; display:inline-block; white-space:nowrap; }
+
+/* ── DELIVERY TRACKER ────────────────────────────────────────── */
+.delivery-hero {
+  background:linear-gradient(135deg,rgba(233,30,99,.04),rgba(255,152,0,.04));
+  border-radius:var(--r2); padding:16px 18px; box-shadow:var(--sh);
+  border:var(--line-base) solid var(--border); margin-bottom:12px;
+}
+.delivery-section {
+  background:rgba(255,251,253,.94); border-radius:var(--r2); padding:14px 16px;
+  box-shadow:var(--sh); border:var(--line-base) solid var(--border); margin-bottom:10px;
+}
+.delivery-timeline { position:relative; padding-left:4px; }
+.delivery-timeline-item {
+  display:flex; gap:12px; align-items:flex-start; padding:10px 8px;
+  cursor:pointer; border-radius:var(--r); transition:all .15s;
+  border:var(--line-thin) solid transparent; margin-bottom:4px;
+}
+.delivery-timeline-item:hover { background:var(--pkl); border-color:rgba(233,30,99,.12); transform:translateX(2px); }
+.delivery-date-badge { min-width:64px; padding:8px 10px; border-radius:var(--r); text-align:center; border:var(--line-base) solid; flex-shrink:0; font-weight:700; }
+.delivery-connector { display:flex; flex-direction:column; align-items:center; padding-top:10px; gap:3px; }
+.delivery-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; box-shadow:0 2px 8px rgba(0,0,0,.15); }
+.delivery-info { flex:1; min-width:0; }
+.delivery-thumb { width:44px; height:44px; object-fit:cover; border-radius:var(--r); flex-shrink:0; border:var(--line-thin) solid var(--border); }
+.delivery-thumb-placeholder {
+  width:44px; height:44px; background:linear-gradient(135deg,var(--bg2),var(--bg));
+  border-radius:var(--r); display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; flex-shrink:0; border:var(--line-thin) solid var(--border);
+}
+.delivery-pending-item {
+  display:flex; align-items:center; gap:10px; padding:10px 8px;
+  border-bottom:var(--line-thin) solid rgba(233,30,99,.08); cursor:pointer;
+  border-radius:var(--r); transition:all .15s;
+}
+.delivery-pending-item:hover { background:var(--pkl); transform:translateX(2px); }
+.delivery-done-item {
+  display:flex; align-items:center; gap:8px; padding:7px 8px;
+  border-bottom:var(--line-thin) solid rgba(76,175,80,.1); cursor:pointer;
+  opacity:.65; border-radius:var(--r); transition:all .15s;
+}
+.delivery-done-item:hover { opacity:1; background:var(--gnl); }
+
+/* ── PRICE SOURCES ───────────────────────────────────────────── */
+.price-sources-panel {
+  background:linear-gradient(135deg,rgba(233,30,99,.06),rgba(233,30,99,.02));
+  border:var(--line-base) solid rgba(233,30,99,.15); border-radius:var(--r2);
+  padding:12px 14px; margin:10px 0;
+}
+.price-source-row {
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  border-radius:var(--r); margin:4px 0; background:var(--white);
+  border:var(--line-thin) solid var(--border); transition:all .2s;
+}
+.price-source-row:hover { box-shadow:var(--sh); transform:translateY(-1px); }
+.price-source-row.cheapest { border-color:#86efac; background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-width:var(--line-base); }
+.price-source-row.current { border-color:var(--pk2); background:linear-gradient(135deg,#fce4ec,#fff0f5); border-width:var(--line-base); }
+
+/* ── DECISION LAB ───────────────────────────────────────────── */
+.decision-room-card {
+  background:rgba(255,251,253,.94); border-radius:var(--r2);
+  border:var(--line-base) solid var(--border); padding:14px;
+  margin-bottom:10px; transition:all .2s;
+}
+.decision-room-card:hover { border-color:var(--pk2); box-shadow:var(--sh2); }
+.decision-badge { display:inline-flex; align-items:center; gap:3px; padding:3px 8px; border-radius:8px; font-size:.55rem; font-weight:700; white-space:nowrap; }
+
+/* ── ROOM READINESS (dashboard) ─────────────────────────────── */
+.readiness-row {
+  display:flex; align-items:center; gap:8px; padding:7px 6px;
+  border-bottom:var(--line-thin) solid rgba(233,30,99,.08);
+  cursor:pointer; border-radius:var(--r); transition:all .15s;
+}
+.readiness-row:hover { background:var(--pkl); transform:translateX(2px); }
+.readiness-emoji { font-size:1rem; flex-shrink:0; }
+.readiness-info { flex:1; min-width:0; }
+.readiness-name { font-size:.72rem; font-weight:700; }
+.readiness-meta { font-size:.55rem; color:var(--bd3); }
+.readiness-pct { font-size:.75rem; font-weight:800; min-width:36px; text-align:right; }
+
+/* ── SHORTLIST DROPDOWN ─────────────────────────────────────── */
+.shortlist-dropdown {
+  position:absolute; right:8px; bottom:8px; z-index:10;
+  background:var(--white); border:var(--line-base) solid var(--border);
+  border-radius:var(--r); box-shadow:var(--sh3); padding:6px;
+  min-width:160px; animation:popIn .15s ease;
+}
+.shortlist-option {
+  display:flex; align-items:center; gap:6px; padding:6px 8px;
+  border-radius:8px; cursor:pointer; font-size:.68rem; font-weight:600;
+  transition:all .15s; white-space:nowrap;
+}
+.shortlist-option:hover { background:var(--pkl); color:var(--pk); }
+.shortlist-option.new { color:var(--pk); border-top:var(--line-thin) solid var(--border); margin-top:4px; padding-top:8px; }
+
 /* ── PRINT (floor plan) ──────────────────────────────────────── */
 @media print {
   .hdr, .tabs, .status-bar, .plan-toolbar, .furn-bar, .plan-status, .floor-tabs { display:none!important; }

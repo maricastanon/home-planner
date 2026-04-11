@@ -31,7 +31,13 @@ function togSection(bodyId, arrowId) {
   b.style.display = open ? 'none' : 'block';
   if(a) a.textContent = open ? '▶' : '▼';
 }
-function togCard(id) { document.getElementById(id)?.classList.toggle('xp'); }
+function togCard(id) {
+  const el = document.getElementById(id); if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  const chev = el.parentElement?.querySelector('.chev');
+  if (chev) chev.textContent = open ? '▶' : '▼';
+}
 
 // ── Status bar ────────────────────────────────────────────────
 function updateStatusBar() {
@@ -139,6 +145,10 @@ function rBuyFilters() {
   el('buy-filter-prio',  prioOpts,  'prio',  rBuy);
   el('buy-filter-status',statusOpts,'status',rBuy);
   el('buy-filter-source',sourceOpts,'source',rBuy);
+  const storeCounts={};
+  items.forEach(it=>{ if(it.store) storeCounts[it.store]=(storeCounts[it.store]||0)+1; });
+  const storeOpts=Object.entries(storeCounts).sort((a,b)=>b[1]-a[1]).map(([k,c])=>({k,l:k,e:'🏪',count:c}));
+  if(storeOpts.length) el('buy-filter-store',storeOpts,'store',rBuy,{showCounts:true,allowAll:'All Stores'});
   el('buy-sort-pills',   sortOpts,  'sort',  rBuy, {allowAll:false});
   el('buy-view-pills',   viewOpts,  'view',  rBuy, {allowAll:false});
 }

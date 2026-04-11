@@ -1483,6 +1483,11 @@ function renderOptimizerTab() {
         <label style="font-size:.62rem;color:var(--bd2);display:flex;gap:4px;align-items:center"><input type="checkbox" ${role === 'must' ? 'checked' : ''} ${role === 'ignore' ? 'disabled' : ''} onchange="toggleRoomOptimizerMust('${item.id}',this.checked)">Must</label>
       </div>`;
     }).join('') : `<div style="font-size:.68rem;color:var(--bd3)">No items assigned to this room yet.</div>`}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sml" onclick="autoPlaceRoomScenarioInPlan('${room.id}','selected')">📍 Auto-place current picks</button>
+      <button class="btn sml pri" onclick="autoPlaceRoomScenarioInPlan('${room.id}','best-space')">✨ Auto-place best free-space setup</button>
+      <button class="btn sml" onclick="autoPlaceRoomScenarioInPlan('${room.id}','reuse-first')">📦 Auto-place reuse-first</button>
+    </div>
     <div style="display:grid;gap:8px">
       ${(data?.combos || []).map((combo, idx) => `<div style="border:1px solid ${idx===0 ? '#86efac' : 'var(--border)'};background:${idx===0 ? 'var(--gnl)' : 'var(--white)'};border-radius:12px;padding:10px 12px">
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1549,6 +1554,120 @@ function resizePlanCanvas() {
 function rPlanUI() { syncFurnitureButtons(); renderFloorTabs(); renderPlan(); rPlanSidebar(); }
 
 // ── Place a buy item in floor plan ───────────────────────────
+function getAutoLayoutPlacementsForRoom(room, items) {
+  const roomWidthCm = Math.max(80, Math.round((room.w / planState.scale) * 100));
+  const roomDepthCm = Math.max(80, Math.round((room.h / planState.scale) * 100));
+  const paddingCm = 18;
+  const gapCm = 14;
+  let cursorX = paddingCm;
+  let cursorY = paddingCm;
+  let rowDepth = 0;
+  return [...items]
+    .filter(item => item.widthCm || item.depthCm)
+    .sort((a, b) => getItemFootprintSqm(b) - getItemFootprintSqm(a))
+    .map(item => {
+      let widthCm = Number(item.widthCm) || Number(item.depthCm) || 60;
+      let depthCm = Number(item.depthCm) || Number(item.widthCm) || 60;
+      let rotated = false;
+      const usableWidth = roomWidthCm - (paddingCm * 2);
+      const usableDepth = roomDepthCm - (paddingCm * 2);
+      const canNormal = widthCm <= usableWidth && depthCm <= usableDepth;
+      const canRotated = depthCm <= usableWidth && widthCm <= usableDepth;
+      if (!canNormal && canRotated) {
+        [widthCm, depthCm] = [depthCm, widthCm];
+        rotated = true;
+      }
+      if (cursorX + widthCm > roomWidthCm - paddingCm && cursorX > paddingCm) {
+        cursorX = paddingCm;
+        cursorY += rowDepth + gapCm;
+        rowDepth = 0;
+      }
+      if (cursorY + depthCm > roomDepthCm - paddingCm && !rotated && canRotated) {
+        [widthCm, depthCm] = [depthCm, widthCm];
+        rotated = true;
+      }
+      const maxX = Math.max(paddingCm, roomWidthCm - paddingCm - widthCm);
+      const maxY = Math.max(paddingCm, roomDepthCm - paddingCm - depthCm);
+      const xCm = Math.min(cursorX, maxX);
+      const yCm = Math.min(cursorY, maxY);
+      cursorX = xCm + widthCm + gapCm;
+      rowDepth = Math.max(rowDepth, depthCm);
+      return { item, xCm, yCm, widthCm, depthCm, rotated };
+    });
+}
+
+function getPlanScenarioItemsForRoom(roomId, mode = 'selected') {
+  if (mode === 'best-space') {
+    return getRoomOptimizerData(roomId)?.combos?.[0]?.selectedItems || [];
+  }
+  return typeof getRoomScenarioSelection === 'function'
+    ? getRoomScenarioSelection(roomId, mode)
+    : ldBuy().filter(item => item.roomId === roomId);
+}
+
+function autoPlaceRoomScenarioInPlan(roomId, mode = 'selected', options = {}) {
+  const { silent = false, skipRefresh = false } = options;
+  const roomRecord = getRoomRecord(roomId);
+  const room = roomRecord?.room;
+  const floor = roomRecord?.floor;
+  if (!room || !floor) {
+    if (!silent) toast('Room not found on the floor plan', 'warn');
+    return false;
+  }
+  const placements = getAutoLayoutPlacementsForRoom(room, getPlanScenarioItemsForRoom(roomId, mode)
+    .filter(item => normalizeMoveDecision(item.source, item.moveDecision) !== 'skip'));
+  if (!placements.length) {
+    if (!silent) toast('No measured items available for auto-placement in this room', 'warn');
+    return false;
+  }
+  const floorIndex = planState.floors.findIndex(entry => entry.id === floor.id);
+  if (floorIndex >= 0) planState.activeFloor = floorIndex;
+  const keepIds = new Set(placements.map(entry => entry.item.id));
+  ldBuy()
+    .filter(item => item.roomId === roomId && item.planFloor === floor.id && !keepIds.has(item.id))
+    .forEach(item => {
+      item.placedInPlan = false;
+      item.planFloor = '';
+      updBuyItem(item);
+    });
+  placements.forEach(entry => {
+    const item = entry.item;
+    item.placedInPlan = true;
+    item.planFloor = floor.id;
+    item.planRotated = entry.rotated;
+    item.planX = room.x + ((entry.xCm / 100) * planState.scale);
+    item.planY = room.y + ((entry.yCm / 100) * planState.scale);
+    updBuyItem(item);
+  });
+  if (!skipRefresh) {
+    savePlan();
+    if (typeof switchTab === 'function') switchTab('plan');
+    renderPlan();
+    rPlanSidebar();
+    if (!silent) toast(`Auto-placed ${placements.length} item${placements.length !== 1 ? 's' : ''} in ${room.label || 'room'}`, 'green');
+  }
+  return true;
+}
+
+function autoPlaceWholeHomeInPlan(mode = 'selected') {
+  const roomIds = [...new Set(ldBuy().map(item => item.roomId).filter(Boolean))];
+  let placedRooms = 0;
+  roomIds.forEach(roomId => {
+    if (autoPlaceRoomScenarioInPlan(roomId, mode, { silent: true, skipRefresh: true })) placedRooms += 1;
+  });
+  savePlan();
+  if (typeof switchTab === 'function') switchTab('plan');
+  renderPlan();
+  rPlanSidebar();
+  toast(
+    placedRooms
+      ? `Auto-placed ${placedRooms} room setup${placedRooms !== 1 ? 's' : ''} using ${mode === 'best-space' ? 'best free-space' : mode} mode`
+      : 'No measured room setups were available for auto-placement',
+    placedRooms ? 'green' : 'warn',
+    3200
+  );
+}
+
 function placeItemInPlan(itemId) {
   const it=getBuyItem(itemId); if(!it) return;
   if(!it.roomId) { toast('Link item to a room first','warn'); return; }

@@ -88,7 +88,7 @@ const PRELOADED_PLAN = {
   scale: 45,
   activeFloor: 0,
   _preloaded: true,
-  _planVersion: 3
+  _planVersion: 4
 };
 
 function getPreloadedPlanBoundsMeters() {
@@ -113,6 +113,28 @@ function buildBlueprintAssetPath(assetPath) {
     .join('/');
 }
 
+const BLUEPRINT_ASSET_FILES = Object.freeze({
+  apartmentFloorplan: 'blueprints/preloaded/apartment-floorplan.jpeg',
+  apartmentMeasurements: 'blueprints/preloaded/apartment-measurements-sheet.jpeg',
+  cellarFloorplan: 'blueprints/preloaded/keller-2-floorplan.jpeg',
+});
+
+function normalizeBlueprintSrc(src) {
+  const value = String(src || '');
+  if (!value) return '';
+  const lower = value.toLowerCase();
+  if (lower.includes('apartment-floorplan.jpeg') || lower.includes('whatsapp%20image%202026-03-14%20at%2018.02.47.jpeg')) {
+    return buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.apartmentFloorplan);
+  }
+  if (lower.includes('apartment-measurements-sheet.jpeg') || lower.includes('whatsapp%20image%202026-03-14%20at%2018.02.47%20(1).jpeg')) {
+    return buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.apartmentMeasurements);
+  }
+  if (lower.includes('keller-2-floorplan.jpeg') || lower.includes('whatsapp%20image%202026-03-17%20at%2018.31.21.jpeg')) {
+    return buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.cellarFloorplan);
+  }
+  return value;
+}
+
 const PRELOADED_PLAN_BOUNDS = getPreloadedPlanBoundsMeters();
 
 const CELLAR_PRESET_FLOOR = {
@@ -131,7 +153,7 @@ const CELLAR_PRESET_FLOOR = {
     }
   ],
   blueprint: {
-    src: buildBlueprintAssetPath('WhatsApp Image 2026-03-17 at 18.31.21.jpeg'),
+    src: buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.cellarFloorplan),
     widthM: 13.46,
     heightM: 8.40,
     x: 0,
@@ -150,7 +172,7 @@ const PRELOADED_BLUEPRINTS = [
     floorId: 'f-dg',
     floorName: 'Apartment',
     defaultForFloor: true,
-    src: buildBlueprintAssetPath('WhatsApp Image 2026-03-14 at 18.02.47.jpeg'),
+    src: buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.apartmentFloorplan),
     widthM: PRELOADED_PLAN_BOUNDS.widthM,
     heightM: PRELOADED_PLAN_BOUNDS.heightM,
     x: PRELOADED_PLAN_BOUNDS.minX,
@@ -165,7 +187,7 @@ const PRELOADED_BLUEPRINTS = [
     floorId: 'f-dg',
     floorName: 'Apartment',
     defaultForFloor: false,
-    src: buildBlueprintAssetPath('WhatsApp Image 2026-03-14 at 18.02.47 (1).jpeg'),
+    src: buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.apartmentMeasurements),
     widthM: PRELOADED_PLAN_BOUNDS.widthM,
     heightM: PRELOADED_PLAN_BOUNDS.heightM,
     x: PRELOADED_PLAN_BOUNDS.minX,
@@ -180,7 +202,7 @@ const PRELOADED_BLUEPRINTS = [
     floorId: 'f-keller',
     floorName: 'Keller',
     defaultForFloor: true,
-    src: buildBlueprintAssetPath('WhatsApp Image 2026-03-17 at 18.31.21.jpeg'),
+    src: buildBlueprintAssetPath(BLUEPRINT_ASSET_FILES.cellarFloorplan),
     widthM: 13.46,
     heightM: 8.40,
     x: 0,
@@ -288,6 +310,13 @@ function maybeInjectPreloaded() {
             presetId: preset.id,
             presetLabel: preset.label
           };
+        } else if (nextFloor.blueprint?.src) {
+          nextFloor.blueprint = {
+            ...nextFloor.blueprint,
+            src: normalizeBlueprintSrc(nextFloor.blueprint.src),
+          };
+          if (!nextFloor.blueprint.presetId && preset.id) nextFloor.blueprint.presetId = preset.id;
+          if (!nextFloor.blueprint.presetLabel && preset.label) nextFloor.blueprint.presetLabel = preset.label;
         }
         if (!nextFloor.storageNote && preset.storageNote) {
           nextFloor.storageNote = preset.storageNote;

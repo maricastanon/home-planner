@@ -46,6 +46,7 @@ const seedData = {
       category: 'Furniture',
       type: 'Sofa',
       source: 'existing',
+      moveDecision: 'take',
       roomId: 'r-living',
       roomRole: 'must',
       optionGroup: '',
@@ -65,6 +66,7 @@ const seedData = {
       category: 'Furniture',
       type: 'Desk',
       source: 'new',
+      moveDecision: 'buy',
       roomId: 'r-living',
       roomRole: 'candidate',
       optionGroup: 'Desk shortlist',
@@ -84,6 +86,7 @@ const seedData = {
       category: 'Furniture',
       type: 'Desk',
       source: 'new',
+      moveDecision: 'consider',
       roomId: 'r-living',
       roomRole: 'candidate',
       optionGroup: 'Desk shortlist',
@@ -245,6 +248,12 @@ async function run() {
       const wishlistText = document.getElementById('wishlist-planner-content')?.textContent || '';
       setWishlistMustPlace('buy-desk-small', true);
       const deskAfterPin = getBuyItem('buy-desk-small');
+      switchBuySubtab('decision');
+      const decisionLabText = document.getElementById('decision-lab-content')?.textContent || '';
+      autoPlaceWholeHomeInPlan('reuse-first');
+      const sofaPlaced = getBuyItem('buy-sofa-old');
+      const deskPlaced = getBuyItem('buy-desk-small');
+      const wideDeskPlaced = getBuyItem('buy-desk-wide');
 
       switchTab('plan');
       const kellerLoaded = loadPreloadedBlueprintPreset('keller-2');
@@ -266,8 +275,13 @@ async function run() {
         room3dText,
         room3dHasSvg,
         wishlistText,
+        decisionLabText,
         deskPinnedMust: deskAfterPin?.roomRole || '',
         deskPinnedFlag: Boolean(deskAfterPin?.mustFitRoom),
+        sofaPlacedInPlan: Boolean(sofaPlaced?.placedInPlan),
+        deskPlacedInPlan: Boolean(deskPlaced?.placedInPlan),
+        deskPlacedFloor: deskPlaced?.planFloor || '',
+        wideDeskPlacedInPlan: Boolean(wideDeskPlaced?.placedInPlan),
         fitCompact: renderCmpFitText(getCmpItem('cmp-fridge-compact')),
         fitFamily: renderCmpFitText(getCmpItem('cmp-fridge-family')),
         kellerLoaded,
@@ -303,8 +317,14 @@ async function run() {
     if (!/Setup Wishlist Intelligence/.test(state.wishlistText) || !/Living room setup/.test(state.wishlistText) || !/Main seating/.test(state.wishlistText)) {
       throw new Error(`Wishlist planner subtab did not render room readiness intelligence: ${JSON.stringify(state)}`);
     }
+    if (!/Apartment Decision Lab/.test(state.decisionLabText) || !/Reuse-first/.test(state.decisionLabText) || !/Auto-place all reuse-first choices/.test(state.decisionLabText)) {
+      throw new Error(`Decision lab subtab did not render apartment setup planning controls: ${JSON.stringify(state)}`);
+    }
     if (state.deskPinnedMust !== 'must' || !state.deskPinnedFlag) {
       throw new Error(`Wishlist must-have pinning did not sync item state: ${JSON.stringify(state)}`);
+    }
+    if (!state.sofaPlacedInPlan || !state.deskPlacedInPlan || state.wideDeskPlacedInPlan || state.deskPlacedFloor !== 'f-main') {
+      throw new Error(`Reuse-first auto-placement did not map the chosen room setup onto the plan: ${JSON.stringify(state)}`);
     }
     if (!/Fits/.test(state.fitCompact) || !/Fits/.test(state.fitFamily)) {
       throw new Error(`Room-fit comparison text was not generated: ${JSON.stringify(state)}`);

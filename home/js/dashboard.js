@@ -148,6 +148,68 @@ function rDash() {
     h+='</div>';
   }
 
+  // ── Room readiness ──────────────────────────────────────────
+  const buyItems = ldBuy();
+  const roomsWithItems = getAllRooms().filter(r => buyItems.some(it => it.roomId === r.id));
+  if (roomsWithItems.length) {
+    h += `<div class="dash-box" style="margin-top:0">
+      <div class="dash-box-hdr">✨ Room Readiness</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">`;
+    roomsWithItems.forEach(room => {
+      const ri = buyItems.filter(it => it.roomId === room.id);
+      const bought = ri.filter(it => it.bought).length;
+      const mustHave = ri.filter(it => it.prio === 'must').length;
+      const mustBought = ri.filter(it => it.prio === 'must' && it.bought).length;
+      const pct = ri.length ? Math.round(bought / ri.length * 100) : 0;
+      const ready = pct >= 75;
+      h += `<div style="background:${ready ? 'var(--gnl)' : 'var(--bg)'};border-radius:12px;padding:10px;cursor:pointer;border:1px solid ${ready ? '#86efac' : 'var(--border)'};transition:all .15s" onclick="switchTab('buy');setTimeout(()=>switchBuySubtab('roommap'),150)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:700;font-size:.75rem">${room.emoji} ${esc(room.label)}</span>
+          <span style="font-size:.72rem;font-weight:700;color:${ready ? 'var(--gn)' : 'var(--pk)'}">${pct}%</span>
+        </div>
+        ${progressBar(pct, ready ? 'var(--gn)' : room.colorDark || 'var(--pk)', '4px')}
+        <div style="font-size:.55rem;color:var(--bd3);margin-top:3px">${bought}/${ri.length} bought${mustHave ? ` · ${mustBought}/${mustHave} must-haves` : ''}</div>
+      </div>`;
+    });
+    h += '</div></div>';
+  }
+
+  // ── Upcoming deliveries ────────────────────────────────────
+  const orderedItems = buyItems.filter(it => it.itemStatus === 'ordered' && !it.bought && it.deliveryDate);
+  if (orderedItems.length) {
+    const sorted = orderedItems.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate)).slice(0, 4);
+    const today = new Date(); today.setHours(0,0,0,0);
+    h += `<div class="dash-box" style="margin-top:0">
+      <div class="dash-box-hdr">🚚 Upcoming Deliveries</div>`;
+    sorted.forEach(it => {
+      const dd = new Date(it.deliveryDate);
+      const daysLeft = Math.ceil((dd - today) / 86400000);
+      const urgColor = daysLeft < 0 ? '#dc2626' : daysLeft <= 3 ? '#d97706' : 'var(--gn)';
+      h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg2);cursor:pointer" onclick="switchTab('buy');setTimeout(()=>switchBuySubtab('delivery'),150)">
+        <div style="min-width:48px;text-align:center;font-weight:700;font-size:.75rem;color:${urgColor}">${daysLeft < 0 ? 'Late!' : daysLeft === 0 ? 'Today!' : daysLeft + 'd'}</div>
+        <div style="flex:1;min-width:0;font-size:.72rem">${esc(trunc(it.name, 28))}</div>
+        <div style="font-size:.6rem;color:var(--bd3)">${fmtDate(it.deliveryDate)}</div>
+      </div>`;
+    });
+    h += '</div>';
+  }
+
+  // ── Shopping summary ───────────────────────────────────────
+  const toBuyCount = buyItems.filter(it => !it.bought && normalizeItemSource(it.source) !== 'existing').length;
+  const storeCount = new Set(buyItems.filter(it => it.store).map(it => it.store)).size;
+  if (toBuyCount) {
+    h += `<div class="dash-box" style="margin-top:0">
+      <div class="dash-box-hdr">🏪 Shopping Overview</div>
+      <div class="mini-stats" style="margin-top:0">
+        <div class="mini-stat"><div class="ms-num">${toBuyCount}</div><div class="ms-lbl">Items to buy</div></div>
+        <div class="mini-stat"><div class="ms-num">${storeCount}</div><div class="ms-lbl">Stores</div></div>
+        <div class="mini-stat"><div class="ms-num">${buyItems.filter(it => it.bought).length}</div><div class="ms-lbl">Already bought</div></div>
+        <div class="mini-stat"><div class="ms-num">${buyItems.filter(it => it.priceSources?.length > 1).length}</div><div class="ms-lbl">Price compared</div></div>
+      </div>
+      <button class="qa-btn" style="width:100%;margin-top:6px" onclick="switchTab('buy');setTimeout(()=>switchBuySubtab('shopping'),150)">🏪 Open Shopping Hub</button>
+    </div>`;
+  }
+
   h+=`<div style="text-align:center;font-size:.6rem;color:var(--bd3);margin-top:16px;padding-bottom:4px">
     Keyboard: 1–7 = tabs · Esc = close modal · Ctrl+K = search
   </div>`;

@@ -445,6 +445,7 @@ function renderComparisonGroup(title, items, source) {
     const fp = getItemFootprintSqm(it);
     const isCheapest = it.id === cheapest.id && items.length > 1;
     const fit = it.roomId ? getRoomFitReport(it) : null;
+    const decisionMeta = source === 'buy' ? getMoveDecisionMeta(it.source, it.moveDecision) : null;
     const wPct = it.widthCm ? Math.round(it.widthCm / maxW * 100) : 0;
     const dPct = it.depthCm ? Math.round(it.depthCm / maxD * 100) : 0;
     const hPct = it.heightCm ? Math.round(it.heightCm / maxH * 100) : 0;
@@ -459,6 +460,7 @@ function renderComparisonGroup(title, items, source) {
       ${it.brand ? `<div class="visual-cmp-brand">${esc(it.brand)}</div>` : ''}
       <div class="visual-cmp-price">${fmtEur(it.price)}</div>
       ${priceDiff > 0 ? `<div style="font-size:.55rem;color:var(--pk)">+${fmtEur(priceDiff, 0)} vs cheapest</div>` : ''}
+      ${decisionMeta ? `<div style="font-size:.58rem;color:${decisionMeta.fg};margin-top:3px">${esc(decisionMeta.e)} ${esc(decisionMeta.l)}</div>` : ''}
       ${it.energyClass ? `<div style="margin:3px 0">${energyBadge(it.energyClass)}</div>` : ''}
       <div class="size-bars">
         <div class="size-bar-row"><span class="size-bar-label">W</span><div class="size-bar-track"><div class="size-bar-fill" style="width:${wPct}%;background:#60a5fa"></div></div><span class="size-bar-val">${it.widthCm || '?'}</span></div>
@@ -466,13 +468,16 @@ function renderComparisonGroup(title, items, source) {
         <div class="size-bar-row"><span class="size-bar-label">H</span><div class="size-bar-track"><div class="size-bar-fill" style="width:${hPct}%;background:#fbbf24"></div></div><span class="size-bar-val">${it.heightCm || '?'}</span></div>
       </div>
       ${fp ? `<div style="font-size:.58rem;color:var(--bd3);margin:3px 0">Footprint: ${fp} m²</div>` : ''}
-      ${fit ? `<div class="visual-cmp-fit ${fit.fits ? 'fits' : 'no-fit'}">${fit.fits ? 'Fits' : 'Won\'t fit'} · ${fit.footprintPct}% of room</div>` : ''}
+      ${fit ? `<div class="visual-cmp-fit ${fit.fits ? 'fits' : 'no-fit'}">${fit.fits ? `Fits · ${fit.footprintPct}% of room · ${fit.freeSqm.toFixed(2)} m² left` : `Won't fit · slack ${fit.widthSlackCm}W / ${fit.depthSlackCm}D cm`}</div>` : ''}
       <div class="visual-cmp-price-bar"><div class="price-bar-fill" style="width:${pricePct}%"></div></div>
       <div class="visual-cmp-chips">
         ${(it.pros || []).slice(0, 3).map(p => `<span class="mini-chip pro">${esc(trunc(p, 15))}</span>`).join('')}
         ${(it.cons || []).slice(0, 2).map(c => `<span class="mini-chip con">${esc(trunc(c, 15))}</span>`).join('')}
       </div>
-      ${source === 'buy' ? `<button class="btn sml pri" style="margin-top:5px;width:100%" onclick="pickScenarioItem('${it.id}','${esc(getOptionGroupKey(it))}')">${it.scenarioPick ? 'Selected' : 'Pick this'}</button>` : ''}
+      ${source === 'buy' ? `<div style="display:grid;gap:5px;margin-top:5px">
+        <button class="btn sml pri" style="width:100%" onclick="pickScenarioItem('${it.id}','${esc(getOptionGroupKey(it))}')">${it.scenarioPick ? 'Selected' : 'Pick this'}</button>
+        <button class="btn sml" style="width:100%" onclick="placeItemInPlan('${it.id}')">🏠 Place in plan</button>
+      </div>` : ''}
     </div>`;
   });
 

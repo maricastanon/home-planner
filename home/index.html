@@ -46,7 +46,7 @@
     <div id="auth-status-note" style="font-size:.6rem;color:#aaa;text-align:center;margin-top:6px">Checking session...</div>
   </div>
   <div class="login-footer">
-    Our New Home v2.1
+    Our New Home v2.2
     <button class="btn pri full" id="auth-install-btn" hidden style="margin-top:8px">Install App</button>
   </div>
 </div>
@@ -301,8 +301,11 @@
     <button class="buy-subtab active" data-subtab="items" onclick="switchBuySubtab('items')">🛒 Items</button>
     <button class="buy-subtab" data-subtab="fit" onclick="switchBuySubtab('fit')">📐 Fit Test</button>
     <button class="buy-subtab" data-subtab="budget" onclick="switchBuySubtab('budget')">💰 Budget Planner</button>
+    <button class="buy-subtab" data-subtab="decision" onclick="switchBuySubtab('decision')">🧭 Decision Lab</button>
     <button class="buy-subtab" data-subtab="roommap" onclick="switchBuySubtab('roommap')">🏠 Room Map</button>
     <button class="buy-subtab" data-subtab="3d" onclick="switchBuySubtab('3d')">🧊 3D Preview</button>
+    <button class="buy-subtab" data-subtab="shopping" onclick="switchBuySubtab('shopping')">🏪 Shopping Hub</button>
+    <button class="buy-subtab" data-subtab="delivery" onclick="switchBuySubtab('delivery')">🚚 Delivery</button>
     <button class="buy-subtab" data-subtab="wishlist" onclick="switchBuySubtab('wishlist')">✨ Setup Wishlist</button>
   </div>
   <!-- Items subtab -->
@@ -317,6 +320,7 @@
       <div class="filter-label" style="margin-top:5px">Priority</div><div id="buy-filter-prio"></div>
       <div class="filter-label" style="margin-top:5px">Status</div><div id="buy-filter-status"></div>
       <div class="filter-label" style="margin-top:5px">Source</div><div id="buy-filter-source"></div>
+      <div class="filter-label" style="margin-top:5px">Store</div><div id="buy-filter-store"></div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:5px;align-items:center">
         <div><div class="filter-label">Sort</div><div id="buy-sort-pills"></div></div>
         <div><div class="filter-label">View</div><div id="buy-view-pills"></div></div>
@@ -332,6 +336,10 @@
   <div class="buy-subtab-panel" id="buy-sub-budget">
     <div id="budget-planner-content"></div>
   </div>
+  <!-- Decision Lab subtab -->
+  <div class="buy-subtab-panel" id="buy-sub-decision">
+    <div id="decision-lab-content"></div>
+  </div>
   <!-- Room Map subtab -->
   <div class="buy-subtab-panel" id="buy-sub-roommap">
     <div id="room-map-content"></div>
@@ -339,6 +347,14 @@
   <!-- 3D Preview subtab -->
   <div class="buy-subtab-panel" id="buy-sub-3d">
     <div id="room-3d-content"></div>
+  </div>
+  <!-- Shopping Hub subtab -->
+  <div class="buy-subtab-panel" id="buy-sub-shopping">
+    <div id="shopping-hub-content"></div>
+  </div>
+  <!-- Delivery Tracker subtab -->
+  <div class="buy-subtab-panel" id="buy-sub-delivery">
+    <div id="delivery-tracker-content"></div>
   </div>
   <!-- Setup Wishlist subtab -->
   <div class="buy-subtab-panel" id="buy-sub-wishlist">
@@ -677,9 +693,15 @@
         <option value="want" selected>🟡 Want</option>
         <option value="nice">🟢 Nice-to-have</option>
       </select></div>
-      <div class="fg"><label>Source</label><select id="b-source">
-        <option value="new">🛒 Buy new</option>
-        <option value="existing">📦 Take from old apartment</option>
+      <div class="fg"><label>Decision</label><select id="b-decision">
+        <option value="">Auto from source</option>
+        <option value="buy">🛒 Buy for new apartment</option>
+        <option value="take">📦 Take from old apartment</option>
+        <option value="consider">🤔 Decide later</option>
+        <option value="store">🧱 Store in Keller</option>
+        <option value="sell">💸 Sell / replace</option>
+        <option value="donate">🎁 Donate</option>
+        <option value="skip">⏭️ Skip for now</option>
       </select></div>
       <div class="fg"><label>Status</label><select id="b-status">
         <option value="wishlist">💭 Wishlist</option><option value="researching">🔍 Researching</option>
@@ -689,6 +711,18 @@
       <div class="fg"><label>Original / RRP (€)</label><input id="b-orig-price" type="number" step="0.01"></div>
       <div class="fg"><label>Buy link</label><input id="b-buylink" placeholder="https://..."></div>
       <div class="fg"><label>Alternative link</label><input id="b-altlink" placeholder="https://..."></div>
+      <div class="fg"><label>Store</label><input id="b-store" placeholder="IKEA, Amazon, MediaMarkt..."></div>
+      <div class="fg"><label>Store URL</label><input id="b-store-url" placeholder="https://ikea.com/..."></div>
+      <div class="fg"><label>Quantity</label><input id="b-qty" type="number" min="1" value="1" placeholder="1"></div>
+      <div class="fg"><label>Availability</label><select id="b-avail">
+        <option value="">-- unknown --</option>
+        <option value="in-stock">In Stock</option>
+        <option value="low-stock">Low Stock</option>
+        <option value="pre-order">Pre-order</option>
+        <option value="out-of-stock">Out of Stock</option>
+        <option value="discontinued">Discontinued</option>
+      </select></div>
+      <div class="fg"><label>Expected delivery</label><input id="b-delivery-date" type="date"></div>
       <div class="fg"><label>Option group</label><input id="b-option-group" placeholder="Living room sofa shortlist"></div>
       <div class="fg"><label>Room optimizer</label><select id="b-room-role">
         <option value="candidate">➕ Candidate for room</option>
@@ -777,8 +811,15 @@
       <div class="fg"><label>Priority</label><select id="be-prio">
         <option value="must">🔴 Must-have</option><option value="want">🟡 Want</option><option value="nice">🟢 Nice</option>
       </select></div>
-      <div class="fg"><label>Source</label><select id="be-source">
-        <option value="new">🛒 Buy new</option><option value="existing">📦 Take from old apartment</option>
+      <div class="fg"><label>Decision</label><select id="be-decision">
+        <option value="">Auto from source</option>
+        <option value="buy">🛒 Buy for new apartment</option>
+        <option value="take">📦 Take from old apartment</option>
+        <option value="consider">🤔 Decide later</option>
+        <option value="store">🧱 Store in Keller</option>
+        <option value="sell">💸 Sell / replace</option>
+        <option value="donate">🎁 Donate</option>
+        <option value="skip">⏭️ Skip for now</option>
       </select></div>
       <div class="fg"><label>Status</label><select id="be-status">
         <option value="wishlist">💭 Wishlist</option><option value="researching">🔍 Researching</option>
@@ -789,6 +830,18 @@
       <div class="fg"><label>Original / RRP (€)</label><input id="be-orig-price" type="number" step="0.01"></div>
       <div class="fg"><label>Buy link</label><input id="be-buylink"></div>
       <div class="fg"><label>Alt link</label><input id="be-altlink"></div>
+      <div class="fg"><label>Store</label><input id="be-store" placeholder="IKEA, Amazon..."></div>
+      <div class="fg"><label>Store URL</label><input id="be-store-url" placeholder="https://..."></div>
+      <div class="fg"><label>Quantity</label><input id="be-qty" type="number" min="1" placeholder="1"></div>
+      <div class="fg"><label>Availability</label><select id="be-avail">
+        <option value="">-- unknown --</option>
+        <option value="in-stock">In Stock</option>
+        <option value="low-stock">Low Stock</option>
+        <option value="pre-order">Pre-order</option>
+        <option value="out-of-stock">Out of Stock</option>
+        <option value="discontinued">Discontinued</option>
+      </select></div>
+      <div class="fg"><label>Expected delivery</label><input id="be-delivery-date" type="date"></div>
       <div class="fg"><label>Option group</label><input id="be-option-group" placeholder="Living room sofa shortlist"></div>
       <div class="fg"><label>Room optimizer</label><select id="be-room-role">
         <option value="candidate">➕ Candidate for room</option>

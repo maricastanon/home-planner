@@ -272,6 +272,7 @@ function getItemFootprintSqm(item) {
 }
 
 function getPlannedItemCost(item) {
+  if (normalizeMoveDecision(item?.source, item?.moveDecision) === 'skip') return 0;
   if (normalizeItemSource(item?.source) !== 'new') return 0;
   return item?.bought ? (item.actualPrice || item.price || 0) : (item.price || 0);
 }
@@ -334,6 +335,11 @@ function chooseScenarioCandidate(groupItems, mode = 'selected') {
   const selected = groupItems.find(item => item.scenarioPick);
   if (mode === 'selected' && selected) return selected;
   const ordered = [...groupItems].sort((a, b) => {
+    if (mode === 'reuse-first') {
+      const reuseA = normalizeItemSource(a.source) === 'existing' ? 1 : 0;
+      const reuseB = normalizeItemSource(b.source) === 'existing' ? 1 : 0;
+      if (reuseA !== reuseB) return reuseB - reuseA;
+    }
     const costDiff = getPlannedItemCost(a) - getPlannedItemCost(b);
     if (mode === 'premium' && costDiff !== 0) return -costDiff;
     if (mode !== 'premium' && costDiff !== 0) return costDiff;
@@ -351,9 +357,11 @@ function getBuyScenarioStats(items = ldBuy()) {
   const baseSinglesCost = singles.reduce((sum, item) => sum + getPlannedItemCost(item), 0);
   const selectedGroupItems = Object.values(grouped).map(group => chooseScenarioCandidate(group, 'selected')).filter(Boolean);
   const cheapestGroupItems = Object.values(grouped).map(group => chooseScenarioCandidate(group, 'cheapest')).filter(Boolean);
+  const reuseFirstGroupItems = Object.values(grouped).map(group => chooseScenarioCandidate(group, 'reuse-first')).filter(Boolean);
   const premiumGroupItems = Object.values(grouped).map(group => chooseScenarioCandidate(group, 'premium')).filter(Boolean);
   const selectedTotal = baseSinglesCost + selectedGroupItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0);
   const cheapestTotal = baseSinglesCost + cheapestGroupItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0);
+  const reuseFirstTotal = baseSinglesCost + reuseFirstGroupItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0);
   const premiumTotal = baseSinglesCost + premiumGroupItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0);
   const reusedItems = items.filter(item => normalizeItemSource(item.source) !== 'new');
   const reusedValue = reusedItems.reduce((sum, item) => sum + (item.price || 0), 0);
@@ -362,9 +370,11 @@ function getBuyScenarioStats(items = ldBuy()) {
     groupCount: Object.keys(grouped).length,
     selectedTotal,
     cheapestTotal,
+    reuseFirstTotal,
     premiumTotal,
     selectedGroupItems,
     cheapestGroupItems,
+    reuseFirstGroupItems,
     premiumGroupItems,
     reusedItems,
     reusedCount: reusedItems.length,

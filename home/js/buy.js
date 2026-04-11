@@ -15,16 +15,27 @@ function rBuy() {
     rFitTest();
   } else if (_buySubtab === 'budget') {
     rBudgetPlanner();
+  } else if (_buySubtab === 'decision') {
+    rDecisionLab();
   } else if (_buySubtab === 'roommap') {
     if (typeof rRoomMap === 'function') rRoomMap();
   } else if (_buySubtab === '3d') {
     rRoom3D();
+  } else if (_buySubtab === 'shopping') {
+    rShoppingHub();
+  } else if (_buySubtab === 'delivery') {
+    rDeliveryTracker();
   } else if (_buySubtab === 'wishlist') {
     rWishlistPlanner();
   } else {
     rBuyList();
   }
   updateCompareFab();
+}
+
+function renderMoveDecisionBadge(item) {
+  const meta = getMoveDecisionMeta(item?.source, item?.moveDecision);
+  return `<span class="badge" style="background:${meta.bg};color:${meta.fg}">${esc(meta.e)} ${esc(meta.l)}</span>`;
 }
 
 // ── BUDGET BAR ──────────────────────────────────────────────
@@ -91,14 +102,16 @@ function rBuyList() {
   const prioF   = getPillVal('buy','prio');
   const statusF = getPillVal('buy','status');
   const sourceF = getPillVal('buy','source');
+  const storeF  = getPillVal('buy','store');
   const sortV   = getPillVal('buy','sort')||'vote';
 
   let list = items.filter(it => {
-    if (q && !(it.name+' '+(it.brand||'')+' '+(it.type||'')+' '+(it.notes||'')).toLowerCase().includes(q)) return false;
+    if (q && !(it.name+' '+(it.brand||'')+' '+(it.type||'')+' '+(it.store||'')+' '+(it.notes||'')).toLowerCase().includes(q)) return false;
     if (roomF && it.roomId !== roomF) return false;
     if (catF  && it.category !== catF) return false;
     if (prioF && it.prio !== prioF) return false;
     if (sourceF && normalizeItemSource(it.source) !== sourceF) return false;
+    if (storeF && it.store !== storeF) return false;
     if (statusF==='bought'  && !it.bought)  return false;
     if (statusF==='pending' && it.bought)   return false;
     if (statusF==='agreed'  && !(it.voteM==='yes'&&it.voteA==='yes')) return false;
@@ -196,6 +209,7 @@ function renderItemCard(it, names) {
   const prioConf = BUY_PRIOS.find(p=>p.k===it.prio)||{color:'#f1f5f9',colorText:'#64748b',e:'',l:''};
   const room     = getRoomById(it.roomId);
   const sourceMeta = getItemSourceMeta(it.source);
+  const moveDecisionMeta = getMoveDecisionMeta(it.source, it.moveDecision);
   const roomRole = it.roomRole || 'candidate';
   const vs       = voteScore(it);
   const bothYes  = it.voteM==='yes'&&it.voteA==='yes';
@@ -221,6 +235,7 @@ function renderItemCard(it, names) {
         <span class="badge" style="background:${prioConf.color};color:${prioConf.colorText}">${prioConf.e} ${esc(prioConf.l)}</span>
         ${it.bought?'<span class="badge green">✅ Bought</span>':''}
         ${normalizeItemSource(it.source)==='existing'?`<span class="badge blue">${esc(sourceMeta.badge)}</span>`:''}
+        ${renderMoveDecisionBadge(it)}
         ${roomRole==='must'?'<span class="badge purple">📍 Must place</span>':''}
         ${bothYes?'<span class="badge green">💕 Both!</span>':''}
         ${disputed?'<span class="badge orange">⚡</span>':''}
@@ -232,7 +247,10 @@ function renderItemCard(it, names) {
       ${it.brand?`<div class="item-card-brand">${esc(it.brand)}${it.model?' · '+esc(it.model):''}</div>`:''}
       ${it.roomId?`<div class="item-card-brand">${esc(room.emoji || '📦')} ${esc(room.label || 'Other')}</div>`:''}
       ${normalizeItemSource(it.source)==='existing'?`<div class="item-card-brand">🏚️ Already owned · budget excluded</div>`:''}
+      <div class="item-card-brand">${esc(moveDecisionMeta.e)} ${esc(moveDecisionMeta.l)}</div>
       ${it.optionGroup?`<div class="item-card-brand">🧩 ${esc(it.optionGroup)}</div>`:''}
+      ${it.store?`<div class="item-card-brand">🏪 ${esc(it.store)}${it.availability ? ' · ' + availabilityBadge(it.availability) : ''}</div>`:''}
+      ${it.quantity && it.quantity > 1 ? `<div class="item-card-brand">📦 Qty: ${it.quantity}</div>` : ''}
       ${dimTxt?`<div class="item-card-dims">📐 ${esc(dimTxt)}</div>`:''}
       ${it.energyRating?`<div style="margin-top:2px">${energyBadge(it.energyRating)}</div>`:''}
       <div class="item-card-votes" onclick="event.stopPropagation()">
@@ -259,9 +277,46 @@ function renderItemCard(it, names) {
         <button class="btn sml" onclick="event.stopPropagation();placeItemInPlan('${it.id}')">🏠 Plan</button>
         ${!it.bought&&normalizeItemSource(it.source)!=='existing'?`<button class="btn sml suc" onclick="event.stopPropagation();openBuyModal('${it.id}')">✅</button>`:''}
         <button class="btn sml" onclick="event.stopPropagation();openEditItem('${it.id}')">✏️</button>
+        <button class="btn sml" onclick="event.stopPropagation();quickShortlist('${it.id}')" title="Add to shortlist">🧩</button>
       </div>
     </div>
   </div>`;
+}
+
+function quickShortlist(itemId) {
+  const it = getBuyItem(itemId); if (!it) return;
+  const items = ldBuy();
+  const groups = [...new Set(items.filter(i => i.optionGroup).map(i => i.optionGroup))].sort();
+  if (!groups.length) {
+    const room = getRoomById(it.roomId);
+    const suggest = (it.category||'Item') + (room.label !== 'Other' ? ' - ' + room.label : '') + ' shortlist';
+    const name = prompt('Create a new shortlist (option group):', suggest);
+    if (!name) return;
+    it.optionGroup = name.trim();
+    updBuyItem(it);
+    rBuy();
+    toast('Added to "' + it.optionGroup + '"', 'green');
+    return;
+  }
+  const opts = groups.map((g, i) => `${i + 1}. ${g}`).join('\n');
+  const choice = prompt('Add to existing shortlist (enter number) or type a NEW name:\n\n' + opts + '\n\n0. Create new...');
+  if (choice === null) return;
+  const num = parseInt(choice);
+  let groupName;
+  if (num >= 1 && num <= groups.length) {
+    groupName = groups[num - 1];
+  } else if (choice.trim() === '0' || choice.trim() === '') {
+    const room = getRoomById(it.roomId);
+    const suggest = (it.category||'Item') + (room.label !== 'Other' ? ' - ' + room.label : '') + ' shortlist';
+    groupName = prompt('New shortlist name:', suggest);
+    if (!groupName) return;
+  } else {
+    groupName = choice.trim();
+  }
+  it.optionGroup = groupName;
+  updBuyItem(it);
+  rBuy();
+  toast('Added to "' + groupName + '"', 'green');
 }
 
 // ── Item Detail Modal ─────────────────────────────────────────
@@ -271,6 +326,7 @@ function openItemDetail(id) {
   const names    = settings.names||{M:'Mari',A:'Alexander'};
   const room     = getRoomById(it.roomId);
   const sourceMeta = getItemSourceMeta(it.source);
+  const moveDecisionMeta = getMoveDecisionMeta(it.source, it.moveDecision);
   const cat      = getCatByKey(it.category);
   const statusConf = ITEM_STATUSES.find(s=>s.k===it.itemStatus)||ITEM_STATUSES[0];
   const photos   = it.photos||[];
@@ -309,6 +365,7 @@ function openItemDetail(id) {
       ${it.brand?`<div class="info-item"><span class="info-lbl">Brand</span><span class="info-val">${esc(it.brand)}</span></div>`:''}
       ${it.model?`<div class="info-item"><span class="info-lbl">Model</span><span class="info-val">${esc(it.model)}</span></div>`:''}
       <div class="info-item"><span class="info-lbl">Source</span><span class="info-val">${esc(sourceMeta.e)} ${esc(sourceMeta.l)}</span></div>
+      <div class="info-item"><span class="info-lbl">Decision</span><span class="info-val">${esc(moveDecisionMeta.e)} ${esc(moveDecisionMeta.l)}</span></div>
       ${it.price?`<div class="info-item"><span class="info-lbl">Price</span><span class="info-val" style="color:var(--pk);font-weight:700">${fmtEur(it.price)}</span></div>`:''}
       ${it.originalPrice?`<div class="info-item"><span class="info-lbl">Original</span><span class="info-val"><s>${fmtEur(it.originalPrice)}</s></span></div>`:''}
       ${room?`<div class="info-item"><span class="info-lbl">Room</span><span class="info-val">${room.emoji} ${esc(room.label)}</span></div>`:''}
@@ -319,7 +376,13 @@ function openItemDetail(id) {
       ${it.material?`<div class="info-item"><span class="info-lbl">Material</span><span class="info-val">${esc(it.material)}</span></div>`:''}
       ${it.weightKg?`<div class="info-item"><span class="info-lbl">Weight</span><span class="info-val">${it.weightKg} kg</span></div>`:''}
       ${it.warranty?`<div class="info-item"><span class="info-lbl">Warranty</span><span class="info-val">${esc(it.warranty)}</span></div>`:''}
+      ${it.store?`<div class="info-item"><span class="info-lbl">Store</span><span class="info-val">${getStoreMeta(it.store).e} ${esc(it.store)}${it.storeUrl ? ' <a href="' + esc(it.storeUrl) + '" target="_blank">🔗</a>' : ''}</span></div>`:''}
+      ${it.quantity && it.quantity > 1 ?`<div class="info-item"><span class="info-lbl">Quantity</span><span class="info-val">${it.quantity}</span></div>`:''}
+      ${it.availability?`<div class="info-item"><span class="info-lbl">Availability</span><span class="info-val">${availabilityBadge(it.availability)}</span></div>`:''}
+      ${it.deliveryDate?`<div class="info-item"><span class="info-lbl">Delivery</span><span class="info-val">📅 ${fmtDate(it.deliveryDate)}</span></div>`:''}
     </div>
+
+    ${renderPriceSources(it)}
 
     <!-- Dimensions -->
     ${it.widthCm||it.depthCm||it.heightCm?`
@@ -367,12 +430,29 @@ function openItemDetail(id) {
 
     ${it.notes?`<div class="note-box" style="margin-bottom:10px">${esc(it.notes)}</div>`:''}
 
+    <!-- Price Sources -->
+    ${renderPriceSources(it)}
+
+    <!-- Store info -->
+    ${it.store?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:8px">
+      <span style="font-size:1.1rem">${getStoreMeta(it.store).e}</span>
+      <div style="flex:1">
+        <div style="font-size:.72rem;font-weight:600">${esc(it.store)}</div>
+        ${it.availability ? `<div style="margin-top:2px">${availabilityBadge(it.availability)}</div>` : ''}
+      </div>
+      ${it.storeUrl ? `<a href="${esc(it.storeUrl)}" target="_blank" class="btn sml">🔗 Store</a>` : ''}
+    </div>`:''}
+
+    <!-- Similar / competing items -->
+    ${renderSimilarItems(it)}
+
     <!-- Links -->
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
       ${it.buyLink?`<a href="${esc(it.buyLink)}" target="_blank" class="btn pri">🛒 Buy Now</a>`:''}
       ${it.altLink?`<a href="${esc(it.altLink)}" target="_blank" class="btn ghost">🔗 Alternative</a>`:''}
       <button class="btn" onclick="placeItemInPlan('${it.id}')">📐 Place in Floor Plan</button>
       <button class="btn" onclick="addToCompare('${it.id}')">⚖️ Add to Compare</button>
+      <button class="btn" onclick="addPriceSource('${it.id}')">💶 Add Price Source</button>
     </div>
 
     <!-- Actions -->
@@ -473,9 +553,16 @@ function addBuyItemFromForm() {
     originalPrice: fNum('b-orig-price'),
     currency: '€',
     source:   normalizeItemSource(fVal('b-source')),
+    moveDecision: normalizeMoveDecision(fVal('b-source'), fVal('b-decision')),
     buyLink:  fVal('b-buylink'),
     altLink:  fVal('b-altlink'),
     optionGroup: fVal('b-option-group'),
+    store:    fVal('b-store'),
+    storeUrl: fVal('b-store-url'),
+    quantity: fNum('b-qty') || 1,
+    availability: fVal('b-avail'),
+    deliveryDate: fVal('b-delivery-date'),
+    priceSources: [],
     roomRole: fVal('b-room-role') || 'candidate',
     widthCm:  fNum('b-width'),
     depthCm:  fNum('b-depth'),
@@ -509,10 +596,14 @@ function openEditItem(id) {
   fSet('be-model',it.model||''); fSet('be-cat',it.category||'Furniture');
   fSet('be-type',it.type||''); fSet('be-room',it.roomId||'');
   fSet('be-source',normalizeItemSource(it.source));
+  fSet('be-decision',normalizeMoveDecision(it.source, it.moveDecision));
   fSet('be-prio',it.prio||'want'); fSet('be-price',it.price||'');
   fSet('be-orig-price',it.originalPrice||''); fSet('be-buylink',it.buyLink||'');
   fSet('be-altlink',it.altLink||''); fSet('be-width',it.widthCm||'');
   fSet('be-option-group',it.optionGroup||''); fSet('be-room-role',it.roomRole||'candidate');
+  fSet('be-store',it.store||''); fSet('be-store-url',it.storeUrl||'');
+  fSet('be-qty',it.quantity||1); fSet('be-avail',it.availability||'');
+  fSet('be-delivery-date',it.deliveryDate||'');
   fSet('be-depth',it.depthCm||''); fSet('be-height',it.heightCm||'');
   fSet('be-weight',it.weightKg||''); fSet('be-color',it.color||'');
   fSet('be-material',it.material||''); fSet('be-energy',it.energyRating||'');
@@ -537,9 +628,13 @@ function saveBuyEdit() {
   it.name=fVal('be-name')||it.name; it.brand=fVal('be-brand'); it.model=fVal('be-model');
   it.category=fVal('be-cat'); it.type=fVal('be-type'); it.roomId=fVal('be-room');
   it.source=normalizeItemSource(fVal('be-source'));
+  it.moveDecision=normalizeMoveDecision(fVal('be-source'), fVal('be-decision'));
   it.prio=fVal('be-prio'); it.price=fNum('be-price'); it.originalPrice=fNum('be-orig-price');
   it.buyLink=fVal('be-buylink'); it.altLink=fVal('be-altlink');
   it.optionGroup=fVal('be-option-group'); it.roomRole=fVal('be-room-role')||'candidate';
+  it.store=fVal('be-store'); it.storeUrl=fVal('be-store-url');
+  it.quantity=fNum('be-qty')||1; it.availability=fVal('be-avail');
+  it.deliveryDate=fVal('be-delivery-date');
   it.widthCm=fNum('be-width'); it.depthCm=fNum('be-depth'); it.heightCm=fNum('be-height');
   it.weightKg=fNum('be-weight'); it.color=fVal('be-color'); it.material=fVal('be-material');
   it.energyRating=fVal('be-energy'); it.warranty=fVal('be-warranty');
@@ -623,8 +718,9 @@ function addToCompare(id) {
 }
 function clearCompare() { _compareIds.clear(); _compareSource = 'buy'; updateCompareFab(); }
 function openCompareForType(type, roomId) {
-  const items = ldBuy().filter(it=>it.type===type&&it.roomId===roomId);
-  if(items.length<2) { toast('Need at least 2 items to compare','warn'); return; }
+  let items = ldBuy().filter(it => it.type === type && (!roomId || it.roomId === roomId));
+  if (items.length < 2 && roomId) items = ldBuy().filter(it => it.type === type);
+  if (items.length < 2) { toast('Need at least 2 items of this type to compare','warn'); return; }
   setCompareContext(items.map(i=>i.id), 'buy');
   openCompareModal();
 }
@@ -862,6 +958,7 @@ function pickScenarioItem(itemId, groupName) {
   });
   rBuyBudget();
   rBudgetPlanner();
+  if (document.getElementById('decision-lab-content')) rDecisionLab();
   if (document.getElementById('compare-modal')?.classList.contains('open')) rCompareModal();
 }
 
@@ -869,6 +966,8 @@ function applyScenario(mode) {
   const stats = getBuyScenarioStats();
   const picks = mode === 'premium'
     ? stats.premiumGroupItems
+    : mode === 'reuse-first'
+      ? stats.reuseFirstGroupItems
     : mode === 'cheapest'
       ? stats.cheapestGroupItems
       : stats.selectedGroupItems;
@@ -880,8 +979,9 @@ function applyScenario(mode) {
   });
   rBuyBudget();
   rBudgetPlanner();
+  if (document.getElementById('decision-lab-content')) rDecisionLab();
   if (document.getElementById('compare-modal')?.classList.contains('open')) rCompareModal();
-  toast(`${mode === 'premium' ? 'Premium' : mode === 'cheapest' ? 'Cheapest' : 'Current'} scenario applied`, 'green');
+  toast(`${mode === 'premium' ? 'Premium' : mode === 'reuse-first' ? 'Reuse-first' : mode === 'cheapest' ? 'Cheapest' : 'Current'} scenario applied`, 'green');
 }
 
 function rBudgetPlanner() {
@@ -898,6 +998,11 @@ function rBudgetPlanner() {
         <div style="font-size:.58rem;color:var(--bd3)">Current picks</div>
         <div style="font-size:1.3rem;font-weight:700;color:${stats.selectedTotal > budgetMax ? 'var(--pk)' : 'var(--gn)'}">${fmtEur(stats.selectedTotal, 0)}</div>
         <div style="font-size:.55rem;color:var(--bd3)">${stats.selectedTotal > budgetMax ? 'Over budget' : 'Within budget'}</div>
+      </div>
+      <div class="scenario-card" onclick="applyScenario('reuse-first')">
+        <div style="font-size:.58rem;color:var(--bd3)">Reuse-first</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--bd)">${fmtEur(stats.reuseFirstTotal, 0)}</div>
+        <div style="font-size:.55rem;color:var(--bd3)">Prefer owned items first</div>
       </div>
       <div class="scenario-card cheapest-scenario" onclick="applyScenario('cheapest')">
         <div style="font-size:.58rem;color:var(--bd3)">Cheapest combo</div>
@@ -926,15 +1031,17 @@ function rBudgetPlanner() {
             const photo = it.photos?.[0];
             const fit = typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(it) : null;
             const picked = Boolean(it.scenarioPick);
+            const decisionMeta = getMoveDecisionMeta(it.source, it.moveDecision);
             return `<div class="option-card ${picked ? 'picked' : ''}">
               ${picked ? '<div class="picked-badge">Selected</div>' : ''}
               ${photo ? `<img src="${esc(photo)}" class="option-card-img">` : `<div class="option-card-img-placeholder">${esc((getRoomById(it.roomId)?.emoji) || '📦')}</div>`}
               <div class="option-card-name">${esc(trunc(it.name, 24))}</div>
               <div class="option-card-price">${normalizeItemSource(it.source) === 'existing' ? 'Already owned' : fmtEur(it.price || 0, 0)}</div>
               <div class="option-card-meta">${esc(it.brand || 'No brand set')}</div>
+              <div class="option-card-meta">${esc(decisionMeta.e)} ${esc(decisionMeta.l)}</div>
               <div class="option-card-meta">${dimStr(it) || 'No dimensions yet'}</div>
               <div class="option-card-meta">${getBuyItemFootprintSqm(it).toFixed(2)} m² footprint${it.roomRole === 'must' ? ' · must place' : ''}</div>
-              ${fit ? `<div class="option-card-fit ${fit.fits ? 'fits' : 'no-fit'}">${fit.fits ? 'Fits in room' : 'Needs review'}</div>` : ''}
+              ${fit ? `<div class="option-card-fit ${fit.fits ? 'fits' : 'no-fit'}">${fit.fits ? `Fits in room · ${fit.remainingAreaM2.toFixed(2)} m² left` : 'Needs review'}</div>` : ''}
               <div style="margin-top:4px">${(it.pros || []).slice(0, 2).map(p => `<span class="mini-chip pro">${esc(p)}</span>`).join('')}${(it.cons || []).slice(0, 2).map(c => `<span class="mini-chip con">${esc(c)}</span>`).join('')}</div>
               <button class="btn sml pri" style="margin-top:8px;width:100%" onclick="pickScenarioItem('${it.id}',${jsq(groupName)})">${picked ? 'Selected' : 'Pick this'}</button>
             </div>`;
@@ -958,11 +1065,238 @@ function rBudgetPlanner() {
             <span>${fmtEur(data.est || 0, 0)}</span>
           </div>
           <div style="font-size:.62rem;color:var(--bd3)">${data.count} planned item${data.count !== 1 ? 's' : ''}${optimizer ? ` · best setup leaves ${optimizer.freeAreaM2.toFixed(2)} m² free` : ''}</div>
-          <div><button class="btn sml" onclick="openRoomInPlanOptimizer('${roomId}')">🧠 Check room setup</button></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn sml" onclick="openRoomInPlanOptimizer('${roomId}')">🧠 Check room setup</button>
+            <button class="btn sml" onclick="switchBuySubtab('decision')">🧭 Decision lab</button>
+          </div>
         </div>`;
       }).join('');
   }
 
+  el.innerHTML = html;
+}
+
+function getGlobalScenarioSelection(mode = 'selected') {
+  const items = ldBuy().filter(item => normalizeMoveDecision(item.source, item.moveDecision) !== 'skip');
+  const groups = {};
+  const singles = [];
+  items.forEach(item => {
+    const key = String(item.optionGroup || '').trim();
+    if (!key) singles.push(item);
+    else (groups[key] = groups[key] || []).push(item);
+  });
+  const picks = Object.values(groups)
+    .map(groupItems => typeof chooseScenarioCandidate === 'function' ? chooseScenarioCandidate(groupItems, mode) : groupItems[0])
+    .filter(Boolean);
+  return [...singles, ...picks];
+}
+
+function getScenarioModeSummary(mode = 'selected') {
+  const items = getGlobalScenarioSelection(mode);
+  const roomIds = new Set(items.map(item => item.roomId).filter(Boolean));
+  const decisionCounts = items.reduce((map, item) => {
+    const key = normalizeMoveDecision(item.source, item.moveDecision);
+    map[key] = (map[key] || 0) + 1;
+    return map;
+  }, {});
+  return {
+    mode,
+    items,
+    total: Number(items.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2)),
+    footprintM2: Number(items.reduce((sum, item) => sum + getBuyItemFootprintSqm(item), 0).toFixed(2)),
+    reusedCount: items.filter(item => normalizeItemSource(item.source) === 'existing').length,
+    roomCount: roomIds.size,
+    decisionCounts,
+  };
+}
+
+function getRoomDecisionState(roomId) {
+  const room = getRoomById(roomId);
+  const items = ldBuy().filter(item => item.roomId === roomId);
+  const groupsMap = {};
+  items.forEach(item => {
+    const key = String(item.optionGroup || '').trim();
+    if (!key) return;
+    (groupsMap[key] = groupsMap[key] || []).push(item);
+  });
+  const optionGroups = Object.entries(groupsMap).map(([groupName, groupItems]) => ({
+    groupName,
+    items: groupItems,
+    selected: chooseScenarioCandidate(groupItems, 'selected'),
+    reuseFirst: chooseScenarioCandidate(groupItems, 'reuse-first'),
+    cheapest: chooseScenarioCandidate(groupItems, 'cheapest'),
+    premium: chooseScenarioCandidate(groupItems, 'premium'),
+  }));
+  const currentItems = getRoomScenarioSelection(roomId, 'selected');
+  const cheapestItems = getRoomScenarioSelection(roomId, 'cheapest');
+  const reuseFirstItems = getRoomScenarioSelection(roomId, 'reuse-first');
+  const premiumItems = getRoomScenarioSelection(roomId, 'premium');
+  const occupancy = typeof getRoomOccupancy === 'function' ? getRoomOccupancy(roomId) : null;
+  const optimizer = typeof getRoomOptimizerData === 'function' ? getRoomOptimizerData(roomId) : null;
+  const bestSpaceCombo = optimizer?.combos?.[0] || null;
+  const decisionCounts = items.reduce((map, item) => {
+    const key = normalizeMoveDecision(item.source, item.moveDecision);
+    map[key] = (map[key] || 0) + 1;
+    return map;
+  }, {});
+  return {
+    room,
+    items,
+    optionGroups,
+    occupancy,
+    bestSpaceCombo,
+    currentItems,
+    cheapestItems,
+    reuseFirstItems,
+    premiumItems,
+    currentCost: Number(currentItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2)),
+    cheapestCost: Number(cheapestItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2)),
+    reuseFirstCost: Number(reuseFirstItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2)),
+    premiumCost: Number(premiumItems.reduce((sum, item) => sum + getPlannedItemCost(item), 0).toFixed(2)),
+    decisionCounts,
+  };
+}
+
+function renderDecisionSummaryCard(mode, summary, budgetMax) {
+  const tone = summary.total > budgetMax ? 'var(--pk)' : mode === 'premium' ? 'var(--pk)' : mode === 'cheapest' ? 'var(--gn)' : 'var(--bd)';
+  const label = mode === 'reuse-first' ? 'Reuse-first' : mode === 'cheapest' ? 'Cheapest' : mode === 'premium' ? 'Premium' : 'Current';
+  const note = mode === 'reuse-first'
+    ? 'Prefer owned pieces before buying'
+    : mode === 'cheapest'
+      ? 'Lowest new spend across shortlists'
+      : mode === 'premium'
+        ? 'Highest spend / fullest spec picks'
+        : 'Your current shortlist decisions';
+  return `<button class="scenario-card" style="text-align:left;min-width:180px" onclick="applyScenario('${mode}')">
+    <div style="font-size:.58rem;color:var(--bd3)">${label}</div>
+    <div style="font-size:1.22rem;font-weight:700;color:${tone}">${fmtEur(summary.total, 0)}</div>
+    <div style="font-size:.55rem;color:var(--bd3)">${summary.reusedCount} reused · ${summary.roomCount} rooms</div>
+    <div style="font-size:.55rem;color:var(--bd3);margin-top:4px">${note}</div>
+  </button>`;
+}
+
+function renderRoomDecisionCard(state) {
+  const room = state.room;
+  const roomDims = typeof getRoomDimsMeters === 'function' ? getRoomDimsMeters(room) : null;
+  const decisionBadges = Object.entries(state.decisionCounts).map(([decisionKey, count]) => {
+    const meta = MOVE_DECISIONS.find(entry => entry.k === decisionKey);
+    if (!meta || !count) return '';
+    return `<span class="mini-chip" style="background:${meta.bg};color:${meta.fg}">${esc(meta.e)} ${count} ${esc(meta.l)}</span>`;
+  }).filter(Boolean).join('');
+  return `<div class="note-box" style="display:grid;gap:10px;padding:14px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.84rem;font-weight:700;color:var(--bd)">${esc(room.emoji || '📦')} ${esc(room.label || room.id)}</div>
+        <div style="font-size:.62rem;color:var(--bd3)">${roomDims ? `${roomDims.widthM.toFixed(2)}×${roomDims.depthM.toFixed(2)} m · ${roomDims.areaSqm.toFixed(2)} m²` : 'Room dimensions pending'}${state.bestSpaceCombo ? ` · best free-space combo leaves ${state.bestSpaceCombo.freeAreaM2.toFixed(2)} m²` : ''}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="mini-stat"><div class="ms-num">${fmtEur(state.currentCost,0)}</div><div class="ms-lbl">Current</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${fmtEur(state.cheapestCost,0)}</div><div class="ms-lbl">Cheapest</div></div>
+        <div class="mini-stat"><div class="ms-num">${fmtEur(state.reuseFirstCost,0)}</div><div class="ms-lbl">Reuse-first</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:${(state.occupancy?.pct || 0) > 80 ? 'var(--pk)' : 'var(--gn)'}">${state.occupancy?.freeAreaM2?.toFixed(2) || '0.00'}</div><div class="ms-lbl">m² free now</div></div>
+      </div>
+    </div>
+    ${decisionBadges ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${decisionBadges}</div>` : ''}
+    ${state.optionGroups.length ? `<div style="display:grid;gap:8px">
+      ${state.optionGroups.map(group => {
+        const rows = [
+          ['Current', group.selected],
+          ['Reuse-first', group.reuseFirst],
+          ['Cheapest', group.cheapest],
+          ['Premium', group.premium],
+        ];
+        return `<div style="border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+            <div>
+              <div style="font-size:.74rem;font-weight:700;color:var(--bd)">${esc(group.groupName)}</div>
+              <div style="font-size:.6rem;color:var(--bd3)">${group.items.length} alternatives</div>
+            </div>
+            <button class="btn sml" onclick="openCompareForType(${jsq(group.selected?.type || group.items[0]?.type || '')},${jsq(room.id)})">⚖️ Compare in room</button>
+          </div>
+          <div style="display:grid;gap:6px;margin-top:8px">
+            ${rows.map(([label, item]) => {
+              const fit = item && typeof getRoomFitAnalysis === 'function' ? getRoomFitAnalysis(item) : null;
+              const decisionMeta = item ? getMoveDecisionMeta(item.source, item.moveDecision) : null;
+              return `<div style="display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:8px;align-items:center;background:var(--bg2);border-radius:10px;padding:8px 10px">
+                <div style="font-size:.6rem;font-weight:700;color:var(--bd3);text-transform:uppercase;letter-spacing:.05em">${label}</div>
+                <div style="min-width:0">
+                  <div style="font-size:.72rem;font-weight:600">${esc(item?.name || 'No pick')}</div>
+                  <div style="font-size:.58rem;color:var(--bd3)">${item ? `${esc(decisionMeta?.e || '')} ${esc(decisionMeta?.l || '')} · ${dimStr(item) || 'No dimensions'} · ${getBuyItemFootprintSqm(item).toFixed(2)} m²` : 'Add options to this group'}</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:.72rem;font-weight:700;color:${item && normalizeItemSource(item.source) === 'existing' ? 'var(--gn)' : 'var(--pk)'}">${item ? (normalizeItemSource(item.source) === 'existing' ? 'Owned' : fmtEur(item.price || 0, 0)) : '–'}</div>
+                  <div style="font-size:.55rem;color:${fit?.fits === false ? 'var(--pk)' : 'var(--bd3)'}">${fit ? (fit.fits ? `${fit.remainingAreaM2.toFixed(2)} m² left` : 'Check fit') : 'No fit data'}</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : `<div style="font-size:.66rem;color:var(--bd3)">No option groups in this room yet. Add an option group like “Kitchen fridge shortlist” to compare alternatives side by side.</div>`}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn sml pri" onclick="openRoomInPlanOptimizer('${room.id}')">🧠 Open room optimizer</button>
+      <button class="btn sml" onclick="autoPlaceRoomScenarioInPlan('${room.id}','selected')">📍 Auto-place current picks</button>
+      <button class="btn sml" onclick="autoPlaceRoomScenarioInPlan('${room.id}','best-space')">✨ Auto-place best free-space setup</button>
+      <button class="btn sml" onclick="autoPlaceRoomScenarioInPlan('${room.id}','reuse-first')">📦 Auto-place reuse-first</button>
+    </div>
+  </div>`;
+}
+
+function rDecisionLab() {
+  const el = document.getElementById('decision-lab-content');
+  if (!el) return;
+  const roomStates = getAllRooms()
+    .filter(room => ldBuy().some(item => item.roomId === room.id))
+    .map(room => getRoomDecisionState(room.id));
+  if (!roomStates.length) {
+    el.innerHTML = '<div class="empty"><div class="ei">🧭</div>Add room-linked items to unlock take-vs-buy decisions, scenario totals, and one-click room placement.</div>';
+    return;
+  }
+  const budgetMax = ldSettings().maxBudget || 5000;
+  const summaries = {
+    selected: getScenarioModeSummary('selected'),
+    'reuse-first': getScenarioModeSummary('reuse-first'),
+    cheapest: getScenarioModeSummary('cheapest'),
+    premium: getScenarioModeSummary('premium'),
+  };
+  const totalDecisionCounts = roomStates.reduce((map, state) => {
+    Object.entries(state.decisionCounts).forEach(([key, count]) => {
+      map[key] = (map[key] || 0) + count;
+    });
+    return map;
+  }, {});
+  const totalDecisionBadges = Object.entries(totalDecisionCounts).map(([decisionKey, count]) => {
+    const meta = MOVE_DECISIONS.find(entry => entry.k === decisionKey);
+    if (!meta || !count) return '';
+    return `<span class="mini-chip" style="background:${meta.bg};color:${meta.fg}">${esc(meta.e)} ${count} ${esc(meta.l)}</span>`;
+  }).filter(Boolean).join('');
+  let html = `<div class="note-box" style="margin-bottom:10px;background:linear-gradient(135deg,#fff7ed 0%,#ffffff 38%,#eef2ff 100%)">
+    <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.84rem;font-weight:700;color:var(--bd)">🧭 Apartment Decision Lab</div>
+        <div style="font-size:.62rem;color:var(--bd3)">This is the missing bridge between shortlist, budget, and floor plan: decide what to take from the old apartment, what to buy, what to store in Keller 2, and then auto-place the chosen setup into the measured rooms.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="mini-stat"><div class="ms-num">${fmtEur(summaries.selected.total,0)}</div><div class="ms-lbl">Current spend</div></div>
+        <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${fmtEur(summaries.cheapest.total,0)}</div><div class="ms-lbl">Cheapest</div></div>
+        <div class="mini-stat"><div class="ms-num">${fmtEur(summaries['reuse-first'].total,0)}</div><div class="ms-lbl">Reuse-first</div></div>
+        <div class="mini-stat"><div class="ms-num">${roomStates.length}</div><div class="ms-lbl">Rooms planned</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+      ${renderDecisionSummaryCard('selected', summaries.selected, budgetMax)}
+      ${renderDecisionSummaryCard('reuse-first', summaries['reuse-first'], budgetMax)}
+      ${renderDecisionSummaryCard('cheapest', summaries.cheapest, budgetMax)}
+      ${renderDecisionSummaryCard('premium', summaries.premium, budgetMax)}
+    </div>
+    ${totalDecisionBadges ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">${totalDecisionBadges}</div>` : ''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn sml pri" onclick="autoPlaceWholeHomeInPlan('selected')">📍 Auto-place all current picks</button>
+      <button class="btn sml" onclick="autoPlaceWholeHomeInPlan('best-space')">✨ Auto-place all best free-space setups</button>
+      <button class="btn sml" onclick="autoPlaceWholeHomeInPlan('reuse-first')">📦 Auto-place all reuse-first choices</button>
+    </div>
+  </div>`;
+  html += roomStates.map(state => renderRoomDecisionCard(state)).join('');
   el.innerHTML = html;
 }
 
@@ -1062,7 +1396,11 @@ function getRoomWishlistProfile(room) {
 }
 
 function getRoomScenarioSelection(roomId, mode = 'selected') {
-  const items = ldBuy().filter(item => item.roomId === roomId && (item.roomRole || 'candidate') !== 'ignore');
+  const items = ldBuy().filter(item =>
+    item.roomId === roomId
+    && (item.roomRole || 'candidate') !== 'ignore'
+    && normalizeMoveDecision(item.source, item.moveDecision) !== 'skip'
+  );
   const groups = {};
   const singles = [];
   items.forEach(item => {
@@ -1106,7 +1444,10 @@ function getRoomWishlistState(roomId) {
   const room = getRoomById(roomId);
   const profile = getRoomWishlistProfile(room);
   const items = ldBuy().filter(item => item.roomId === roomId);
-  const activeItems = items.filter(item => (item.roomRole || 'candidate') !== 'ignore');
+  const activeItems = items.filter(item =>
+    (item.roomRole || 'candidate') !== 'ignore'
+    && normalizeMoveDecision(item.source, item.moveDecision) !== 'skip'
+  );
   const selectedItems = getRoomScenarioSelection(roomId, 'selected');
   const cheapestItems = getRoomScenarioSelection(roomId, 'cheapest');
   const premiumItems = getRoomScenarioSelection(roomId, 'premium');
@@ -1477,8 +1818,418 @@ function rWishlistPlanner() {
         ${scenarioStats ? `<div class="mini-stat"><div class="ms-num">${fmtEur(scenarioStats.selectedTotal,0)}</div><div class="ms-lbl">Current total</div></div>` : ''}
       </div>
     </div>
-    ${scenarioStats ? `<div style="margin-top:10px;font-size:.62rem;color:var(--bd3)">Scenario spread: cheapest ${fmtEur(scenarioStats.cheapestTotal,0)} · current ${fmtEur(scenarioStats.selectedTotal,0)} · premium ${fmtEur(scenarioStats.premiumTotal,0)}</div>` : ''}
+    ${scenarioStats ? `<div style="margin-top:10px;font-size:.62rem;color:var(--bd3)">Scenario spread: cheapest ${fmtEur(scenarioStats.cheapestTotal,0)} · reuse-first ${fmtEur(scenarioStats.reuseFirstTotal,0)} · current ${fmtEur(scenarioStats.selectedTotal,0)} · premium ${fmtEur(scenarioStats.premiumTotal,0)}</div>` : ''}
   </div>`;
   html += states.map(state => renderRoomReadinessCard(state)).join('');
   el.innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════
+// SHOPPING HUB — Store-centric view
+// ════════════════════════════════════════════════════════════
+function rShoppingHub() {
+  const el = document.getElementById('shopping-hub-content'); if (!el) return;
+  const items = ldBuy();
+  const settings = ldSettings();
+
+  // Group by store
+  const byStore = {};
+  const noStore = [];
+  items.forEach(it => {
+    if (it.store && it.store.trim()) {
+      const key = it.store.trim();
+      (byStore[key] = byStore[key] || []).push(it);
+    } else {
+      noStore.push(it);
+    }
+  });
+
+  // Summary stats
+  const storeCount = Object.keys(byStore).length;
+  const toBuyItems = items.filter(it => !it.bought && normalizeItemSource(it.source) !== 'existing');
+  const toBuyTotal = toBuyItems.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+  const boughtItems = items.filter(it => it.bought);
+  const boughtTotal = boughtItems.reduce((s, it) => s + (it.actualPrice || it.price || 0) * (it.quantity || 1), 0);
+
+  let h = `<div class="shopping-summary">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="font-size:1.6rem">🏪</div>
+      <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--pk)">Shopping Hub</div>
+        <div style="font-size:.62rem;color:var(--bd3)">All your items organized by store</div>
+      </div>
+    </div>
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="ms-num">${storeCount}</div><div class="ms-lbl">Stores</div></div>
+      <div class="mini-stat"><div class="ms-num">${toBuyItems.length}</div><div class="ms-lbl">To Buy</div></div>
+      <div class="mini-stat"><div class="ms-num" style="color:var(--pk)">${fmtEur(toBuyTotal,0)}</div><div class="ms-lbl">Remaining</div></div>
+      <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${fmtEur(boughtTotal,0)}</div><div class="ms-lbl">Spent</div></div>
+    </div>
+  </div>`;
+
+  // Render each store
+  const storeEntries = Object.entries(byStore).sort((a, b) => {
+    const aToBuy = a[1].filter(it => !it.bought).length;
+    const bToBuy = b[1].filter(it => !it.bought).length;
+    return bToBuy - aToBuy;
+  });
+
+  storeEntries.forEach(([storeName, storeItems]) => {
+    const meta = getStoreMeta(storeName);
+    const pending = storeItems.filter(it => !it.bought && normalizeItemSource(it.source) !== 'existing');
+    const bought = storeItems.filter(it => it.bought);
+    const pendingTotal = pending.reduce((s, it) => s + (it.price || 0) * (it.quantity || 1), 0);
+    const storeUrl = storeItems.find(it => it.storeUrl)?.storeUrl || '';
+
+    h += `<div class="store-card" style="border-left:4px solid ${meta.color}">
+      <div class="store-card-header" onclick="togCard('store-${slugify(storeName)}')">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:1.2rem">${meta.e}</span>
+            <span style="font-weight:700;font-size:.88rem">${esc(storeName)}</span>
+            ${storeUrl ? `<a href="${esc(storeUrl)}" target="_blank" onclick="event.stopPropagation()" class="store-link-btn">🔗</a>` : ''}
+          </div>
+          <div style="font-size:.6rem;color:var(--bd3)">${storeItems.length} items · ${pending.length} to buy · ${bought.length} bought</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:700;color:var(--pk);font-size:.88rem">${fmtEur(pendingTotal,0)}</div>
+          <div style="font-size:.55rem;color:var(--bd3)">pending</div>
+        </div>
+        <span class="chev">▼</span>
+      </div>
+      <div class="card-body" id="store-${slugify(storeName)}" style="display:block">`;
+
+    // Shopping list for this store
+    if (pending.length) {
+      h += `<div class="shopping-list-section">
+        <div style="font-size:.62rem;font-weight:700;color:var(--pk);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">🛒 Shopping List</div>`;
+      pending.forEach(it => {
+        const room = getRoomById(it.roomId);
+        const avail = getAvailabilityMeta(it.availability);
+        h += `<div class="shopping-list-item" onclick="openItemDetail('${it.id}')">
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+            ${it.photos?.[0] ? `<img src="${esc(it.photos[0])}" class="shop-item-thumb">` : `<div class="shop-item-thumb-placeholder">${it.category==='Appliances'?'🏠':'🛋️'}</div>`}
+            <div style="min-width:0">
+              <div style="font-size:.72rem;font-weight:600">${esc(it.name)}${it.quantity > 1 ? ' ×' + it.quantity : ''}</div>
+              <div style="font-size:.55rem;color:var(--bd3)">${room.emoji} ${esc(room.label)}${dimStr(it) ? ' · ' + esc(dimStr(it)) : ''}</div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-weight:700;font-size:.75rem;color:var(--pk)">${it.price ? fmtEur(it.price * (it.quantity || 1), 0) : '–'}</div>
+            ${avail ? `<div style="font-size:.52rem;margin-top:1px">${availabilityBadge(it.availability)}</div>` : ''}
+          </div>
+        </div>`;
+      });
+      h += '</div>';
+    }
+
+    // Already bought
+    if (bought.length) {
+      h += `<div style="margin-top:6px">
+        <div style="font-size:.62rem;font-weight:700;color:var(--gn);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">✅ Already Bought</div>`;
+      bought.forEach(it => {
+        h += `<div class="shopping-list-item bought" onclick="openItemDetail('${it.id}')">
+          <div style="flex:1;font-size:.7rem;color:var(--bd3)">${esc(it.name)}${it.quantity > 1 ? ' ×' + it.quantity : ''}</div>
+          <div style="font-size:.7rem;color:var(--gn);font-weight:600">${fmtEur(it.actualPrice || it.price, 0)} ✅</div>
+        </div>`;
+      });
+      h += '</div>';
+    }
+
+    h += '</div></div>';
+  });
+
+  // Items without a store
+  if (noStore.length) {
+    const unassigned = noStore.filter(it => !it.bought && normalizeItemSource(it.source) !== 'existing');
+    h += `<div class="store-card" style="border-left:4px solid #94a3b8">
+      <div class="store-card-header" onclick="togCard('store-unassigned')">
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.82rem">📦 No Store Assigned</div>
+          <div style="font-size:.6rem;color:var(--bd3)">${noStore.length} items · ${unassigned.length} need a store</div>
+        </div>
+        <span class="chev">▼</span>
+      </div>
+      <div class="card-body" id="store-unassigned">
+        ${unassigned.slice(0, 20).map(it => `<div class="shopping-list-item" onclick="openItemDetail('${it.id}')">
+          <div style="flex:1;font-size:.7rem">${esc(it.name)}</div>
+          <div style="font-size:.68rem;color:var(--pk)">${it.price ? fmtEur(it.price, 0) : '–'}</div>
+        </div>`).join('')}
+        ${unassigned.length > 20 ? `<div style="font-size:.6rem;color:var(--bd3);padding:4px 0">+${unassigned.length - 20} more...</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  if (!storeEntries.length && !noStore.length) {
+    h += '<div class="empty"><div class="ei">🏪</div>Add items with a store name to see your shopping hub</div>';
+  }
+
+  el.innerHTML = h;
+}
+
+// ════════════════════════════════════════════════════════════
+// DELIVERY TRACKER — Track ordered & delivered items
+// ════════════════════════════════════════════════════════════
+function rDeliveryTracker() {
+  const el = document.getElementById('delivery-tracker-content'); if (!el) return;
+  const items = ldBuy();
+
+  // Items with delivery-relevant status
+  const ordered = items.filter(it => it.itemStatus === 'ordered' || it.itemStatus === 'delivered' || it.bought);
+  const awaiting = ordered.filter(it => it.itemStatus === 'ordered' && !it.bought);
+  const delivered = ordered.filter(it => it.itemStatus === 'delivered' || it.bought);
+  const withDates = awaiting.filter(it => it.deliveryDate).sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
+  const noDates = awaiting.filter(it => !it.deliveryDate);
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  let h = `<div class="delivery-hero">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="font-size:1.6rem">🚚</div>
+      <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--pk)">Delivery Tracker</div>
+        <div style="font-size:.62rem;color:var(--bd3)">Track your orders and deliveries</div>
+      </div>
+    </div>
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="ms-num" style="color:#d97706">${awaiting.length}</div><div class="ms-lbl">Awaiting</div></div>
+      <div class="mini-stat"><div class="ms-num" style="color:var(--gn)">${delivered.length}</div><div class="ms-lbl">Delivered</div></div>
+      <div class="mini-stat"><div class="ms-num">${withDates.length}</div><div class="ms-lbl">Has ETA</div></div>
+    </div>
+  </div>`;
+
+  // Upcoming deliveries timeline
+  if (withDates.length) {
+    h += `<div class="delivery-section">
+      <div style="font-size:.72rem;font-weight:700;color:var(--pk);margin-bottom:8px">📅 Delivery Timeline</div>
+      <div class="delivery-timeline">`;
+    withDates.forEach(it => {
+      const dd = new Date(it.deliveryDate);
+      const daysLeft = Math.ceil((dd - today) / 86400000);
+      const isPast = daysLeft < 0;
+      const isToday = daysLeft === 0;
+      const urgColor = isPast ? '#dc2626' : isToday ? '#d97706' : daysLeft <= 3 ? '#d97706' : 'var(--gn)';
+      const room = getRoomById(it.roomId);
+      const delivStatus = getDeliveryStatusMeta(it.deliveryStatus || 'pending');
+
+      h += `<div class="delivery-timeline-item" onclick="openItemDetail('${it.id}')">
+        <div class="delivery-date-badge" style="background:${urgColor}15;border-color:${urgColor}">
+          <div style="font-size:.88rem;font-weight:700;color:${urgColor}">${isPast ? 'Overdue' : isToday ? 'Today!' : daysLeft + 'd'}</div>
+          <div style="font-size:.52rem;color:var(--bd3)">${fmtDate(it.deliveryDate)}</div>
+        </div>
+        <div class="delivery-connector"><div class="delivery-dot" style="background:${urgColor}"></div></div>
+        <div class="delivery-info">
+          <div style="display:flex;align-items:center;gap:6px">
+            ${it.photos?.[0] ? `<img src="${esc(it.photos[0])}" class="delivery-thumb">` : ''}
+            <div style="min-width:0">
+              <div style="font-weight:600;font-size:.75rem">${esc(it.name)}</div>
+              <div style="font-size:.58rem;color:var(--bd3)">${it.store ? '🏪 ' + esc(it.store) + ' · ' : ''}${room.emoji} ${esc(room.label)}</div>
+              <div style="display:flex;gap:4px;margin-top:2px">
+                <span class="badge" style="background:${delivStatus.color};color:${delivStatus.fg};font-size:.52rem">${delivStatus.e} ${delivStatus.l}</span>
+                ${it.price ? `<span style="font-size:.58rem;color:var(--pk);font-weight:600">${fmtEur(it.price, 0)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+    h += '</div></div>';
+  }
+
+  // No delivery date
+  if (noDates.length) {
+    h += `<div class="delivery-section">
+      <div style="font-size:.72rem;font-weight:700;color:#d97706;margin-bottom:8px">⏳ Ordered — No ETA</div>`;
+    noDates.forEach(it => {
+      const room = getRoomById(it.roomId);
+      h += `<div class="delivery-pending-item" onclick="openItemDetail('${it.id}')">
+        ${it.photos?.[0] ? `<img src="${esc(it.photos[0])}" class="delivery-thumb">` : `<div class="delivery-thumb-placeholder">${it.category==='Appliances'?'🏠':'🛋️'}</div>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.72rem">${esc(it.name)}</div>
+          <div style="font-size:.55rem;color:var(--bd3)">${it.store ? '🏪 ' + esc(it.store) : ''}${it.roomId ? ' · ' + room.emoji + ' ' + esc(room.label) : ''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.72rem;font-weight:600;color:var(--pk)">${it.price ? fmtEur(it.price, 0) : ''}</div>
+          <button class="btn sml" onclick="event.stopPropagation();promptDeliveryDate('${it.id}')" style="font-size:.55rem;margin-top:2px">📅 Set ETA</button>
+        </div>
+      </div>`;
+    });
+    h += '</div>';
+  }
+
+  // Recently delivered
+  if (delivered.length) {
+    const recentDelivered = delivered.slice(0, 15);
+    h += `<div class="delivery-section">
+      <div style="font-size:.72rem;font-weight:700;color:var(--gn);margin-bottom:8px">✅ Delivered / Bought (${delivered.length})</div>`;
+    recentDelivered.forEach(it => {
+      h += `<div class="delivery-done-item" onclick="openItemDetail('${it.id}')">
+        <div style="flex:1;font-size:.7rem;color:var(--bd2)">${esc(it.name)}${it.store ? ' · ' + esc(it.store) : ''}</div>
+        <div style="font-size:.68rem;color:var(--gn);font-weight:600">${fmtEur(it.actualPrice || it.price, 0)} ✅</div>
+      </div>`;
+    });
+    if (delivered.length > 15) h += `<div style="font-size:.58rem;color:var(--bd3);padding:4px 0">+${delivered.length-15} more</div>`;
+    h += '</div>';
+  }
+
+  if (!ordered.length) {
+    h += `<div class="empty"><div class="ei">🚚</div>No ordered items yet.<br>Set item status to "Ordered" to track deliveries here.</div>`;
+  }
+
+  el.innerHTML = h;
+}
+
+function promptDeliveryDate(itemId) {
+  const it = getBuyItem(itemId); if (!it) return;
+  inlineEdit('📅 Expected Delivery Date', it.deliveryDate || '', val => {
+    it.deliveryDate = val;
+    updBuyItem(it);
+    rDeliveryTracker();
+    toast('Delivery date set', 'green');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// PRICE SOURCES — Multiple stores/prices per item
+// ════════════════════════════════════════════════════════════
+function addPriceSource(itemId) {
+  const it = getBuyItem(itemId); if (!it) return;
+  if (!it.priceSources) it.priceSources = [];
+  const store = prompt('Store name (e.g. IKEA, Amazon):');
+  if (!store) return;
+  const price = parseFloat(prompt('Price at ' + store + ' (€):'));
+  if (isNaN(price)) return;
+  const url = prompt('Product URL (optional):') || '';
+  it.priceSources.push({
+    id: uid(),
+    store: store.trim(),
+    price,
+    url: url.trim(),
+    date: todayISO(),
+    availability: ''
+  });
+  updBuyItem(it);
+  // Best price auto-update
+  const bestSource = it.priceSources.reduce((best, src) => src.price < best.price ? src : best, it.priceSources[0]);
+  if (bestSource.price < (it.price || Infinity)) {
+    it.price = bestSource.price;
+    it.store = bestSource.store;
+    it.storeUrl = bestSource.url;
+    it.buyLink = bestSource.url || it.buyLink;
+    updBuyItem(it);
+  }
+  rBuy();
+  if (document.getElementById('item-detail-modal')?.classList.contains('open')) openItemDetail(itemId);
+  toast('Price source added', 'green');
+}
+
+function removePriceSource(itemId, sourceId) {
+  const it = getBuyItem(itemId); if (!it) return;
+  it.priceSources = (it.priceSources || []).filter(s => s.id !== sourceId);
+  updBuyItem(it);
+  rBuy();
+  if (document.getElementById('item-detail-modal')?.classList.contains('open')) openItemDetail(itemId);
+}
+
+function selectPriceSource(itemId, sourceId) {
+  const it = getBuyItem(itemId); if (!it) return;
+  const src = (it.priceSources || []).find(s => s.id === sourceId);
+  if (!src) return;
+  it.price = src.price;
+  it.store = src.store;
+  it.storeUrl = src.url;
+  it.buyLink = src.url || it.buyLink;
+  updBuyItem(it);
+  rBuy();
+  if (document.getElementById('item-detail-modal')?.classList.contains('open')) openItemDetail(itemId);
+  toast('Switched to ' + src.store + ' · ' + fmtEur(src.price), 'green');
+}
+
+function renderPriceSources(it) {
+  if (!it.priceSources?.length) return '';
+  const sorted = [...it.priceSources].sort((a, b) => a.price - b.price);
+  const cheapest = sorted[0];
+  const mostExpensive = sorted[sorted.length - 1];
+  const spread = mostExpensive.price - cheapest.price;
+
+  let h = `<div class="price-sources-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--pk)">💶 Price Sources (${sorted.length})</div>
+      ${spread > 0 ? `<div style="font-size:.6rem;color:var(--gn);font-weight:600">Save up to ${fmtEur(spread, 0)}</div>` : ''}
+    </div>`;
+  sorted.forEach((src, idx) => {
+    const isCheapest = idx === 0 && sorted.length > 1;
+    const isCurrent = it.store === src.store && it.price === src.price;
+    const storeMeta = getStoreMeta(src.store);
+    h += `<div class="price-source-row ${isCheapest ? 'cheapest' : ''} ${isCurrent ? 'current' : ''}">
+      <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+        <span style="font-size:.9rem">${storeMeta.e}</span>
+        <div style="min-width:0">
+          <div style="font-size:.72rem;font-weight:600">${esc(src.store)} ${isCheapest ? '<span class="badge green" style="font-size:.48rem">Best Price</span>' : ''} ${isCurrent ? '<span class="badge blue" style="font-size:.48rem">Selected</span>' : ''}</div>
+          ${src.date ? `<div style="font-size:.5rem;color:var(--bd3)">Added ${fmtDate(src.date)}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="font-weight:700;font-size:.82rem;color:${isCheapest ? 'var(--gn)' : 'var(--pk)'}">${fmtEur(src.price)}</div>
+        ${src.url ? `<a href="${esc(src.url)}" target="_blank" class="btn sml" onclick="event.stopPropagation()" style="font-size:.55rem">🔗</a>` : ''}
+        ${!isCurrent ? `<button class="btn sml pri" onclick="event.stopPropagation();selectPriceSource('${it.id}','${src.id}')" style="font-size:.55rem">Use</button>` : ''}
+        <button class="btn sml" onclick="event.stopPropagation();removePriceSource('${it.id}','${src.id}')" style="font-size:.55rem;color:var(--pk)">✕</button>
+      </div>
+    </div>`;
+  });
+  h += `<button class="btn sml" onclick="event.stopPropagation();addPriceSource('${it.id}')" style="width:100%;margin-top:4px;font-size:.6rem">+ Add another store price</button>`;
+  h += '</div>';
+  return h;
+}
+
+// ════════════════════════════════════════════════════════════
+// SIMILAR ITEMS — Show competing/alternative items inline
+// ════════════════════════════════════════════════════════════
+function renderSimilarItems(it) {
+  const all = ldBuy();
+  // Find similar items: same option group, or same type+room
+  let similar = [];
+  if (it.optionGroup) {
+    similar = all.filter(x => x.id !== it.id && x.optionGroup === it.optionGroup);
+  }
+  if (!similar.length && it.type && it.roomId) {
+    similar = all.filter(x => x.id !== it.id && x.type === it.type && x.roomId === it.roomId);
+  }
+  if (!similar.length && it.type) {
+    similar = all.filter(x => x.id !== it.id && x.type === it.type);
+  }
+  if (!similar.length) return '';
+
+  const sorted = similar.sort((a, b) => (a.price || 0) - (b.price || 0)).slice(0, 5);
+  const cheapest = sorted[0];
+
+  let h = `<div style="margin-bottom:10px">
+    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--pk);margin-bottom:6px">⚖️ Alternatives (${sorted.length})</div>
+    <div style="display:flex;gap:8px;overflow-x:auto;padding:2px 0;-webkit-overflow-scrolling:touch">`;
+
+  sorted.forEach(alt => {
+    const photo = alt.photos?.[0];
+    const priceDiff = (it.price || 0) - (alt.price || 0);
+    const wDiff = (it.widthCm || 0) - (alt.widthCm || 0);
+    const dDiff = (it.depthCm || 0) - (alt.depthCm || 0);
+    const hDiff = (it.heightCm || 0) - (alt.heightCm || 0);
+    const isCheaper = priceDiff > 0;
+    const isSmaller = (alt.widthCm && it.widthCm && alt.depthCm && it.depthCm)
+      ? (alt.widthCm * alt.depthCm < it.widthCm * it.depthCm) : false;
+
+    h += `<div style="min-width:150px;max-width:170px;flex-shrink:0;background:var(--bg);border-radius:12px;padding:8px;border:1px solid var(--border);cursor:pointer;transition:all .15s" onclick="closeModal('item-detail-modal');setTimeout(()=>openItemDetail('${alt.id}'),200)">
+      ${photo ? `<img src="${esc(photo)}" style="width:100%;height:60px;object-fit:cover;border-radius:8px;margin-bottom:4px">` : ''}
+      <div style="font-weight:600;font-size:.68rem;margin-bottom:2px">${esc(trunc(alt.name, 20))}</div>
+      ${alt.brand ? `<div style="font-size:.55rem;color:var(--bd3)">${esc(alt.brand)}</div>` : ''}
+      <div style="font-weight:700;font-size:.78rem;color:var(--pk);margin:3px 0">${alt.price ? fmtEur(alt.price) : '–'}</div>
+      ${priceDiff !== 0 && alt.price ? `<div style="font-size:.52rem;color:${isCheaper ? 'var(--gn)' : '#d97706'};font-weight:600">${isCheaper ? 'Save ' + fmtEur(priceDiff, 0) : '+' + fmtEur(Math.abs(priceDiff), 0)}</div>` : ''}
+      ${dimStr(alt) ? `<div style="font-size:.52rem;color:var(--bd3);margin-top:2px">📐 ${esc(dimStr(alt))}</div>` : ''}
+      ${(wDiff || dDiff) && alt.widthCm ? `<div style="font-size:.5rem;color:${isSmaller ? 'var(--gn)' : '#d97706'};margin-top:1px">${isSmaller ? '↓ Smaller footprint' : '↑ Larger footprint'}</div>` : ''}
+      ${alt.store ? `<div style="font-size:.5rem;color:var(--bd3);margin-top:1px">🏪 ${esc(trunc(alt.store, 15))}</div>` : ''}
+    </div>`;
+  });
+
+  h += `</div>
+    <button class="btn sml" style="margin-top:6px" onclick="closeModal('item-detail-modal');openCompareForType(${jsq(it.type || '')},${jsq(it.roomId || '')})">⚖️ Compare all ${sorted.length + 1} side by side</button>
+  </div>`;
+  return h;
 }
